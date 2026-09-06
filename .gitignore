@@ -25,3 +25,7 @@ build-appimage/
 _deps/
 CMakeFiles/
 build/
+
+# python files
+__pycache__/
+*.pyc

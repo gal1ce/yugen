@@ -1,14 +1,23 @@
+# --- Yugen API Service ---
+# why only 1 file? because im lazy and why not tho
+# everything is opensource and free
+# this api is for web and mobile app
+# there is no mobile app or a website not but it will be in future.
+# ill make a mobile app and the website for Yugen
+
 from contextlib import asynccontextmanager
 from enum import Enum, auto
 
 from fastapi import Body, FastAPI
 from pathlib import Path
 
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
 import yt_dlp
 import asyncio
+import httpx
 import os
 
 
@@ -47,6 +56,10 @@ class SCDownloadRequest(BaseModel):
 class Source(Enum):
     YOUTUBE = auto()
     SOUNDCLOUD = auto()
+
+class LyricsRequest(BaseModel):
+    title: str
+    artist: str
 
 async def search_youtube(query: str = Body(..., embed=True), count: int = Body(..., embed=True)):
     if count < MIN_COUNT:
@@ -112,22 +125,42 @@ async def m_download(id: str, o_path: str, source: Source, url: str | None = Non
     return await loop.run_in_executor(None, download)
 
 
+async def get_lyrics(title: str, artist: str) -> str:
+    url = "https://lrclib.net/api/get"
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url, params={
+            "track_name": title, "artist_name": artist
+        })
+
+        if response.status_code != 200:
+            return ""
+
+        data = response.json()
+        return data.get("syncedLyrics") or data.get("plainLyrics") or ""
+
+# --- Routes --- 
 @app.post("/api/v1/search_yt")
-async def e_search_yt(payload: SearchRequest):
+async def e_search_yt(payload: SearchRequest = Body(..., embed=True)):
     return await search_youtube(query=payload.query, count=payload.count)
 
 @app.post("/api/v1/search_sc")
-async def e_search_sc(payload: SearchRequest):
+async def e_search_sc(payload: SearchRequest = Body(..., embed=True)):
     return await search_soundcloud(query=payload.query, count=payload.count)
 
 @app.post("/api/v1/download_yt")
-async def d_yt(payload: DownloadRequest):
+async def d_yt(payload: DownloadRequest = Body(..., embed=True)):
     if not PATH:
         raise RuntimeError("No PATH set. Please set it first.")
-    return await m_download(id=payload.id, o_path=PATH, source=Source.YOUTUBE) #type: ignore
+    f_path = await m_download(id=payload.id, o_path=PATH, source=Source.YOUTUBE) #type: ignore
+    return FileResponse(f_path, media_type="audio/mpeg", filename=f"{payload.id}.mp3")
 
 @app.post("/api/v1/download_sc")
-async def d_sc(payload: DownloadRequest):
+async def d_sc(payload: DownloadRequest = Body(..., embed=True)):
     if not PATH:
         raise RuntimeError("No PATH set. Please set it first.")
-    return await m_download(id=payload.id, o_path=PATH, source=Source.SOUNDCLOUD, url=payload.url) #type: ignore 
+    f_path = await m_download(id=payload.id, o_path=PATH, source=Source.SOUNDCLOUD, url=payload.url) #type: ignore
+    return FileResponse(f_path, media_type="audio/mpeg", filename=f"{payload.id}.mp3")
+
+@app.get("/api/v1/get/lyrics")
+async def g_lyrics(payload: LyricsRequest = Body(..., embed=True)):
+    return await get_lyrics(title=payload.title, artist=payload.artist)
