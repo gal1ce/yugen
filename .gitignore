@@ -1,4 +1,5 @@
 .claude
+.env
 
 build/
 _deps/
