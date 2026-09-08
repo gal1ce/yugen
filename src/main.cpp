@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 #include <cstddef>
+#include <cstdlib>
 #include <pwd.h>
 #include <unistd.h>
 
@@ -510,5 +511,27 @@ coco::stray start(saucer::application* app)
 
 int main()
 {
+     /*
+      * WebKitGTK's DMA-BUF renderer has produced corrupt scanlines on some
+      * Mesa/Wayland stacks after the view has been alive for a while.  It is a
+      * compositor/driver fault, not page content: once a bad buffer is reused,
+      * it can progressively overwrite the view exactly as if it were a broken
+      * texture.
+      *
+      * These must be set before saucer creates the WebKit view.  Keep an
+      * explicit user choice intact so a machine with a known-good GPU path can
+      * opt back in with WEBKIT_DISABLE_DMABUF_RENDERER=0 and
+      * WEBKIT_DISABLE_COMPOSITING_MODE=0.
+      */
+     if(!std::getenv("WEBKIT_DISABLE_DMABUF_RENDERER"))
+     {
+          ::setenv("WEBKIT_DISABLE_DMABUF_RENDERER", "1", 0);
+     }
+
+     if(!std::getenv("WEBKIT_DISABLE_COMPOSITING_MODE"))
+     {
+          ::setenv("WEBKIT_DISABLE_COMPOSITING_MODE", "1", 0);
+     }
+
      return saucer::application::create({.id = "yugen"})->run(start);
 }
