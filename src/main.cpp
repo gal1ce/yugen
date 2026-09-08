@@ -512,25 +512,23 @@ coco::stray start(saucer::application* app)
 int main()
 {
      /*
-      * WebKitGTK's DMA-BUF renderer has produced corrupt scanlines on some
-      * Mesa/Wayland stacks after the view has been alive for a while.  It is a
-      * compositor/driver fault, not page content: once a bad buffer is reused,
-      * it can progressively overwrite the view exactly as if it were a broken
-      * texture.
+      * WebKitGTK's native Wayland renderer can corrupt its buffers and crash in
+      * NVIDIA's EGL driver.  Disabling DMA-BUF or compositing avoids that path,
+      * but makes a full-screen view painfully slow.  XWayland keeps accelerated
+      * compositing while avoiding the broken NVIDIA/Wayland EGL path.
       *
-      * These must be set before saucer creates the WebKit view.  Keep an
-      * explicit user choice intact so a machine with a known-good GPU path can
-      * opt back in with WEBKIT_DISABLE_DMABUF_RENDERER=0 and
-      * WEBKIT_DISABLE_COMPOSITING_MODE=0.
+      * Only select it when all three pieces are present, and do so before GTK is
+      * initialized by saucer.  YUGEN_NATIVE_WAYLAND is the escape hatch for a
+      * driver/WebKit combination where the native path is known to be fixed.
       */
-     if(!std::getenv("WEBKIT_DISABLE_DMABUF_RENDERER"))
-     {
-          ::setenv("WEBKIT_DISABLE_DMABUF_RENDERER", "1", 0);
-     }
+     const char* session = std::getenv("XDG_SESSION_TYPE");
+     const bool nvidia_wayland = session && std::string_view{session} == "wayland"
+          && std::getenv("DISPLAY")
+          && fs::exists("/proc/driver/nvidia/version");
 
-     if(!std::getenv("WEBKIT_DISABLE_COMPOSITING_MODE"))
+     if(nvidia_wayland && !std::getenv("YUGEN_NATIVE_WAYLAND"))
      {
-          ::setenv("WEBKIT_DISABLE_COMPOSITING_MODE", "1", 0);
+          ::setenv("GDK_BACKEND", "x11", 1);
      }
 
      return saucer::application::create({.id = "yugen"})->run(start);
