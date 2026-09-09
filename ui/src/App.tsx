@@ -104,7 +104,7 @@ function save_pref(key: string, value: string | string[] | boolean | number) {
 const THEMES = ['system', 'light', 'dark'] as const
 type Theme = (typeof THEMES)[number]
 
-const VIEWS = ['library', 'liked', 'albums', 'artists', 'playlist'] as const
+const VIEWS = ['library', 'songs', 'liked', 'albums', 'artists', 'playlist'] as const
 type View = (typeof VIEWS)[number]
 
 /*
@@ -1438,6 +1438,7 @@ const ICONS = {
     volume_low: 'M4 9.5h3L11 6v12l-4-3.5H4zM14.5 10a3 3 0 0 1 0 4',
     volume_high: 'M4 9.5h3L11 6v12l-4-3.5H4zM14.5 10a3 3 0 0 1 0 4M17 7.5a7 7 0 0 1 0 9',
     library: 'M4 20V9m4 11V4m4 16v-7m4 7V7m4 13v-4',
+    songs: 'M5 7h14M5 12h14M5 17h14',
     heart: 'M19.5 12.6 12 20l-7.5-7.4a4.6 4.6 0 0 1 0-6.5 4.6 4.6 0 0 1 6.5 0l1 1 1-1a4.6 4.6 0 0 1 6.5 0 4.6 4.6 0 0 1 0 6.5',
     album: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2',
     artist: 'M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8M5 20a7 7 0 0 1 14 0',
@@ -2009,6 +2010,11 @@ export default function App() {
     // of their own, and next/prev should stay inside the one that was opened
     // rather than falling back to whatever the view happens to be showing
     const [scope, set_scope] = useState<string[] | null>(null)
+    // A user-built queue takes precedence over the listing-derived order. It
+    // includes the current track at its head and wraps, so the chosen run keeps
+    // playing until the listener pauses or clears it.
+    const [manual_queue, set_manual_queue] = useState<string[] | null>(null)
+    const [queue_open, set_queue_open] = useState(false)
     const [shuffle_menu, set_shuffle_menu] = useState<{ x: number; y: number } | null>(null)
 
     // the sheet for one track: whatever lrclib returned for it, '' included. it
@@ -2920,6 +2926,7 @@ export default function App() {
         const moved = !same_run(scope, tracks)
 
         set_scope(tracks)
+        set_manual_queue(null)
 
         // the running order was dealt over the pool this is leaving, so a
         // shuffle already going gets a fresh one over the section being entered
@@ -3730,7 +3737,55 @@ export default function App() {
     const has_arrivals = overview && arrivals.length >= 4
     const has_more = overview && songs.length > 0
 
-    const queue = shuffle_mode !== 'off' && shuffled?.length ? shuffled : (scope ?? listed)
+    const automatic_queue =
+        shuffle_mode !== 'off' && shuffled?.length ? shuffled : (scope ?? listed)
+    const queue = manual_queue?.length ? manual_queue : automatic_queue
+
+    function upcoming_from(order: string[]) {
+        if (!current) return order
+        const at = order.indexOf(current)
+        return at < 0 ? order : order.slice(at + 1)
+    }
+
+    function play_next(name: string) {
+        if (!current) {
+            void play_from(name, null)
+            return
+        }
+
+        const base = (manual_queue ?? [current]).filter((song) => song !== name)
+        const at = Math.max(base.indexOf(current), 0)
+        set_manual_queue([...base.slice(0, at + 1), name, ...base.slice(at + 1)])
+    }
+
+    function add_to_queue(name: string) {
+        if (!current) {
+            void play_from(name, null)
+            return
+        }
+
+        const base = manual_queue ?? [current]
+        set_manual_queue([...base, name])
+    }
+
+    function remove_from_queue(index: number) {
+        set_manual_queue((order) => {
+            if (!order) return order
+            const next = order.filter((_, at) => at !== index)
+            return next.length > 1 ? next : null
+        })
+    }
+
+    function move_in_queue(index: number, offset: number) {
+        set_manual_queue((order) => {
+            if (!order) return order
+            const to = index + offset
+            if (index < 1 || to < 1 || to >= order.length) return order
+            const next = [...order]
+            ;[next[index], next[to]] = [next[to], next[index]]
+            return next
+        })
+    }
 
     /*
      * The order is dealt on the click and not a moment after. It used to be an
@@ -3762,6 +3817,7 @@ export default function App() {
 
         // whatever was pinned, this is a page being played from its top
         set_scope(null)
+        set_manual_queue(null)
 
         if (shuffle_mode === 'listing') {
             const order = await bridge().shuffle(listed)
@@ -4012,6 +4068,12 @@ export default function App() {
             count: songs.length,
         },
         {
+            id: 'songs',
+            label: 'Songs',
+            icon: ICONS.songs,
+            count: songs.length,
+        },
+        {
             id: 'liked',
             label: 'Liked Songs',
             icon: ICONS.heart,
@@ -4139,7 +4201,7 @@ export default function App() {
 
         const height =
             target.kind === 'song'
-                ? 275
+                ? 350
                 : target.kind === 'playlist'
                   ? 150
                   : target.kind === 'suggestion'
@@ -4738,7 +4800,7 @@ export default function App() {
                     shelf(
                         'New arrivals',
                         arrivals,
-                        undefined,
+                        () => open_view('songs'),
                         `last added ${format_date(added_of(arrivals[0])).toLowerCase()}`,
                         arrivals,
                     )}
@@ -6379,6 +6441,14 @@ export default function App() {
                                 <Icon d={ICONS.play} size={15} fill />
                                 Play
                             </button>
+                            <button onClick={() => play_next(open_menu.song)}>
+                                <Icon d={ICONS.next} size={15} />
+                                Play next
+                            </button>
+                            <button onClick={() => add_to_queue(open_menu.song)}>
+                                <Icon d={ICONS.playlist} size={15} />
+                                Add to queue
+                            </button>
                             <button onClick={() => toggle_like(open_menu.song)}>
                                 <Icon d={ICONS.heart} size={15} fill={liked.has(open_menu.song)} />
                                 {liked.has(open_menu.song) ? 'Remove from liked' : 'Add to liked'}
@@ -6835,6 +6905,70 @@ export default function App() {
 
             {info_open && current && track_card(current)}
 
+            {queue_open && (
+                <div className='overlay queue-overlay' onClick={() => set_queue_open(false)}>
+                    <div className='dialog queue-dialog' onClick={(e) => e.stopPropagation()}>
+                        <div className='dialog-head'>
+                            <div>
+                                <h3>Queue</h3>
+                                <p className='muted'>This order repeats until you stop it.</p>
+                            </div>
+                            <button className='icon-btn tiny' {...tip('Close')} onClick={() => set_queue_open(false)}>
+                                <Icon d={ICONS.close} size={15} />
+                            </button>
+                        </div>
+
+                        <div className='queue-list'>
+                            {current && (
+                                <div className='queue-row current'>
+                                    {cover(current, '')}
+                                    <div className='track-meta'>
+                                        <div className='ellipsis'>{title_of(current)}</div>
+                                        <div className='muted ellipsis'>Now playing · {artist_of(current)}</div>
+                                    </div>
+                                </div>
+                            )}
+                            {upcoming_from(queue).map((name, upcoming_index) => {
+                                const current_index = current ? queue.indexOf(current) : -1
+                                const index = current_index + upcoming_index + 1
+                                return (
+                                    <div className='queue-row' key={`${name}:${upcoming_index}`}>
+                                        {cover(name, '')}
+                                        <button className='queue-track' onClick={() => play_music(name)}>
+                                            <span className='ellipsis'>{title_of(name)}</span>
+                                            <span className='muted ellipsis'>{artist_of(name)}</span>
+                                        </button>
+                                        {manual_queue && (
+                                            <div className='queue-actions'>
+                                                <button className='icon-btn tiny queue-up' {...tip('Move up')} onClick={() => move_in_queue(index, -1)} disabled={index <= 1}>
+                                                    <Icon d={ICONS.back} size={14} />
+                                                </button>
+                                                <button className='icon-btn tiny queue-down' {...tip('Move down')} onClick={() => move_in_queue(index, 1)} disabled={index >= manual_queue.length - 1}>
+                                                    <Icon d={ICONS.back} size={14} />
+                                                </button>
+                                                <button className='icon-btn tiny' {...tip('Remove')} onClick={() => remove_from_queue(index)}>
+                                                    <Icon d={ICONS.close} size={14} />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )
+                            })}
+                            {!current && <p className='empty'>Nothing is queued yet.</p>}
+                        </div>
+
+                        <div className='dialog-actions'>
+                            {manual_queue && (
+                                <button className='pill-btn' onClick={() => set_manual_queue(null)}>
+                                    Clear custom queue
+                                </button>
+                            )}
+                            <button className='pill-btn primary' onClick={() => set_queue_open(false)}>Done</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className='player'>
                 <div
                     className={`progress${seeking !== null ? ' dragging' : ''}`}
@@ -6944,6 +7078,14 @@ export default function App() {
                 </div>
 
                 <div className='player-right'>
+                    <button
+                        className={`icon-btn tiny${queue_open ? ' on' : ''}`}
+                        {...tip(manual_queue ? `Queue · ${manual_queue.length - 1} upcoming` : 'Queue')}
+                        aria-label='Open queue'
+                        onClick={() => set_queue_open(true)}
+                    >
+                        <Icon d={ICONS.playlist} size={16} />
+                    </button>
                     <button
                         className={`icon-btn tiny${volume === 0 ? '' : ' on'}`}
                         {...tip(
