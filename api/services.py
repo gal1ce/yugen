@@ -4,6 +4,7 @@
 # this api is for web and mobile app
 # there is no mobile app or a website not but it will be in future.
 # ill make a mobile app and the website for Yugen
+# i wont develop this api for a long time. like really really long time.
 
 from contextlib import asynccontextmanager
 from enum import Enum, auto
