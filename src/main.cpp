@@ -19,8 +19,6 @@
 #include <vector>
 #include <cstddef>
 #include <cstdlib>
-#include <pwd.h>
-#include <unistd.h>
 
 // third party
 #include <coco/stray/stray.hpp>
@@ -556,12 +554,10 @@ coco::stray start(saucer::application* app)
 #endif
 
      webview->expose("get_music_dir", [] -> std::string{
-          passwd* p = getpwuid(getuid());
-          if(p) {
-               fs::create_directories(std::string(p->pw_dir) + "/Music" );
-               return std::string(p->pw_dir) + "/Music";
-          }
-          return "";
+          const fs::path dir = yugen::music_dir();
+          if(dir.empty()) return "";
+          fs::create_directories(dir);
+          return yugen::path_to_utf8(dir);
      });
 
      // both of these end in a request to last.fm, so they go out async: the ui
@@ -630,7 +626,7 @@ int main()
       * display's own refresh rate. YUGEN_NATIVE_WAYLAND is the escape hatch for
       * a driver/WebKit combination where the native path is known to be fixed.
       */
-#if !defined(YUGEN_WEBKITGTK)
+#if defined(__linux__) && !defined(YUGEN_WEBKITGTK)
      /*
       * QtWebEngine keeps chromium off its gbm path on nvidia and composites
       * through vulkan instead, which costs a core at 165 Hz: every frame goes

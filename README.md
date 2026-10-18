@@ -96,7 +96,7 @@ host is the floor for every machine that runs it.
 
 ## Building
 
-Needs CMake 3.10+, a C++23 compiler, `pkg-config`, Node.js, the dev packages for
+Needs CMake 3.25+, a C++23 compiler, `pkg-config`, Node.js, the dev packages for
 `taglib`, `libcurl` and `glib2` (for GDBus, which serves the MPRIS interface),
 WebKitGTK, and `yt-dlp` + `ffmpeg` on `PATH`. Everything else is fetched by
 CMake.
@@ -114,6 +114,14 @@ cmake -B build -G Ninja && cmake --build build
 ```
 
 After changing the UI, re-run `npm run build` and then `cmake --build build`.
+
+## Windows build
+
+Windows x64 builds are produced by the `Windows x64` GitHub Actions workflow on
+the `codex/windows-support` branch. The workflow uploads a portable ZIP with the
+Qt WebEngine runtime, `yt-dlp.exe`, and `ffmpeg.exe`; unzip it and run
+`bin/yugen.exe`. Windows builds currently omit MPRIS, which is a Linux desktop
+integration.
 
 ## Running
 

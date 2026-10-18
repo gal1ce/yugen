@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.25)
 project(yugen CXX)
 
 # std::println and std::chrono::clock_cast are used throughout, both C++23.
@@ -6,17 +6,29 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# taglib has no cmake package, only a .pc file, so it comes in through
-# pkg-config as ${TAGLIB_INCLUDE_DIRS} / ${TAGLIB_LIBRARIES}.
-find_package(PkgConfig REQUIRED)
+# CURL is provided by the platform package manager. TagLib comes from a CMake
+# package on Windows and pkg-config on Linux.
 find_package(CURL REQUIRED)
 
-pkg_check_modules(TAGLIB REQUIRED taglib)
-
-# gdbus, for the mpris interface in src/mpris.cpp. not a new dependency in
-# practice - webkitgtk already drags glib into the process, this only puts the
-# headers on the include path and asks the linker to be explicit about it.
-pkg_check_modules(GIO REQUIRED gio-2.0)
+if(WIN32)
+    # Windows dependencies are supplied as CMake packages (for example by
+    # vcpkg); pkg-config and GIO are Linux-only because MPRIS uses D-Bus.
+    find_package(TagLib CONFIG REQUIRED)
+    if(TARGET TagLib::TagLib)
+        set(YUGEN_TAGLIB_TARGET TagLib::TagLib)
+    elseif(TARGET TagLib)
+        set(YUGEN_TAGLIB_TARGET TagLib)
+    else()
+        message(FATAL_ERROR "TagLib was found, but it did not define a known CMake target")
+    endif()
+    set(YUGEN_MPRIS_SOURCE src/mpris_stub.cpp)
+else()
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(TAGLIB REQUIRED IMPORTED_TARGET taglib)
+    pkg_check_modules(GIO REQUIRED IMPORTED_TARGET gio-2.0)
+    set(YUGEN_TAGLIB_TARGET PkgConfig::TAGLIB)
+    set(YUGEN_MPRIS_SOURCE src/mpris.cpp)
+endif()
 
 # EXCLUDE_FROM_ALL keeps their own install rules out of ours, so installing
 # yugen does not drop saucer's headers and cmake config into the prefix.
@@ -83,20 +95,21 @@ set(YUGEN_UI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ui/dist")
 # The executable itself.
 add_executable(${PROJECT_NAME}
     src/main.cpp
-    src/mpris.cpp
+    ${YUGEN_MPRIS_SOURCE}
     src/services.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${TAGLIB_INCLUDE_DIRS}
-    ${GIO_INCLUDE_DIRS}
 )
 
 # what the DBG tracing in services.cpp is compiled behind. a release build never
 # defines it, so those lines are not in the binary at all rather than being calls
 # that print nothing
 target_compile_definitions(yugen PRIVATE $<$<CONFIG:Debug>:DEBUG>)
+if(WIN32)
+    target_compile_definitions(yugen PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+endif()
 
 # main() only steers WebKitGTK around nvidia's wayland fault when it is the engine.
 # on Qt it asks the screen its refresh rate instead, which wants QtGui directly
@@ -106,10 +119,11 @@ elseif(saucer_backend STREQUAL "Qt")
     find_package(Qt6 REQUIRED COMPONENTS Gui)
     target_link_libraries(yugen PRIVATE Qt6::Gui)
 endif()
-target_compile_options(${PROJECT_NAME} PRIVATE
-    -Wall
-    -Wextra
-)
+if(MSVC)
+    target_compile_options(${PROJECT_NAME} PRIVATE /W4 /utf-8)
+else()
+    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra)
+endif()
 
 if (NOT EXISTS "${YUGEN_UI_DIR}/index.html")
     message(FATAL_ERROR
@@ -125,23 +139,31 @@ saucer_embed("${YUGEN_UI_DIR}"
 target_link_libraries(${PROJECT_NAME} PRIVATE
     nlohmann_json::nlohmann_json
     saucer::ui
-    ${TAGLIB_LIBRARIES}
-    ${GIO_LIBRARIES}
+    ${YUGEN_TAGLIB_TARGET}
     saucer::saucer
     CURL::libcurl
     discord-rpc
 )
 
-# Installation. The default prefix is /usr/local, so `sudo cmake --install build`
-# puts the binary on PATH and registers the desktop entry with it.
-install(TARGETS ${PROJECT_NAME} DESTINATION bin)
+if(NOT WIN32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE PkgConfig::GIO)
+endif()
 
-install(FILES assets/yugen.desktop DESTINATION share/applications)
+# Installation. Linux also registers the desktop entry and hicolor icons.
+if(WIN32)
+    install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin)
+else()
+    install(TARGETS ${PROJECT_NAME} DESTINATION bin)
+endif()
 
-# the icon theme wants one file per size, each named after the application, so
-# the sizes that exist in assets/icons are renamed into their hicolor directory
-foreach(SIZE 16 32 48 128 256 512)
-    install(FILES  assets/icons/yugen_${SIZE}.png
-            DESTINATION share/icons/hicolor/${SIZE}x${SIZE}/apps
-            RENAME yugen.png)
-endforeach()
+if(NOT WIN32)
+    install(FILES assets/yugen.desktop DESTINATION share/applications)
+
+    # the icon theme wants one file per size, each named after the application,
+    # so the sizes that exist in assets/icons are renamed into hicolor folders.
+    foreach(SIZE 16 32 48 128 256 512)
+        install(FILES assets/icons/yugen_${SIZE}.png
+                DESTINATION share/icons/hicolor/${SIZE}x${SIZE}/apps
+                RENAME yugen.png)
+    endforeach()
+endif()

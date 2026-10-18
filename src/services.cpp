@@ -23,9 +23,19 @@
 #include <unordered_map>
 #include <vector>
 
-// posix
+// user folders and child processes are selected per platform below
+#ifndef _WIN32
 #include <pwd.h>
 #include <unistd.h>
+#else
+#include <QProcess>
+#include <QProcessEnvironment>
+#include <QCoreApplication>
+#include <QDir>
+#include <QStandardPaths>
+#include <QString>
+#include <QStringList>
+#endif
 
 // third party
 #include <curl/curl.h>
@@ -46,6 +56,14 @@
 
 namespace fs = std::filesystem;
 
+namespace
+{
+     fs::path native_path(const std::string& utf8_path)
+     {
+          return fs::u8path(utf8_path);
+     }
+}
+
 /*
  * Tracing for the caches below, compiled out of a release build entirely -
  * DEBUG is only defined on a Debug configuration, and then DBG expands to
@@ -55,27 +73,27 @@ namespace fs = std::filesystem;
  * the saucer bindings before the call is made, so they say a question was asked
  * and nothing about where it was answered.
  *
- * ##__VA_ARGS__ is a gnu extension, and what lets DBG take a bare format string
- * with no arguments after it.
+ * A variadic macro keeps the format string and optional arguments in one call
+ * without compiler-specific comma elision.
  */
 #ifdef DEBUG
-     #define DBG(fmt, ...) std::println("[DEBUG] " fmt, ##__VA_ARGS__)
+     #define DBG(...) std::println("[DEBUG] " __VA_ARGS__)
 #else
-     #define DBG(fmt, ...)
+     #define DBG(...)
 #endif
 
 namespace yugen
 {
      namespace
      {
-          constexpr const char* SETTINGS_FILE    = "/settings.json";
-          constexpr const char* PLAYLISTS_FILE   = "/playlists.json";
+          constexpr const char* SETTINGS_FILE    = "settings.json";
+          constexpr const char* PLAYLISTS_FILE   = "playlists.json";
           // every sheet lrclib has ever answered with, so the second run of the
           // player is not the first one again
-          constexpr const char* LYRICS_FILE      = "/lyrics.json";
+          constexpr const char* LYRICS_FILE      = "lyrics.json";
           // and every answer last.fm has given about a track, for the same
           // reason: a shelf drawn a second time asks for each card once
-          constexpr const char* INFO_FILE        = "/info.json";
+          constexpr const char* INFO_FILE        = "info.json";
           // the one grey star last.fm answers with for everything it has no
           // picture of, recognised by the hash in its url so that a suggestion
           // carrying nothing is handed over as carrying nothing
@@ -83,11 +101,11 @@ namespace yugen
           // where the last.fm key is kept once it has been seen once, beside
           // everything else the player owns. plain text rather than json: it is
           // one line, and install.sh writes it too.
-          constexpr const char* API_KEY_FILE     = "/lastfm_key"; 
-          constexpr const char* PROFILE_FILE     = "/profile.json";
-          constexpr const char* LIKED_SONGS_FILE = "/liked_songs.json";
-          constexpr const char* COVERS_FILE      = "/covers.json";
-          constexpr const char* CUSTOM_COVERS    = "/custom_covers.json";
+          constexpr const char* API_KEY_FILE     = "lastfm_key";
+          constexpr const char* PROFILE_FILE     = "profile.json";
+          constexpr const char* LIKED_SONGS_FILE = "liked_songs.json";
+          constexpr const char* COVERS_FILE      = "covers.json";
+          constexpr const char* CUSTOM_COVERS    = "custom_covers.json";
 
           constexpr const int MIN_COUNT = 50;
 
@@ -182,13 +200,33 @@ namespace yugen
           int queue_index = -1;
      }
 
-     // Where everything the player owns is kept. Read out of the passwd entry
-     // rather than $HOME so it stays right when the process is started by
-     // something that does not set the environment, like a .desktop launcher.
-     std::string config_dir()
+     // Keep paths native internally. Windows paths can include non-ASCII names,
+     // so they only become UTF-8 strings at the JavaScript bridge boundary.
+     std::filesystem::path config_dir()
      {
+#ifdef _WIN32
+          const QString base = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
+          return fs::path{base.toStdWString()} / "yugen";
+#else
           passwd* p = getpwuid(getuid());
-          return p ? std::string(p->pw_dir) + "/.config/yugen" : "";
+          return p ? fs::path{p->pw_dir} / ".config" / "yugen" : fs::path{};
+#endif
+     }
+
+     std::filesystem::path music_dir()
+     {
+#ifdef _WIN32
+          return fs::path{QStandardPaths::writableLocation(QStandardPaths::MusicLocation).toStdWString()};
+#else
+          passwd* p = getpwuid(getuid());
+          return p ? fs::path{p->pw_dir} / "Music" : fs::path{};
+#endif
+     }
+
+     std::string path_to_utf8(const std::filesystem::path& path)
+     {
+          const auto value = path.u8string();
+          return {reinterpret_cast<const char*>(value.data()), value.size()};
      }
 
      /*
@@ -213,22 +251,71 @@ namespace yugen
 
      // Runs a command and hands back its stdout split into lines. yt-dlp prints
      // one field per line with --print, so a line here is a field, not a result.
-     std::vector<std::string> Core::run_command_lines(const std::string& cmd)
+     int Core::run_process(const std::vector<std::string>& args, std::vector<std::string>* output)
      {
-          FILE* pipe = popen(cmd.c_str(), "r");
-          if(!pipe) return {};
+          if(args.empty()) return -1;
 
-          std::vector<std::string> results;
-          std::array<char, 512> buffer;
+#ifdef _WIN32
+          QStringList qt_args;
+          for(std::size_t i = 1; i < args.size(); ++i)
+               qt_args.push_back(QString::fromUtf8(args[i].c_str()));
 
-          while(fgets(buffer.data(), buffer.size(), pipe))
+          QProcess process;
+          auto environment = QProcessEnvironment::systemEnvironment();
+          const QString app_dir = QCoreApplication::applicationDirPath();
+          environment.insert("PATH", app_dir + QDir::listSeparator() + environment.value("PATH"));
+          process.setProcessEnvironment(environment);
+          process.start(QString::fromUtf8(args.front().c_str()), qt_args);
+          if(!process.waitForStarted()) return -1;
+          if(!process.waitForFinished(-1))
           {
-               std::string line(buffer.data());
-               if(!line.empty() && line.back() == '\n') line.pop_back();
-               results.push_back(std::move(line));
+               process.kill();
+               process.waitForFinished();
+               return -1;
           }
 
-          pclose(pipe);
+          if(output)
+          {
+               const auto lines = process.readAllStandardOutput().split('\n');
+               output->reserve(static_cast<std::size_t>(lines.size()));
+               for(const auto& line : lines)
+               {
+                    QByteArray value = line;
+                    if(value.endsWith('\r')) value.chop(1);
+                    output->emplace_back(value.constData(), static_cast<std::size_t>(value.size()));
+               }
+               if(!output->empty() && output->back().empty()) output->pop_back();
+          }
+
+          return process.exitStatus() == QProcess::NormalExit ? process.exitCode() : -1;
+#else
+          std::string cmd = shell_quote(args.front());
+          for(std::size_t i = 1; i < args.size(); ++i) cmd += " " + shell_quote(args[i]);
+
+          if(output)
+          {
+               FILE* pipe = popen(cmd.c_str(), "r");
+               if(!pipe) return -1;
+
+               std::array<char, 512> buffer;
+               while(fgets(buffer.data(), buffer.size(), pipe))
+               {
+                    std::string line(buffer.data());
+                    if(!line.empty() && line.back() == '\n') line.pop_back();
+                    output->push_back(std::move(line));
+               }
+
+               return pclose(pipe);
+          }
+
+          return std::system(cmd.c_str());
+#endif
+     }
+
+     std::vector<std::string> Core::run_command_lines(const std::vector<std::string>& args)
+     {
+          std::vector<std::string> results;
+          run_process(args, &results);
 
           return results;
      }
@@ -242,8 +329,8 @@ namespace yugen
           if(count < MIN_COUNT) count = MIN_COUNT;
           const std::string target = "ytsearch" + std::to_string(count) + ":" + query;
 
-          return run_command_lines("yt-dlp " + shell_quote(target) +
-               " --flat-playlist --no-warnings --skip-download --print title --print id");
+          return run_command_lines({"yt-dlp", target, "--flat-playlist", "--no-warnings",
+               "--skip-download", "--print", "title", "--print", "id"});
      }
 
      // Three lines per hit: title, page url, thumbnail url. Soundcloud has no id
@@ -253,9 +340,9 @@ namespace yugen
           if(count < MIN_COUNT) count = MIN_COUNT; 
           const std::string target = "scsearch" + std::to_string(count) + ":" + query;
 
-          return run_command_lines("yt-dlp " + shell_quote(target) +
-               " --flat-playlist --no-warnings --skip-download --print title --print webpage_url"
-               " --print '%(thumbnails.0.url)s'");
+          return run_command_lines({"yt-dlp", target, "--flat-playlist", "--no-warnings",
+               "--skip-download", "--print", "title", "--print", "webpage_url",
+               "--print", "%(thumbnails.0.url)s"});
      }
 
      // Shared body of the two download calls: extract the audio, transcode to mp3
@@ -263,10 +350,9 @@ namespace yugen
      // can read them back later without a second lookup. Blocks until it is done.
      std::string Core::download_with_ytdlp(const std::string& target, const std::string& output_path)
      {
-          const std::string cmd = "yt-dlp -x --audio-format mp3 --embed-thumbnail --embed-metadata -o " +
-               shell_quote(output_path + "/%(title)s [%(id)s].%(ext)s") + " " + shell_quote(target);
-
-          const int status = std::system(cmd.c_str());
+          const int status = run_process({"yt-dlp", "-x", "--audio-format", "mp3",
+               "--embed-thumbnail", "--embed-metadata", "-o",
+               output_path + "/%(title)s [%(id)s].%(ext)s", target});
 
           if(status != 0)
           {
@@ -338,7 +424,7 @@ namespace yugen
           lyrics_cache_loaded = true;
           lyrics_cache = json::object();
 
-          const std::string path = config_dir() + LYRICS_FILE;
+          const fs::path path = config_dir() / LYRICS_FILE;
 
           if(!fs::exists(path)) return;
           
@@ -377,7 +463,7 @@ namespace yugen
 
           lyrics_cache[key] = url;
 
-          std::ofstream out(config_dir() + LYRICS_FILE);
+          std::ofstream out(config_dir() / LYRICS_FILE);
           if(out.is_open()) out << lyrics_cache.dump(4);
 
      }
@@ -389,7 +475,7 @@ namespace yugen
           info_cache_loaded = true;
           info_cache = json::object();
 
-          const std::string path = config_dir() + INFO_FILE;
+          const fs::path path = config_dir() / INFO_FILE;
 
           if(!fs::exists(path)) return;
           
@@ -428,7 +514,7 @@ namespace yugen
 
           info_cache[key] = data;
 
-          std::ofstream out(config_dir() + INFO_FILE);
+          std::ofstream out(config_dir() / INFO_FILE);
           if(out.is_open()) out << info_cache.dump(4);
 
      }
@@ -562,7 +648,7 @@ namespace yugen
           u_cover_cache_loaded = true;
           u_cover_cache = json::object();
 
-          const std::string path = config_dir() + CUSTOM_COVERS;
+          const fs::path path = config_dir() / CUSTOM_COVERS;
 
           if(!fs::exists(path)) return;
 
@@ -598,7 +684,7 @@ namespace yugen
 
           u_cover_cache[key] = base64_img;
 
-          std::ofstream out(config_dir() + CUSTOM_COVERS);
+          std::ofstream out(config_dir() / CUSTOM_COVERS);
           if(out.is_open()) {
                out << u_cover_cache.dump(4);
           }
@@ -615,7 +701,7 @@ namespace yugen
                return cached.value();
           }
 
-          const std::string covers_path = config_dir() + CUSTOM_COVERS;
+          const fs::path covers_path = config_dir() / CUSTOM_COVERS;
           json covers = json::object();
           if(fs::exists(covers_path)) {
                std::ifstream f(covers_path);
@@ -637,7 +723,8 @@ namespace yugen
                }
           }
 
-          TagLib::MPEG::File f(file_path.c_str());
+          const fs::path native = native_path(file_path);
+          TagLib::MPEG::File f(native.c_str());
 
           auto* tag = f.ID3v2Tag();
           if(!tag) return "";
@@ -693,7 +780,12 @@ namespace yugen
 
           const float last_vol = load_volume();
 
+#ifdef _WIN32
+          const std::wstring native_file = native_path(file_path).wstring();
+          const ma_result res = ma_sound_init_from_file_w(engine, native_file.c_str(), 0, nullptr, nullptr, &sound);
+#else
           const ma_result res = ma_sound_init_from_file(engine, file_path.c_str(), 0, nullptr, nullptr, &sound);
+#endif
 
           if(res != MA_SUCCESS)
           {
@@ -706,7 +798,7 @@ namespace yugen
           ma_sound_start(&sound);
           sound_initialized = true;
 
-          std::println("[INFO] Playing: {}", file_path.substr(file_path.find_last_of('/') + 1));
+          std::println("[INFO] Playing: {}", path_to_utf8(native_path(file_path).filename()));
 
           TrackInfo track {.title = title, .artist = artist, .album = album, .file_path = file_path};
 
@@ -728,7 +820,7 @@ namespace yugen
           }
 
           // untagged file: the name on disk is still better than a blank status
-          if(track.title.empty()) track.title = fs::path(file_path).filename().string();
+          if(track.title.empty()) track.title = path_to_utf8(native_path(file_path).filename());
 
           // handed over even when sharing is off: publish_activity() records it
           // either way, so switching sharing back on can put up whatever is
@@ -858,13 +950,14 @@ namespace yugen
      // knows the folder it asked about. Not recursive.
      std::vector<std::string> SoundManager::fetch_songs(const std::string& file_path)
      {
-          if(!fs::exists(file_path)) return {};
+          const fs::path folder = native_path(file_path);
+          if(!fs::exists(folder)) return {};
 
           std::vector<std::string> out_vec;
 
-          for(const auto& entry : fs::directory_iterator(file_path))
+          for(const auto& entry : fs::directory_iterator(folder))
           {
-               if(entry.path().extension() == ".mp3") out_vec.push_back(entry.path().filename().string());
+               if(entry.path().extension() == ".mp3") out_vec.push_back(path_to_utf8(entry.path().filename()));
           }
 
           return out_vec;
@@ -874,7 +967,7 @@ namespace yugen
      static long added_time(const std::string& file_path)
      {
           std::error_code ec;
-          auto stamp = fs::last_write_time(file_path, ec);
+          auto stamp = fs::last_write_time(native_path(file_path), ec);
 
           if(ec) return 0;
 
@@ -898,7 +991,7 @@ namespace yugen
      {
           // the tail of the path, for the tracing below: a full path per track
           // is most of a line and none of it is the part being said
-          const std::string song_name = file_path.substr(file_path.find_last_of('/') + 1);
+          const std::string song_name = path_to_utf8(native_path(file_path).filename());
 
           // the lock is held over the lookup rather than the whole function: the
           // taglib read below is the slow part and nothing in the map is needed
@@ -912,7 +1005,8 @@ namespace yugen
                }
           }
 
-          TagLib::FileRef f(file_path.c_str());
+          const fs::path native = native_path(file_path);
+          TagLib::FileRef f(native.c_str());
           if(f.isNull() || !f.tag()) {
                std::lock_guard<std::mutex> lk(metadata_mtx);
                cached_metadata[file_path] = {};
@@ -946,9 +1040,10 @@ namespace yugen
 
      void SoundManager::delete_song(const std::string& file_path)
      {
-          if(!fs::exists(file_path)) return;
+          const fs::path native = native_path(file_path);
+          if(!fs::exists(native)) return;
 
-          fs::remove(file_path);
+          fs::remove(native);
      }
 
      // The slider writes here and the poll behind it reads load_volume(), so the
@@ -962,7 +1057,7 @@ namespace yugen
                ma_sound_set_volume(&sound, volume);
           }
 
-          std::ofstream out(config_dir() + "/vol");
+          std::ofstream out(config_dir() / "vol");
           out << volume;
      }
 
@@ -977,7 +1072,7 @@ namespace yugen
                return cached_vol.value();
           }
 
-          std::string path = config_dir() + "/vol";
+          fs::path path = config_dir() / "vol";
           if(fs::exists(path))
           {
                std::ifstream f(path);
@@ -1001,7 +1096,7 @@ namespace yugen
       */
      json MusicManager::load_playlists()
      {
-          const std::string path = config_dir() + PLAYLISTS_FILE;
+          const fs::path path = config_dir() / PLAYLISTS_FILE;
 
           if(!fs::exists(path)) return json::object();
 
@@ -1014,7 +1109,7 @@ namespace yugen
      // Writes the object back out indented, so the file stays hand-editable.
      bool MusicManager::save_playlists(const json& data)
      {
-          const std::string path = config_dir() + PLAYLISTS_FILE;
+          const fs::path path = config_dir() / PLAYLISTS_FILE;
 
           std::ofstream out(path);
           if(!out.is_open()) return false;
@@ -1128,7 +1223,7 @@ namespace yugen
 
      std::vector<std::string> MusicManager::get_liked_songs()
      {
-          const std::string path = config_dir() + LIKED_SONGS_FILE;
+          const fs::path path = config_dir() / LIKED_SONGS_FILE;
           if(!fs::exists(path)) return {};
 
           std::ifstream f(path);
@@ -1144,7 +1239,7 @@ namespace yugen
 
      void MusicManager::like_song(const std::string& name)
      {
-          const std::string path = config_dir() + LIKED_SONGS_FILE;
+          const fs::path path = config_dir() / LIKED_SONGS_FILE;
 
           json data = json::array();
 
@@ -1162,7 +1257,7 @@ namespace yugen
 
      void MusicManager::unlike_song(const std::string& name)
      {
-          const std::string path = config_dir() + LIKED_SONGS_FILE;
+          const fs::path path = config_dir() / LIKED_SONGS_FILE;
 
           json data = json::array();
 
@@ -1247,7 +1342,7 @@ namespace yugen
           cover_cache_loaded = true;
           cover_cache = json::object();
 
-          const std::string path = config_dir() + COVERS_FILE;
+          const fs::path path = config_dir() / COVERS_FILE;
           if(!fs::exists(path)) return;
 
           std::ifstream f(path);
@@ -1279,7 +1374,7 @@ namespace yugen
           cover_cache[key] = url;
           cover_inflight.erase(key);
 
-          std::ofstream out(config_dir() + COVERS_FILE);
+          std::ofstream out(config_dir() / COVERS_FILE);
           if(out.is_open()) out << cover_cache.dump(4);
      }
 
@@ -1363,7 +1458,7 @@ namespace yugen
 
           // the cover, if one is known by now; the logo stands in until then and
           // whenever the track turns out to have no artwork anywhere
-          const std::string key = fs::path(track.file_path).filename().string();
+          const std::string key = path_to_utf8(native_path(track.file_path).filename());
           std::string image = youtube_cover(key);
 
           if(image.empty())
@@ -1488,7 +1583,7 @@ namespace yugen
 
      bool Profile::save_data(const json& data)
      {
-          const std::string path = config_dir() + PROFILE_FILE;
+          const fs::path path = config_dir() / PROFILE_FILE;
 
           std::ofstream out(path);
 
@@ -1507,7 +1602,7 @@ namespace yugen
 
      json Profile::load_profile()
      {
-          const std::string path = config_dir() + PROFILE_FILE;
+          const fs::path path = config_dir() / PROFILE_FILE;
           if(!fs::exists(path)) return json::object();
 
           std::ifstream f(path);
@@ -1571,7 +1666,7 @@ namespace yugen
      std::string MusicManager::get_similar(const std::string& file_path, const int limit = 10)
      {
           if(file_path.empty()) return {};
-          if(!fs::exists(file_path)) return {};
+          if(!fs::exists(native_path(file_path))) return {};
           
           std::string url = "https://ws.audioscrobbler.com/2.0/?method=track.getsimilar";
 
@@ -1772,7 +1867,7 @@ namespace yugen
       */
      void MusicManager::init()
      {
-          const std::string path = config_dir() + API_KEY_FILE;
+          const fs::path path = config_dir() / API_KEY_FILE;
           try {
                if(!fs::exists(path)) {
                     if(!API_KEY.empty()) {
@@ -1806,7 +1901,7 @@ namespace yugen
                const char* env = getenv("LASTFM_API_KEY");
                if(env && *env) return std::string(env);
 
-               std::ifstream f(config_dir() + API_KEY_FILE);
+               std::ifstream f(config_dir() / API_KEY_FILE);
                std::string k;
                if(f) f >> k;
                return k;
@@ -1841,7 +1936,7 @@ namespace yugen
 
      json Settings::load_data()
      {
-          const std::string path = config_dir() + SETTINGS_FILE;
+          const fs::path path = config_dir() / SETTINGS_FILE;
           std::ifstream f(path);
           if(!f.is_open()) return json::object();
           json data = json::parse(f, nullptr, false);
@@ -1851,7 +1946,7 @@ namespace yugen
 
      bool Settings::save_data(const json& data)
      {
-          const std::string path = config_dir() + SETTINGS_FILE;
+          const fs::path path = config_dir() / SETTINGS_FILE;
           std::ofstream out(path);
           if(!out.is_open()) return false;
           out << data;

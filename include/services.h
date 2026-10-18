@@ -4,6 +4,7 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -17,8 +18,10 @@ namespace yugen
 {
      using json = nlohmann::json;
 
-     // ~/.config/yugen - playlists.json and liked_songs.json live here
-     std::string config_dir();
+     // Per-user application data, platform-specific (~/.config/yugen on Linux).
+     std::filesystem::path config_dir();
+     std::filesystem::path music_dir();
+     std::string path_to_utf8(const std::filesystem::path& path);
 
      /*
       * Discord rich presence, over the rpc socket the discord client listens on.
@@ -91,12 +94,12 @@ namespace yugen
                static std::size_t get_playlist_count();
                
           private:
-               // wraps an argument in single quotes so a title carrying " or
-               // $(...) cannot break out of the command line
+               // Runs yt-dlp with argument-aware process launching on each OS.
                static std::string shell_quote(const std::string& arg);
 
-               // runs a command and collects its stdout, one entry per line
-               static std::vector<std::string> run_command_lines(const std::string& cmd);
+               static int run_process(const std::vector<std::string>& args,
+                    std::vector<std::string>* output = nullptr);
+               static std::vector<std::string> run_command_lines(const std::vector<std::string>& args);
 
                // shared body of download_from_yt / download_from_sc
                static std::string download_with_ytdlp(const std::string& target, const std::string& output_path);

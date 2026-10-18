@@ -1,0 +1,8 @@
+{
+  "name": "yugen",
+  "version-string": "1.0.0",
+  "dependencies": [
+    "curl",
+    "taglib"
+  ]
+}

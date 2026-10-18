@@ -1,0 +1,94 @@
+name: Windows x64
+
+on:
+  push:
+    branches:
+      - codex/windows-support
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Set up Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.8.3
+          arch: win64_msvc2022_64
+          modules: qtwebengine qtwebchannel
+
+      - name: Configure vcpkg
+        shell: pwsh
+        run: |
+          if (-not $env:VCPKG_INSTALLATION_ROOT) {
+            throw "The Windows runner does not have vcpkg installed."
+          }
+          "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" >> $env:GITHUB_ENV
+
+      - name: Build UI
+        working-directory: ui
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build Windows executable
+        shell: pwsh
+        run: |
+          cmake -S . -B build-windows -G "Visual Studio 17 2022" -A x64 `
+            "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows `
+            "-DCMAKE_PREFIX_PATH=$env:QT_ROOT_DIR" `
+            -Dsaucer_backend=Qt
+          cmake --build build-windows --config Release --parallel
+
+      - name: Assemble portable package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $stage = Join-Path $env:RUNNER_TEMP "yugen-windows"
+          $tools = Join-Path $env:RUNNER_TEMP "yugen-tools"
+          New-Item -ItemType Directory -Force -Path $stage, $tools | Out-Null
+          cmake --install build-windows --config Release --prefix $stage
+
+          $vcpkgBin = Join-Path $env:VCPKG_ROOT "installed/x64-windows/bin"
+          Get-ChildItem $vcpkgBin -Filter *.dll | Copy-Item -Destination (Join-Path $stage "bin")
+
+          $exe = Join-Path $stage "bin/yugen.exe"
+          & "$env:QT_ROOT_DIR/bin/windeployqt.exe" --release $exe
+
+          Invoke-WebRequest `
+            "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" `
+            -OutFile (Join-Path $stage "bin/yt-dlp.exe")
+
+          $ffmpegZip = Join-Path $tools "ffmpeg.zip"
+          Invoke-WebRequest `
+            "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" `
+            -OutFile $ffmpegZip
+          Expand-Archive -Path $ffmpegZip -DestinationPath $tools -Force
+          $ffmpeg = Get-ChildItem $tools -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+          $ffprobe = Get-ChildItem $tools -Recurse -Filter ffprobe.exe | Select-Object -First 1
+          if (-not $ffmpeg) { throw "ffmpeg.exe was not found in the downloaded archive." }
+          if (-not $ffprobe) { throw "ffprobe.exe was not found in the downloaded archive." }
+          Copy-Item $ffmpeg.FullName (Join-Path $stage "bin/ffmpeg.exe")
+          Copy-Item $ffprobe.FullName (Join-Path $stage "bin/ffprobe.exe")
+
+          $package = Join-Path $env:GITHUB_WORKSPACE "Yugen-windows-x64.zip"
+          Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $package -Force
+
+      - name: Upload portable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Yugen-windows-x64
+          path: Yugen-windows-x64.zip
+          if-no-files-found: error
+          retention-days: 14
