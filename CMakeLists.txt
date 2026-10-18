@@ -22,6 +22,9 @@ if(WIN32)
         message(FATAL_ERROR "TagLib was found, but it did not define a known CMake target")
     endif()
     set(YUGEN_MPRIS_SOURCE src/mpris_stub.cpp)
+    # the exe's own icon, compiled in from a resource script
+    enable_language(RC)
+    set(YUGEN_WINDOWS_RESOURCES assets/yugen.rc)
 else()
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(TAGLIB REQUIRED IMPORTED_TARGET taglib)
@@ -114,6 +117,7 @@ add_executable(${PROJECT_NAME}
     src/main.cpp
     ${YUGEN_MPRIS_SOURCE}
     src/services.cpp
+    ${YUGEN_WINDOWS_RESOURCES}
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
@@ -126,6 +130,15 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 target_compile_definitions(yugen PRIVATE $<$<CONFIG:Debug>:DEBUG>)
 if(WIN32)
     target_compile_definitions(yugen PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+
+    # a window, not a console program: without this a terminal opens behind the
+    # app. main() stays the entry point rather than WinMain - the linker is told
+    # to start the c runtime the way a console program would, and nothing else
+    # changes. stdout then goes nowhere, which the println tracing survives
+    set_target_properties(yugen PROPERTIES WIN32_EXECUTABLE ON)
+    if(MSVC)
+        target_link_options(yugen PRIVATE /ENTRY:mainCRTStartup)
+    endif()
 endif()
 
 # main() only steers WebKitGTK around nvidia's wayland fault when it is the engine.

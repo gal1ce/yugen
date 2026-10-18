@@ -1,0 +1,3 @@
+// the icon explorer, the taskbar and alt-tab show for yugen.exe. the lowest
+// id is the one windows takes as the application's own
+1 ICON "yugen.ico"

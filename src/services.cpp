@@ -58,9 +58,11 @@ namespace fs = std::filesystem;
 
 namespace
 {
+     // the bridge speaks utf-8; a char8_t string is what tells path to read it
+     // as such on every platform (u8path, which did the same, is deprecated)
      fs::path native_path(const std::string& utf8_path)
      {
-          return fs::u8path(utf8_path);
+          return fs::path{std::u8string{utf8_path.begin(), utf8_path.end()}};
      }
 }
 
@@ -251,6 +253,9 @@ namespace yugen
 
      // Runs a command and hands back its stdout split into lines. yt-dlp prints
      // one field per line with --print, so a line here is a field, not a result.
+     // Whatever reads those lines takes them as utf-8, which is why the searches
+     // pass --encoding utf-8: on windows yt-dlp writes a pipe in the ansi code
+     // page otherwise, and a title in Turkish or Cyrillic arrives garbled.
      int Core::run_process(const std::vector<std::string>& args, std::vector<std::string>* output)
      {
           if(args.empty()) return -1;
@@ -330,7 +335,7 @@ namespace yugen
           const std::string target = "ytsearch" + std::to_string(count) + ":" + query;
 
           return run_command_lines({"yt-dlp", target, "--flat-playlist", "--no-warnings",
-               "--skip-download", "--print", "title", "--print", "id"});
+               "--skip-download", "--encoding", "utf-8", "--print", "title", "--print", "id"});
      }
 
      // Three lines per hit: title, page url, thumbnail url. Soundcloud has no id
@@ -341,7 +346,7 @@ namespace yugen
           const std::string target = "scsearch" + std::to_string(count) + ":" + query;
 
           return run_command_lines({"yt-dlp", target, "--flat-playlist", "--no-warnings",
-               "--skip-download", "--print", "title", "--print", "webpage_url",
+               "--skip-download", "--encoding", "utf-8", "--print", "title", "--print", "webpage_url",
                "--print", "%(thumbnails.0.url)s"});
      }
 
