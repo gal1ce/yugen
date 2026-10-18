@@ -1,0 +1,22 @@
+diff --git a/src/qt.icon.cpp b/src/qt.icon.cpp
+index 1045075..82bbfe1 100644
+--- a/src/qt.icon.cpp
++++ b/src/qt.icon.cpp
+@@ -67,7 +67,7 @@ namespace saucer
+             return;
+         }
+ 
+-        pixmap->save(path.c_str());
++        pixmap->save(QString::fromStdWString(path.wstring()));
+     }
+ 
+     result<icon> icon::from(const stash &ico)
+@@ -83,7 +83,7 @@ namespace saucer
+ 
+     result<icon> icon::from(const fs::path &file)
+     {
+-        auto rtn = QIcon{QString::fromStdString(file.string())};
++        auto rtn = QIcon{QString::fromStdWString(file.wstring())};
+ 
+         if (rtn.isNull())
+         {

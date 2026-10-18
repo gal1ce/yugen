@@ -45,11 +45,17 @@ include(FetchContent)
 # ENABLE_POINTER_LOCK, and Arch's 2.54 is not, so v8.0.5 stopped compiling
 # there. The patch makes that one mapping optional. It is applied only if it
 # is not already in, so a reconfigure over a populated source tree is a no-op.
-if(NOT WIN32)
+if(WIN32)
+    set(YUGEN_SAUCER_PATCH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/saucer-windows-qt-path.patch")
+else()
+    set(YUGEN_SAUCER_PATCH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/saucer-optional-pointer-lock.patch")
+endif()
+
+if(YUGEN_SAUCER_PATCH)
     set(YUGEN_SAUCER_PATCH_COMMAND
         PATCH_COMMAND
         "${CMAKE_COMMAND}"
-        "-DPATCH=${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/saucer-optional-pointer-lock.patch"
+        "-DPATCH=${YUGEN_SAUCER_PATCH}"
         -P
         "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/apply.cmake"
     )
