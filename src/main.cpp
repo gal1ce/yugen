@@ -10,6 +10,8 @@
 #include <atomic>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
+#include <memory>
 #include <print>
 #include <string>
 #include <string_view>
@@ -29,8 +31,15 @@
 #include <saucer/window.hpp>
 
 #if !defined(YUGEN_WEBKITGTK)
+#include <QDir>
 #include <QGuiApplication>
+#include <QLocalServer>
+#include <QLocalSocket>
+#include <QLockFile>
 #include <QScreen>
+#include <QStandardPaths>
+#include <QSurfaceFormat>
+#include <QThread>
 #endif
 
 // project
@@ -187,10 +196,105 @@ namespace
 
           return out;
      }
+
+#if !defined(YUGEN_WEBKITGTK)
+     /*
+      * One yugen at a time
+      *
+      * A second launch - a key bound to the player and pressed again, a .desktop
+      * entry clicked while it is already up - would otherwise be a second window
+      * playing over the first. The first to start holds a lock file and listens
+      * on a local socket (a named pipe on windows); a later one finds the lock
+      * taken, asks the holder to come forward, and leaves before it has made a
+      * window of its own.
+      *
+      * The lock is what makes it hold under a key held down: launches landing in
+      * the same instant would each find nobody listening on the socket and all
+      * stay. Only the one with the lock may listen.
+      */
+     struct instance
+     {
+          std::unique_ptr<QLockFile> lock;
+          std::unique_ptr<QLocalServer> server;
+     };
+
+     // true: this process is the player. false: another one is, and has been
+     // asked to show itself
+     bool claim_instance(instance& self, std::function<void()> on_raise)
+     {
+          const QString name = QStringLiteral("yugen-") + QDir::home().dirName();
+          const QString temp = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+
+          self.lock = std::make_unique<QLockFile>(QDir{temp}.filePath(name + QStringLiteral(".lock")));
+          // the holder's pid alone says whether a lock is stale - one left by a
+          // crash is taken over. by age (the default, 30 s) a player that had
+          // been running for a minute would look abandoned
+          self.lock->setStaleLockTime(0);
+
+          if(!self.lock->tryLock(0))
+          {
+               // the holder may still be on its way up: give it two seconds to listen
+               for(int attempt = 0; attempt < 20; attempt++)
+               {
+                    QLocalSocket socket;
+                    socket.connectToServer(name);
+
+                    if(socket.waitForConnected(100))
+                    {
+                         socket.write("raise\n");
+                         socket.waitForBytesWritten(500);
+                         socket.disconnectFromServer();
+
+                         return false;
+                    }
+
+                    QThread::msleep(100);
+               }
+
+               // a lock is held and nothing answers: still not a second window
+               std::println("[WARN] another yugen holds the instance lock but does not answer");
+               return false;
+          }
+
+          // a socket file a crashed player left behind would refuse the listen
+          QLocalServer::removeServer(name);
+
+          self.server = std::make_unique<QLocalServer>();
+          self.server->setSocketOptions(QLocalServer::UserAccessOption);
+
+          QObject::connect(self.server.get(), &QLocalServer::newConnection, [server = self.server.get(), on_raise = std::move(on_raise)] {
+               while(auto* socket = server->nextPendingConnection())
+               {
+                    QObject::connect(socket, &QLocalSocket::disconnected, socket, &QObject::deleteLater);
+                    on_raise();
+               }
+          });
+
+          if(!self.server->listen(name))
+          {
+               std::println("[WARN] could not listen for a second launch: {}", self.server->errorString().toStdString());
+          }
+
+          return true;
+     }
+#endif
 }
 
 coco::stray start(saucer::application* app)
 {
+#if !defined(YUGEN_WEBKITGTK)
+     // a second launch brings this window forward; the window is made below,
+     // after the claim, so the call goes through a slot filled in once it is
+     std::function<void()> raise_window = [] {};
+     instance single;
+
+     if(!claim_instance(single, [&raise_window] { raise_window(); }))
+     {
+          app->quit();
+          co_return;
+     }
+#endif
+
      auto window = saucer::window::create(app).value();
      /*
       * QtWebEngine renders offscreen and hands each frame to Qt, so chromium
@@ -609,6 +713,14 @@ coco::stray start(saucer::application* app)
      window->set_decorations(saucer::window::decoration::none);
      window->show();
 
+#if !defined(YUGEN_WEBKITGTK)
+     raise_window = [&window] {
+          window->show();
+          window->set_minimized(false);
+          window->focus();
+     };
+#endif
+
      co_await app->finish();
 
      yugen::mpris::stop();
@@ -647,6 +759,23 @@ int main()
      {
           ::setenv("GDK_BACKEND", "x11", 1);
      }
+#endif
+
+#if !defined(YUGEN_WEBKITGTK)
+     /*
+      * Qt leaves the window's colour depth unset unless asked, and EGL lists
+      * its smallest config first when nothing is asked for - on nvidia that is
+      * a 16-bit RGB565 one. The whole ui was being drawn at 5 bits of red and
+      * blue and 6 of green: every dark ramp - a shadow, a fade, a hover easing
+      * in - stepped through green before it reached grey. Eight bits a channel,
+      * asked for before the application exists, which is when it is read.
+      */
+     QSurfaceFormat format = QSurfaceFormat::defaultFormat();
+     format.setRedBufferSize(8);
+     format.setGreenBufferSize(8);
+     format.setBlueBufferSize(8);
+     format.setAlphaBufferSize(8);
+     QSurfaceFormat::setDefaultFormat(format);
 #endif
 
      return saucer::application::create({.id = "yugen"})->run(start);

@@ -72,6 +72,9 @@ FetchContent_Declare(
     GIT_REPOSITORY "https://github.com/saucer/saucer"
     GIT_TAG v8.0.5
     ${YUGEN_SAUCER_PATCH_COMMAND}
+    # on both platforms the Qt page is handed saucer's own on-disk profile, so
+    # the ui's storage survives a restart (the script says which bug it works around)
+    COMMAND "${CMAKE_COMMAND}" -DSAUCER_SOURCE_DIR=<SOURCE_DIR> -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/apply-saucer-page-profile.cmake"
     EXCLUDE_FROM_ALL
 )
 
@@ -142,12 +145,13 @@ if(WIN32)
 endif()
 
 # main() only steers WebKitGTK around nvidia's wayland fault when it is the engine.
-# on Qt it asks the screen its refresh rate instead, which wants QtGui directly
+# on Qt it asks the screen its refresh rate instead, which wants QtGui directly,
+# and keeps to one instance through a local socket, which wants QtNetwork
 if(saucer_backend STREQUAL "WebKitGtk")
     target_compile_definitions(yugen PRIVATE YUGEN_WEBKITGTK)
 elseif(saucer_backend STREQUAL "Qt")
-    find_package(Qt6 REQUIRED COMPONENTS Gui)
-    target_link_libraries(yugen PRIVATE Qt6::Gui)
+    find_package(Qt6 REQUIRED COMPONENTS Gui Network)
+    target_link_libraries(yugen PRIVATE Qt6::Gui Qt6::Network)
 endif()
 if(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /W4 /utf-8)

@@ -12,6 +12,7 @@ import { Button, IconButton } from '../ui/Button'
 import { Empty, Segmented } from '../ui/Controls'
 import { Cover } from '../ui/Cover'
 import { tip } from '../../lib/tip'
+import { glide_to } from '../../hooks/glide'
 
 export function Lyrics({ big }: { big?: boolean }) {
     const { sheet, timed, waiting } = useSheet()
@@ -32,7 +33,8 @@ export function Lyrics({ big }: { big?: boolean }) {
         const row = node?.children[line] as HTMLElement | undefined
         if (!node || !row) return
 
-        node.scrollTo({ top: row.offsetTop - node.clientHeight / 2 + row.offsetHeight / 2, behavior: 'smooth' })
+        // through the glide, so a wheel turned while it follows is the same movement
+        glide_to(node, row.offsetTop - node.clientHeight / 2 + row.offsetHeight / 2)
     }, [line])
 
     if (timed) {

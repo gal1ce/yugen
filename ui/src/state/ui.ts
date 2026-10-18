@@ -25,6 +25,7 @@ import {
     type View,
 } from '../lib/prefs'
 import type { SearchResult, Source } from '../lib/search'
+import type { ViewCover } from './library'
 import { create_store } from '../lib/store'
 
 // right-click targets: a track, a playlist in the sidebar, the sidebar itself,
@@ -43,7 +44,7 @@ export type Menu = MenuTarget & { x: number; y: number }
 // put them away, which is what leave_page is for
 export type Page = 'settings' | 'profile' | null
 
-export type CropFor = { kind: 'avatar' } | { kind: 'playlist'; name: string } | { kind: 'track'; name: string }
+export type CropFor = { kind: 'avatar' } | { kind: 'playlist'; name: string } | { kind: 'track'; name: string } | { kind: 'view'; view: ViewCover }
 
 export type PanelTab = 'lyrics' | 'queue'
 
@@ -65,6 +66,9 @@ export type UiState = {
     suggestion_view: SuggestionView
     pins: string[]
     sidebar_hidden: boolean
+    // the two side columns, as a share of the frame - see COLUMNS
+    sidebar_w: number
+    panel_w: number
     panel_hidden: boolean
     panel_tab: PanelTab
     keybinds: Record<Bind, string>
@@ -94,6 +98,21 @@ export type UiState = {
 const saved_playback = stored_playback()
 const layout_ids = LAYOUTS.map((option) => option.id)
 
+/*
+ * The side columns are dragged to a width, kept as a share of the frame so they
+ * follow the window when it changes size. The rem pair is the floor and the
+ * ceiling: below it a column cannot hold its own rows, above it the page in
+ * the middle is what pays.
+ */
+export const COLUMNS = {
+    sidebar: { share: 16, range: [8, 26] as const, rem: [12, 24] as const, key: 'sidebar' },
+    panel: { share: 21, range: [10, 32] as const, rem: [15, 32] as const, key: 'rail' },
+} as const
+
+export type Column = keyof typeof COLUMNS
+
+export const column_css = (column: Column, share: number) => `clamp(${COLUMNS[column].rem[0]}rem, ${share}%, ${COLUMNS[column].rem[1]}rem)`
+
 export const ui = create_store<UiState>({
     view: saved_playback?.view ?? 'library',
     selection: saved_playback?.selection ?? null,
@@ -115,6 +134,9 @@ export const ui = create_store<UiState>({
     suggestion_view: stored_pref('suggestion_view', SUGGESTION_VIEWS.map((o) => o.id), 'grid'),
     pins: stored_list('pins'),
     sidebar_hidden: stored_flag('sidebar_hidden', false),
+    // under the keys the old ui wrote, so a width it saved is still the width
+    sidebar_w: stored_number('sidebar', COLUMNS.sidebar.share, COLUMNS.sidebar.range),
+    panel_w: stored_number('rail', COLUMNS.panel.share, COLUMNS.panel.range),
     panel_hidden: stored_flag('rail_hidden', false),
     panel_tab: stored_pref('panel_tab', ['lyrics', 'queue'] as const, 'lyrics'),
     keybinds: default_keybinds(),

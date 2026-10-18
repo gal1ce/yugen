@@ -20,6 +20,8 @@ export type LibraryState = {
     // name -> its tracks, and the sleeve it was given if it was given one
     playlists: Record<string, string[]>
     playlist_covers: Record<string, string>
+    // the sleeves of the two listings that are not playlists, by VIEW_COVER key
+    view_covers: Partial<Record<ViewCover, string>>
     loading: boolean
     scan_error: string | null
     folder: string
@@ -36,6 +38,7 @@ export const library = create_store<LibraryState>({
     favorites: [],
     playlists: {},
     playlist_covers: {},
+    view_covers: {},
     loading: false,
     scan_error: null,
     folder: '',
@@ -219,6 +222,21 @@ export async function sync_playlists() {
         // the last known list stays rather than the sidebar blanking
         return null
     }
+}
+
+/*
+ * Liked Songs and All songs are not playlists, but they take a sleeve the same
+ * way: the backend keeps theirs under a reserved name, apart from
+ * playlists.json, and answers for it through the playlist cover calls.
+ */
+export const VIEW_COVER = { liked: '__liked__', songs: '__songs__' } as const
+export type ViewCover = keyof typeof VIEW_COVER
+
+export async function sync_view_covers() {
+    const views = Object.keys(VIEW_COVER) as ViewCover[]
+    const art = await Promise.all(views.map((view) => bridge().get_playlist_cover(VIEW_COVER[view]).catch(() => '')))
+
+    library.set({ view_covers: Object.fromEntries(views.map((view, i) => [view, art[i]]).filter(([, data]) => data)) })
 }
 
 // the backend counts the playlists, and a new one is named after the count. a

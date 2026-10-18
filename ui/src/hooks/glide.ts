@@ -19,8 +19,18 @@ export const sideways = (box: HTMLElement | null) => {
     let pos = box.scrollLeft
     let frame = 0
     let last = 0
+    // what was written last: a difference is the row moved by something else -
+    // a trackpad swiping it natively - and is taken on rather than undone
+    let written = pos
 
     const glide = (now: number) => {
+        const moved = box.scrollLeft - written
+
+        if (Math.abs(moved) > 0.5) {
+            pos += moved
+            target = Math.min(Math.max(target + moved, 0), box.scrollWidth - box.clientWidth)
+        }
+
         const step = last ? Math.min(now - last, 64) : 16
         last = now
 
@@ -31,12 +41,14 @@ export const sideways = (box: HTMLElement | null) => {
         if (Math.abs(target - pos) < 0.5) {
             pos = target
             box.scrollLeft = pos
+            written = box.scrollLeft
             frame = 0
 
             return
         }
 
         box.scrollLeft = pos
+        written = box.scrollLeft
         frame = next_frame(glide)
     }
 
@@ -47,7 +59,10 @@ export const sideways = (box: HTMLElement | null) => {
 
         event.preventDefault()
 
-        if (!frame) pos = box.scrollLeft
+        if (!frame) {
+            pos = box.scrollLeft
+            written = pos
+        }
 
         // where it is actually sitting, unless a glide is already on its way to
         // somewhere - then that somewhere is what the notch adds to
@@ -89,65 +104,148 @@ const LINE = 40
 // a second, which is close to how fast a hand can turn the wheel
 const SPRING = 17
 
+/*
+ * One panel glides at a time, and while it does this is the only thing that
+ * writes its scrollTop. Everything that moves a panel on purpose - the wheel,
+ * the lyrics following the line being sung, a new page going back to its top -
+ * comes through here. Two writers on one panel is what the page "ghost" was:
+ * one frame drawn where the other one put it, the next where this one did.
+ *
+ * Moves nothing here asked for - the engine anchoring the view when something
+ * above it changes height, a focused element brought into view - are not
+ * fought either. Each frame the panel's position is checked against what was
+ * written last, and a difference is taken on as where the panel now is: the
+ * glide carries on from there, the same distance from its target.
+ */
+const vertical = { box: null as HTMLElement | null, target: 0, pos: 0, vel: 0, frame: 0, last: 0, written: 0 }
+
+const limit_of = (box: HTMLElement) => Math.max(0, box.scrollHeight - box.clientHeight)
+
+// Easing towards a target the plain way - take a fixed fraction of what is left
+// each frame - spends most of the distance in the first few frames and then
+// crawls the last handful of pixels, and every notch starts again from a
+// standstill. Turning the wheel steadily then reads as a row of separate
+// lurches rather than one movement.
+//
+// This is a critically damped spring instead: it has a speed, so a notch
+// arriving while the panel is already moving adds to that speed rather than
+// restarting the curve, and the whole run of notches comes out as one
+// continuous glide that settles without overshooting.
+function advance(step: number) {
+    // fixed sub-steps: at one integration per frame a spring this stiff is
+    // close enough to the edge of stability to wobble on a long frame
+    let left = step
+
+    while (left > 0) {
+        const dt = Math.min(left, 8) / 1000
+        left -= 8
+
+        vertical.vel += (SPRING * SPRING * (vertical.target - vertical.pos) - 2 * SPRING * vertical.vel) * dt
+        vertical.pos += vertical.vel * dt
+    }
+}
+
+function write(box: HTMLElement) {
+    box.scrollTop = vertical.pos
+    // read back rather than assumed: the engine rounds and clamps what it is given
+    vertical.written = box.scrollTop
+}
+
+function tick(now: number) {
+    const box = vertical.box
+
+    if (!box || !box.isConnected) {
+        vertical.frame = 0
+
+        return
+    }
+
+    const moved = box.scrollTop - vertical.written
+
+    if (Math.abs(moved) > 0.5) {
+        vertical.pos += moved
+        vertical.target = Math.min(Math.max(vertical.target + moved, 0), limit_of(box))
+    }
+
+    const step = vertical.last ? Math.min(now - vertical.last, 64) : 16
+    vertical.last = now
+
+    advance(step)
+
+    if (Math.abs(vertical.target - vertical.pos) < 0.4 && Math.abs(vertical.vel) < 14) {
+        vertical.pos = vertical.target
+        vertical.vel = 0
+        write(box)
+        vertical.frame = 0
+
+        return
+    }
+
+    write(box)
+    vertical.frame = next_frame(tick)
+}
+
+// whatever is gliding stops where it is
+export function halt_glide() {
+    if (vertical.frame) cancel_frame(vertical.frame)
+
+    vertical.frame = 0
+    vertical.vel = 0
+}
+
+const gliding = (box: HTMLElement) => vertical.frame !== 0 && vertical.box === box
+
+// the glide moves to `box`; one already under way there keeps its speed
+function take(box: HTMLElement) {
+    if (vertical.box !== box) {
+        halt_glide()
+        vertical.box = box
+    }
+
+    // between glides the panel may have been moved by anything - a dragged
+    // scrollbar, a keyboard - so it starts from where it really is
+    if (!vertical.frame) {
+        vertical.pos = box.scrollTop
+        vertical.written = vertical.pos
+        vertical.vel = 0
+    }
+}
+
+function run() {
+    if (vertical.frame) return
+
+    vertical.last = 0
+    vertical.frame = next_frame(tick)
+}
+
+const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+/*
+ * A panel to a place: `instant` for a new page going back to its top, eased
+ * otherwise. Whatever was gliding there is taken over rather than left running
+ * against it.
+ */
+export function glide_to(box: HTMLElement, top: number, { instant = false } = {}) {
+    const to = Math.min(Math.max(top, 0), limit_of(box))
+
+    if (instant || reduced()) {
+        if (vertical.box === box) halt_glide()
+        box.scrollTop = to
+
+        return
+    }
+
+    take(box)
+    vertical.target = to
+    run()
+}
+
+// keys the engine scrolls a panel with: its own animation is let through whole
+const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '])
+
 export function useGlideScroll() {
     useEffect(() => {
-        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-
-        let box: HTMLElement | null = null
-        let target = 0
-        let pos = 0
-        let vel = 0
-        let frame = 0
-        let last = 0
-
-        // Easing towards a target the plain way - take a fixed fraction of what
-        // is left each frame - spends most of the distance in the first few
-        // frames and then crawls the last handful of pixels, and every notch
-        // starts again from a standstill. Turning the wheel steadily then reads
-        // as a row of separate lurches rather than one movement.
-        //
-        // This is a critically damped spring instead: it has a speed, so a notch
-        // arriving while the panel is already moving adds to that speed rather
-        // than restarting the curve, and the whole run of notches comes out as
-        // one continuous glide that settles without overshooting.
-        const advance = (step: number) => {
-            // fixed sub-steps: at one integration per frame a spring this stiff
-            // is close enough to the edge of stability to wobble on a long frame
-            let left = step
-
-            while (left > 0) {
-                const dt = Math.min(left, 8) / 1000
-                left -= 8
-
-                vel += (SPRING * SPRING * (target - pos) - 2 * SPRING * vel) * dt
-                pos += vel * dt
-            }
-        }
-
-        const glide = (now: number) => {
-            if (!box) {
-                frame = 0
-
-                return
-            }
-
-            const step = last ? Math.min(now - last, 64) : 16
-            last = now
-
-            advance(step)
-
-            if (Math.abs(target - pos) < 0.4 && Math.abs(vel) < 14) {
-                pos = target
-                vel = 0
-                box.scrollTop = pos
-                frame = 0
-
-                return
-            }
-
-            box.scrollTop = pos
-            frame = next_frame(glide)
-        }
+        if (reduced()) return
 
         // the panel the pointer is actually over, which is not always the one
         // the event was aimed at
@@ -171,10 +269,16 @@ export function useGlideScroll() {
             // a sideways shelf has already claimed it, or the wheel is a zoom
             if (event.defaultPrevented || event.ctrlKey) return
             if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
-            if (event.deltaMode === 0 && Math.abs(event.deltaY) < NOTCH) return
 
             const found = scroller(event.target)
             if (!found) return
+
+            // while this panel glides every notch over it is the glide's, whatever
+            // its size and wherever it lands: one handed to the engine mid-glide is
+            // scrolled there on the compositor and written back over next frame
+            const busy = gliding(found)
+
+            if (event.deltaMode === 0 && Math.abs(event.deltaY) < NOTCH && !busy) return
 
             // whatever the platform counts in, in pixels
             const push =
@@ -184,43 +288,40 @@ export function useGlideScroll() {
                       ? event.deltaY * found.clientHeight * 0.9
                       : event.deltaY
 
-            if (box !== found) {
-                if (frame) cancel_frame(frame)
+            take(found)
 
-                box = found
-                frame = 0
-            }
-
-            // between notches the panel may have been moved by something else -
-            // a dragged scrollbar, a keyboard - so the glide re-reads where it
-            // really is whenever it is not already on its way somewhere. a run
-            // that is still going keeps its speed; that is the point of it.
-            if (!frame) {
-                pos = found.scrollTop
-                vel = 0
-            }
-
-            const from = frame ? target : pos
-            const next = Math.min(Math.max(from + push, 0), found.scrollHeight - found.clientHeight)
+            // a run that is still going adds to where it was headed
+            const from = busy ? vertical.target : vertical.pos
+            const next = Math.min(Math.max(from + push, 0), limit_of(found))
 
             // at either end of its travel the wheel is handed back rather than
-            // swallowed, so the gesture still belongs to whatever is behind it
-            if (next === from) return
+            // swallowed, so the gesture still belongs to whatever is behind it -
+            // but not while the glide is still on its way there
+            if (next === from) {
+                if (busy) event.preventDefault()
+                return
+            }
 
             event.preventDefault()
-            target = next
+            vertical.target = next
+            run()
+        }
 
-            if (!frame) {
-                last = 0
-                frame = next_frame(glide)
-            }
+        // the engine's own keyboard scrolling, left to run on its own
+        const on_key = (event: KeyboardEvent) => {
+            if (!SCROLL_KEYS.has(event.key)) return
+            if (event.target instanceof HTMLElement && event.target.closest('input, textarea, [contenteditable]')) return
+
+            halt_glide()
         }
 
         window.addEventListener('wheel', on_wheel, { passive: false })
+        window.addEventListener('keydown', on_key, true)
 
         return () => {
             window.removeEventListener('wheel', on_wheel)
-            if (frame) cancel_frame(frame)
+            window.removeEventListener('keydown', on_key, true)
+            halt_glide()
         }
     }, [])
 }

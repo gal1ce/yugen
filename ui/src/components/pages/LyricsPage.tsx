@@ -17,6 +17,7 @@ import { IconButton } from '../ui/Button'
 import { Heart } from '../ui/Controls'
 import { Cover } from '../ui/Cover'
 import { CaretDoubleDown, Info, MicVocal, Quotes } from '../ui/icons'
+import { glide_to } from '../../hooks/glide'
 
 const close = () => ui.set({ lyrics_open: false })
 
@@ -70,7 +71,8 @@ function Sheet() {
         const row = node?.children[Math.max(line, 0)] as HTMLElement | undefined
         if (!node || !row) return
 
-        node.scrollTo({ top: row.offsetTop - node.clientHeight * 0.34, behavior: 'smooth' })
+        // through the glide, so a wheel turned while it follows is the same movement
+        glide_to(node, row.offsetTop - node.clientHeight * 0.34)
     }, [line, timed])
 
     if (timed) {
