@@ -46,12 +46,15 @@ include(FetchContent)
 # there. The patch makes that one mapping optional. It is applied only if it
 # is not already in, so a reconfigure over a populated source tree is a no-op.
 if(WIN32)
-    set(YUGEN_SAUCER_PATCH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/saucer-windows-qt-path.patch")
+    set(YUGEN_SAUCER_PATCH_COMMAND
+        PATCH_COMMAND
+        "${CMAKE_COMMAND}"
+        "-DSAUCER_SOURCE_DIR=<SOURCE_DIR>"
+        -P
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/apply-saucer-windows.cmake"
+    )
 else()
     set(YUGEN_SAUCER_PATCH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/saucer-optional-pointer-lock.patch")
-endif()
-
-if(YUGEN_SAUCER_PATCH)
     set(YUGEN_SAUCER_PATCH_COMMAND
         PATCH_COMMAND
         "${CMAKE_COMMAND}"

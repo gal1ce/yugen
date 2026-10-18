@@ -1,0 +1,27 @@
+set(source_file "${SAUCER_SOURCE_DIR}/src/qt.icon.cpp")
+file(READ "${source_file}" contents)
+
+set(save_before "pixmap->save(path.c_str());")
+set(save_after "pixmap->save(QString::fromStdWString(path.wstring()));")
+set(load_before "QString::fromStdString(file.string())")
+set(load_after "QString::fromStdWString(file.wstring())")
+
+string(FIND "${contents}" "${save_after}" save_patched)
+if(save_patched EQUAL -1)
+    string(FIND "${contents}" "${save_before}" save_original)
+    if(save_original EQUAL -1)
+        message(FATAL_ERROR "Could not find the expected icon save expression in ${source_file}")
+    endif()
+    string(REPLACE "${save_before}" "${save_after}" contents "${contents}")
+endif()
+
+string(FIND "${contents}" "${load_after}" load_patched)
+if(load_patched EQUAL -1)
+    string(FIND "${contents}" "${load_before}" load_original)
+    if(load_original EQUAL -1)
+        message(FATAL_ERROR "Could not find the expected icon load expression in ${source_file}")
+    endif()
+    string(REPLACE "${load_before}" "${load_after}" contents "${contents}")
+endif()
+
+file(WRITE "${source_file}" "${contents}")
