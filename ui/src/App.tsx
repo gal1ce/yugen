@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useGlideScroll, useScrollQuiet } from './hooks/glide'
+import { glide_to, useGlideScroll, useScrollQuiet } from './hooks/glide'
 import { art_accent } from './lib/accent'
 import { init_frames } from './lib/frames'
 import { fx } from './lib/fx'
@@ -171,7 +171,8 @@ function Page() {
 
     // a new page starts at its top
     useEffect(() => {
-        scroller.current?.scrollTo({ top: 0 })
+        // and a glide still under way on the last one does not carry over
+        if (scroller.current) glide_to(scroller.current, 0, { instant: true })
     }, [page, view, selection])
 
     const body =
