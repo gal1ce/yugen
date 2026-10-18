@@ -1,0 +1,22 @@
+diff --git a/src/wkg.webview.impl.cpp b/src/wkg.webview.impl.cpp
+index a6cdd1e..4b87e04 100644
+--- a/src/wkg.webview.impl.cpp
++++ b/src/wkg.webview.impl.cpp
+@@ -76,12 +76,16 @@ namespace saucer
+             using permission::request;
+             using enum permission::type;
+ 
+-            static constexpr auto mappings = std::array<gboolean (*)(gpointer, permission::type &), 6>{
++            // WebKitGTK only declares the pointer lock request when it was built with
++            // ENABLE_POINTER_LOCK (Arch's 2.54 is not), so that mapping is optional
++            static constexpr gboolean (*mappings[])(gpointer, permission::type &) = {
+                 permission_update<WEBKIT_IS_CLIPBOARD_PERMISSION_REQUEST, clipboard>,
+                 permission_update<WEBKIT_IS_DEVICE_INFO_PERMISSION_REQUEST, device_info>,
+                 permission_update<WEBKIT_IS_GEOLOCATION_PERMISSION_REQUEST, location>,
+                 permission_update<WEBKIT_IS_NOTIFICATION_PERMISSION_REQUEST, notification>,
++#ifdef WEBKIT_IS_POINTER_LOCK_PERMISSION_REQUEST
+                 permission_update<WEBKIT_IS_POINTER_LOCK_PERMISSION_REQUEST, mouse_lock>,
++#endif
+                 translate_media_permission,
+             };
+ 

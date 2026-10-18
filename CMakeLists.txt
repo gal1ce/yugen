@@ -28,10 +28,18 @@ pkg_check_modules(GIO REQUIRED gio-2.0)
 # exist yet - saucer already brings the same version, so it is reused.
 include(FetchContent)
 
+# saucer maps every webkit permission request it knows of, pointer lock
+# included - but WebKitGTK only declares that one when it was built with
+# ENABLE_POINTER_LOCK, and Arch's 2.54 is not, so v8.0.5 stopped compiling
+# there. The patch makes that one mapping optional. It is applied only if it
+# is not already in, so a reconfigure over a populated source tree is a no-op.
+set(YUGEN_SAUCER_PATCH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/saucer-optional-pointer-lock.patch")
+
 FetchContent_Declare(
     saucer
     GIT_REPOSITORY "https://github.com/saucer/saucer"
     GIT_TAG v8.0.5
+    PATCH_COMMAND "${CMAKE_COMMAND}" -DPATCH=${YUGEN_SAUCER_PATCH} -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/apply.cmake"
     EXCLUDE_FROM_ALL
 )
 
@@ -55,6 +63,14 @@ FetchContent_Declare(
     GIT_TAG 3b50b0854ec24f9b2d4cc8e28f9145f276bb998e
     EXCLUDE_FROM_ALL
 )
+
+# The engine the window is drawn with. QtWebEngine is chromium: it paces frames
+# by the display - 165 Hz is 165 Hz - where WebKitGTK falls back to a fixed 60 fps
+# timer whenever the driver will not let it wait on the vblank itself (nvidia, for
+# one). WebKitGtk still builds: -Dsaucer_backend=WebKitGtk.
+if(NOT saucer_backend OR saucer_backend STREQUAL "Default")
+    set(saucer_backend "Qt" CACHE STRING "The webview backend saucer is built with" FORCE)
+endif()
 
 FetchContent_MakeAvailable(saucer json saucer-embed discord-presence)
 
@@ -81,6 +97,15 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 # defines it, so those lines are not in the binary at all rather than being calls
 # that print nothing
 target_compile_definitions(yugen PRIVATE $<$<CONFIG:Debug>:DEBUG>)
+
+# main() only steers WebKitGTK around nvidia's wayland fault when it is the engine.
+# on Qt it asks the screen its refresh rate instead, which wants QtGui directly
+if(saucer_backend STREQUAL "WebKitGtk")
+    target_compile_definitions(yugen PRIVATE YUGEN_WEBKITGTK)
+elseif(saucer_backend STREQUAL "Qt")
+    find_package(Qt6 REQUIRED COMPONENTS Gui)
+    target_link_libraries(yugen PRIVATE Qt6::Gui)
+endif()
 target_compile_options(${PROJECT_NAME} PRIVATE
     -Wall
     -Wextra

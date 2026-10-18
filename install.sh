@@ -305,29 +305,29 @@ install_deps() {
         arch)
             need_root pacman -S --needed --noconfirm \
                 base-devel git cmake ninja pkgconf "${node_pkgs[@]}" \
-                taglib curl webkitgtk-6.0 glib2 ffmpeg python-pipx
+                taglib curl qt6-webengine glib2 ffmpeg python-pipx
             ;;
         debian)
             need_root apt-get update
             apt_install "${node_pkgs[@]}" \
                 build-essential git cmake ninja-build pkg-config \
-                libtag1-dev libcurl4-openssl-dev libwebkitgtk-6.0-dev \
+                libtag1-dev libcurl4-openssl-dev qt6-base-dev qt6-webengine-dev qt6-webchannel-dev \
                 libglib2.0-dev ffmpeg pipx
             ;;
         fedora)
             need_root dnf install -y \
                 git cmake ninja-build gcc-c++ pkgconf-pkg-config "${node_pkgs[@]}" \
-                taglib-devel libcurl-devel webkitgtk6.0-devel \
+                taglib-devel libcurl-devel qt6-qtbase-devel qt6-qtwebengine-devel qt6-qtwebchannel-devel \
                 glib2-devel ffmpeg pipx
             ;;
         suse)
             need_root zypper install -y \
                 git cmake ninja gcc-c++ pkg-config "${node_pkgs[@]}" \
-                taglib-devel libcurl-devel webkitgtk-6.0-devel \
+                taglib-devel libcurl-devel qt6-widgets-devel qt6-webenginewidgets-devel qt6-webchannel-devel \
                 glib2-devel ffmpeg python3-pipx
             ;;
         *)
-            die "Unsupported distro. Install manually: git, cmake, ninja, a C++23 compiler, pkg-config, nodejs, npm, taglib, libcurl, glib2, webkitgtk-6.0, ffmpeg"
+            die "Unsupported distro. Install manually: git, cmake, ninja, a C++23 compiler, pkg-config, nodejs, npm, taglib, libcurl, glib2, Qt 6 WebEngine, ffmpeg"
             ;;
     esac
 

@@ -5,6 +5,9 @@
 #endif
 
 // standard library
+#include <algorithm>
+#include <array>
+#include <atomic>
 #include <cstdint>
 #include <filesystem>
 #include <print>
@@ -26,6 +29,11 @@
 #include <saucer/executor.hpp>
 #include <saucer/smartview.hpp>
 #include <saucer/window.hpp>
+
+#if !defined(YUGEN_WEBKITGTK)
+#include <QGuiApplication>
+#include <QScreen>
+#endif
 
 // project
 #include "miniaudio.h"
@@ -125,16 +133,87 @@ namespace
      {
           view.execute(script);
      }
+
+     /*
+      * The audio tap
+      *
+      * The sound never passes through the page - miniaudio plays it from here -
+      * so for the ui to draw it, this side keeps the last moment of what the
+      * engine mixed. onProcess fires on the audio thread at the end of every
+      * block the device pulls, with the finished frames; they are folded to
+      * mono into a ring that get_audio_frames reads the newest of.
+      *
+      * The audio thread must never wait on the ui, so there is no lock: every
+      * slot is an atomic float and the write position is published after the
+      * slots. A read racing a write can pick up a few samples of the next
+      * block, which nothing drawn from a spectrum can show.
+      */
+     constexpr std::size_t TAP_SIZE = 8192;
+
+     std::array<std::atomic<float>, TAP_SIZE> tap_ring{};
+     std::atomic<std::uint64_t> tap_written{0};
+
+     void tap_process(void* user, float* frames, ma_uint64 count)
+     {
+          const ma_uint32 channels = ma_engine_get_channels(static_cast<ma_engine*>(user));
+          std::uint64_t at = tap_written.load(std::memory_order_relaxed);
+
+          if(channels == 0) return;
+
+          for(ma_uint64 i = 0; i < count; i++, at++)
+          {
+               float sum = 0.0f;
+               for(ma_uint32 c = 0; c < channels; c++) sum += frames[i * channels + c];
+
+               tap_ring[at % TAP_SIZE].store(sum / static_cast<float>(channels), std::memory_order_relaxed);
+          }
+
+          tap_written.store(at, std::memory_order_release);
+     }
+
+     // the newest `count` frames, oldest first, each times `gain`
+     std::vector<float> tap_read(std::size_t count, float gain)
+     {
+          count = std::min(count, TAP_SIZE);
+
+          const std::uint64_t end = tap_written.load(std::memory_order_acquire);
+          const std::uint64_t start = end > count ? end - count : 0;
+
+          std::vector<float> out;
+          out.reserve(count);
+
+          for(std::uint64_t at = start; at < end; at++)
+          {
+               out.push_back(tap_ring[at % TAP_SIZE].load(std::memory_order_relaxed) * gain);
+          }
+
+          return out;
+     }
 }
 
 coco::stray start(saucer::application* app)
 {
      auto window = saucer::window::create(app).value();
-     auto webview = saucer::smartview::create({.window = window});
+     /*
+      * QtWebEngine renders offscreen and hands each frame to Qt, so chromium
+      * never sees the display's vsync and paces itself with a fixed 60 fps
+      * timer. Without the limit it draws the next frame as soon as Qt has taken
+      * the last one, and Qt takes them at the monitor's rate - 165 Hz here.
+      * (saucer sets QTWEBENGINE_CHROMIUM_FLAGS itself, so this is the only way in.)
+      */
+     auto webview = saucer::smartview::create({
+          .window = window,
+          .browser_flags = {"--disable-frame-rate-limit"},
+     });
 
      ma_engine engine;
 
-     const ma_result res = ma_engine_init(nullptr, &engine);
+     // the tap above sees every block the engine finishes
+     ma_engine_config engine_config = ma_engine_config_init();
+     engine_config.onProcess = tap_process;
+     engine_config.pProcessUserData = &engine;
+
+     const ma_result res = ma_engine_init(&engine_config, &engine);
      if(res != MA_SUCCESS)
      {
           std::println("[ERROR] Engine init failed: {}", static_cast<int>(res));
@@ -234,6 +313,24 @@ coco::stray start(saucer::application* app)
      });
 
      /*
+      * What the engine just played, for the wave and the field behind the
+      * pages - ui/src/lib/audio.ts does the fft. Copying a couple of thousand
+      * floats out of the tap takes microseconds, so these answer on the ui
+      * thread like the pollers above.
+      *
+      * The volume is divided back out: the slider is there to make the music
+      * quieter, not the picture of it.
+      */
+     webview->expose("get_audio_frames", [](int count) -> std::vector<float> {
+          const float volume = std::max(sm::load_volume(), 0.05f);
+          return tap_read(static_cast<std::size_t>(std::max(count, 0)), 1.0f / volume);
+     });
+
+     webview->expose("get_sample_rate", [&engine]() -> float {
+          return static_cast<float>(ma_engine_get_sample_rate(&engine));
+     });
+
+     /*
       * Queue. next/prev only return the file name of the neighbouring track;
       * the ui decides what to do with it and calls play_music itself.
       */
@@ -253,18 +350,22 @@ coco::stray start(saucer::application* app)
      /*
       * The library on disk. These read files, so they are called once per track
       * when a folder is opened and the results are kept on the ui side.
+      *
+      * They go out async like everything else that touches the disk: a scan is
+      * one taglib read and one cover per track, and on the ui thread that was
+      * the window frozen for as long as the whole folder took.
       */
-     webview->expose("fetch_songs", [](const std::string& file_path) -> std::vector<std::string> {
+     expose_async(webview, "fetch_songs", [](std::string file_path) {
           std::println("[INFO] Fetching songs on {}", file_path);
           return sm::fetch_songs(file_path);
      });
 
-     webview->expose("get_metadata", [](const std::string& file_path) -> std::vector<std::string> {
+     expose_async(webview, "get_metadata", [](std::string file_path) {
           std::println("[INFO] Get metadata: {}", file_path);
           return sm::get_metadata(file_path);
      });
 
-     webview->expose("get_cover", [](const std::string& file_path) -> std::string {
+     expose_async(webview, "get_cover", [](std::string file_path) {
           std::println("[INFO] Get cover: {}", file_path);
           return co::get_cover(file_path);
      });
@@ -444,6 +545,16 @@ coco::stray start(saucer::application* app)
           return sm::load_volume();
      });
 
+#if !defined(YUGEN_WEBKITGTK)
+     // the display's refresh rate. chromium's own frame limit is off (see the
+     // webview above), so the ui paces itself to this - 165 Hz here - rather
+     // than drawing as fast as frames are taken
+     webview->expose("get_refresh_rate", [] -> float {
+          const auto* screen = QGuiApplication::primaryScreen();
+          return screen ? static_cast<float>(screen->refreshRate()) : 60.0f;
+     });
+#endif
+
      webview->expose("get_music_dir", [] -> std::string{
           passwd* p = getpwuid(getuid());
           if(p) {
@@ -513,14 +624,24 @@ int main()
 {
      /*
       * WebKitGTK's native Wayland renderer can corrupt its buffers and crash in
-      * NVIDIA's EGL driver.  Disabling DMA-BUF or compositing avoids that path,
-      * but makes a full-screen view painfully slow.  XWayland keeps accelerated
-      * compositing while avoiding the broken NVIDIA/Wayland EGL path.
-      *
-      * Only select it when all three pieces are present, and do so before GTK is
-      * initialized by saucer.  YUGEN_NATIVE_WAYLAND is the escape hatch for a
-      * driver/WebKit combination where the native path is known to be fixed.
+      * NVIDIA's EGL driver, so that build is sent to XWayland instead. It only
+      * applies when saucer is built on WebKitGtk: the Qt backend draws through
+      * chromium, which has no such fault and needs native Wayland to keep the
+      * display's own refresh rate. YUGEN_NATIVE_WAYLAND is the escape hatch for
+      * a driver/WebKit combination where the native path is known to be fixed.
       */
+#if !defined(YUGEN_WEBKITGTK)
+     /*
+      * QtWebEngine keeps chromium off its gbm path on nvidia and composites
+      * through vulkan instead, which costs a core at 165 Hz: every frame goes
+      * through the viz compositor on the cpu. On gbm it is the zero-copy path
+      * and the same frames cost a few percent. Qt calls the switch a debugging
+      * one; it is left alone when the environment has already set it either way.
+      */
+     ::setenv("QTWEBENGINE_FORCE_USE_GBM", "1", 0);
+#endif
+
+#if defined(YUGEN_WEBKITGTK)
      const char* session = std::getenv("XDG_SESSION_TYPE");
      const bool nvidia_wayland = session && std::string_view{session} == "wayland"
           && std::getenv("DISPLAY")
@@ -530,6 +651,7 @@ int main()
      {
           ::setenv("GDK_BACKEND", "x11", 1);
      }
+#endif
 
      return saucer::application::create({.id = "yugen"})->run(start);
 }
