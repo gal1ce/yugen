@@ -9,7 +9,7 @@ import { group_key, album_tag, artist_tag } from './lib/names'
 import { useStore } from './lib/store'
 import { thumb_of } from './lib/thumbs'
 import { sync_keybinds } from './state/keys'
-import { fetch_songs, library, load_favorites, sync_liked, sync_playlists, sync_profile } from './state/library'
+import { fetch_songs, library, load_favorites, sync_liked, sync_playlists, sync_profile, sync_view_covers } from './state/library'
 import { mpris_command, player, restore, start_player } from './state/player'
 import { cover_input_ref, pick_image, track_cover_target } from './state/images'
 import { saved_playback, ui } from './state/ui'
@@ -115,6 +115,7 @@ function useStartup() {
             const [scanned, lists] = await Promise.all([fetch_songs(), sync_playlists()])
             void sync_liked()
             void sync_profile()
+            void sync_view_covers()
             void load_favorites()
             void sync_keybinds()
 

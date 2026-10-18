@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, Heart, ListFilter, Music2, Pencil, Play, Shuffle } from '../ui/icons'
+import { ArrowLeft, Camera, Heart, ListFilter, Music2, Pencil, Play, Shuffle } from '../ui/icons'
 import { useDismiss } from '../../hooks/dismiss'
 import { spotlight } from '../../hooks/spotlight'
 import { cn } from '../../lib/cn'
@@ -7,7 +7,8 @@ import { format_span } from '../../lib/format'
 import { LAYOUTS, SORTS } from '../../lib/prefs'
 import { shallow, useStore } from '../../lib/store'
 import { album_runs_of, group_art, layout_key, playlist_art, span_of, useListed } from '../../state/derive'
-import { library } from '../../state/library'
+import { pick_image } from '../../state/images'
+import { library, type ViewCover } from '../../state/library'
 import { play_listing, play_music, player, shuffle_into } from '../../state/player'
 import { nearby_key_of, show_nearby } from '../../state/suggest'
 import { open_group, set_layout, set_pref, ui } from '../../state/ui'
@@ -57,6 +58,32 @@ function SortMenu() {
     )
 }
 
+// Liked Songs and All songs: their own sleeve if one was given, the drawn tile
+// if not, and either way the click that picks a new one (through the crop)
+function ViewTile({ view }: { view: ViewCover }) {
+    const art = useStore(library, (s) => s.view_covers[view])
+
+    return (
+        <label {...tip('Change cover')} className='group relative shrink-0 cursor-pointer'>
+            {art ? (
+                <Cover data={art} size='md' icon={44} className='size-40 rounded-2xl shadow-soft' />
+            ) : view === 'liked' ? (
+                <span className='grid size-40 place-items-center rounded-2xl bg-linear-to-br from-accent to-[color-mix(in_oklab,var(--accent)_40%,#1a1030)] text-accent-fg shadow-soft'>
+                    <Heart size={56} className='fill-current' />
+                </span>
+            ) : (
+                <span className='grid size-40 place-items-center rounded-2xl bg-surface-3 text-muted shadow-soft'>
+                    <Music2 size={52} />
+                </span>
+            )}
+            <span className='absolute inset-0 grid place-items-center rounded-2xl bg-black/55 text-white opacity-0 transition-opacity group-hover:opacity-100'>
+                <Camera size={22} />
+            </span>
+            <input type='file' accept='image/png,image/jpeg' className='hidden' onChange={(e) => void pick_image(e, { kind: 'view', view })} />
+        </label>
+    )
+}
+
 // the head of a listing: what it is, what it holds, and the way to play it
 function Head({ listed }: { listed: string[] }) {
     const view = useStore(ui, (s) => s.view)
@@ -70,14 +97,8 @@ function Head({ listed }: { listed: string[] }) {
     const editable = view === 'playlist' && !!selection
 
     const tile =
-        view === 'liked' ? (
-            <span className='grid size-40 shrink-0 place-items-center rounded-2xl bg-linear-to-br from-accent to-[color-mix(in_oklab,var(--accent)_40%,#1a1030)] text-accent-fg shadow-soft'>
-                <Heart size={56} className='fill-current' />
-            </span>
-        ) : view === 'songs' ? (
-            <span className='grid size-40 shrink-0 place-items-center rounded-2xl bg-surface-3 text-muted shadow-soft'>
-                <Music2 size={52} />
-            </span>
+        view === 'liked' || view === 'songs' ? (
+            <ViewTile view={view} />
         ) : (
             <button
                 type='button'

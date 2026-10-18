@@ -88,6 +88,11 @@ namespace yugen
           constexpr const char* LIKED_SONGS_FILE = "/liked_songs.json";
           constexpr const char* COVERS_FILE      = "/covers.json";
           constexpr const char* CUSTOM_COVERS    = "/custom_covers.json";
+          // covers for the listings that are not playlists - Liked Songs and
+          // All songs - asked for through the playlist cover calls under a
+          // reserved name. kept out of playlists.json so they never come back
+          // as a playlist of their own
+          constexpr const char* VIEW_COVERS_FILE = "/view_covers.json";
 
           constexpr const int MIN_COUNT = 50;
 
@@ -1815,9 +1820,39 @@ namespace yugen
           return key;
      }
 
+     // The names the ui uses for the two built-in listings. A playlist someone
+     // renamed to exactly one of these would have its cover read from here too;
+     // the underscores are there to keep that from happening by accident.
+     static bool is_view_cover(const std::string& name)
+     {
+          return name == "__liked__" || name == "__songs__";
+     }
+
+     static json load_view_covers()
+     {
+          std::ifstream f(config_dir() + VIEW_COVERS_FILE);
+          if(!f.is_open()) return json::object();
+
+          json data = json::parse(f, nullptr, false);
+          return !data.is_discarded() && data.is_object() ? data : json::object();
+     }
+
      bool MusicManager::set_or_update_playlist_cover(const std::string& playlist_name, const std::string& base64_pic) 
      {
           if(playlist_name.empty() || base64_pic.empty()) return false;
+
+          if(is_view_cover(playlist_name))
+          {
+               json covers = load_view_covers();
+               covers[playlist_name] = base64_pic;
+
+               std::ofstream out(config_dir() + VIEW_COVERS_FILE);
+               if(!out.is_open()) return false;
+               out << covers.dump(4);
+
+               return out.good();
+          }
+
           json data = load_playlists();
           if(!data.contains(playlist_name)) return false;
 
@@ -1829,6 +1864,15 @@ namespace yugen
      std::string MusicManager::get_playlist_cover(const std::string &playlist_name) 
      {
           if(playlist_name.empty()) return "";
+
+          if(is_view_cover(playlist_name))
+          {
+               const json covers = load_view_covers();
+               const auto it = covers.find(playlist_name);
+
+               return it != covers.end() && it->is_string() ? it->get<std::string>() : "";
+          }
+
           json data = load_playlists();
           if(!data.contains(playlist_name)) return "";
 

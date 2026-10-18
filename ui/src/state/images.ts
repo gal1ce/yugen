@@ -1,5 +1,5 @@
 import { bridge, music_dir } from '../lib/bridge'
-import { library } from './library'
+import { library, VIEW_COVER } from './library'
 import { ui, type CropFor } from './ui'
 
 // read straight into a data url: the webview's file input has no real path to
@@ -49,6 +49,13 @@ export async function save_crop(data_url: string) {
             if (await bridge().update_track_cover(path, raw_base64(data_url))) {
                 const saved = await bridge().get_cover(path)
                 library.set(({ covers }) => ({ covers: { ...covers, [target.name]: saved } }))
+            }
+        } else if (target.kind === 'view') {
+            const key = VIEW_COVER[target.view]
+
+            if (await bridge().set_playlist_cover(key, raw_base64(data_url))) {
+                const saved = await bridge().get_playlist_cover(key)
+                library.set(({ view_covers }) => ({ view_covers: { ...view_covers, [target.view]: saved } }))
             }
         } else if (await bridge().set_playlist_cover(target.name, raw_base64(data_url))) {
             const saved = await bridge().get_playlist_cover(target.name)

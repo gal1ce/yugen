@@ -25,6 +25,7 @@ import {
     type View,
 } from '../lib/prefs'
 import type { SearchResult, Source } from '../lib/search'
+import type { ViewCover } from './library'
 import { create_store } from '../lib/store'
 
 // right-click targets: a track, a playlist in the sidebar, the sidebar itself,
@@ -43,7 +44,7 @@ export type Menu = MenuTarget & { x: number; y: number }
 // put them away, which is what leave_page is for
 export type Page = 'settings' | 'profile' | null
 
-export type CropFor = { kind: 'avatar' } | { kind: 'playlist'; name: string } | { kind: 'track'; name: string }
+export type CropFor = { kind: 'avatar' } | { kind: 'playlist'; name: string } | { kind: 'track'; name: string } | { kind: 'view'; view: ViewCover }
 
 export type PanelTab = 'lyrics' | 'queue'
 
