@@ -40,6 +40,7 @@
 #include <QLockFile>
 #include <QScreen>
 #include <QStandardPaths>
+#include <QSurfaceFormat>
 #include <QThread>
 #endif
 
@@ -762,6 +763,23 @@ int main()
      {
           ::setenv("GDK_BACKEND", "x11", 1);
      }
+#endif
+
+#if !defined(YUGEN_WEBKITGTK)
+     /*
+      * Qt leaves the window's colour depth unset unless asked, and EGL lists
+      * its smallest config first when nothing is asked for - on nvidia that is
+      * a 16-bit RGB565 one. The whole ui was being drawn at 5 bits of red and
+      * blue and 6 of green: every dark ramp - a shadow, a fade, a hover easing
+      * in - stepped through green before it reached grey. Eight bits a channel,
+      * asked for before the application exists, which is when it is read.
+      */
+     QSurfaceFormat format = QSurfaceFormat::defaultFormat();
+     format.setRedBufferSize(8);
+     format.setGreenBufferSize(8);
+     format.setBlueBufferSize(8);
+     format.setAlphaBufferSize(8);
+     QSurfaceFormat::setDefaultFormat(format);
 #endif
 
      return saucer::application::create({.id = "yugen"})->run(start);
