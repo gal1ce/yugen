@@ -40,6 +40,9 @@ FetchContent_Declare(
     GIT_REPOSITORY "https://github.com/saucer/saucer"
     GIT_TAG v8.0.5
     PATCH_COMMAND "${CMAKE_COMMAND}" -DPATCH=${YUGEN_SAUCER_PATCH} -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/apply.cmake"
+    # the Qt page is handed saucer's own on-disk profile, so the ui's storage
+    # survives a restart (the script says which bug it works around)
+    COMMAND "${CMAKE_COMMAND}" -DSAUCER_SOURCE_DIR=<SOURCE_DIR> -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/apply-saucer-page-profile.cmake"
     EXCLUDE_FROM_ALL
 )
 
