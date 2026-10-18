@@ -25,7 +25,7 @@ jobs:
         with:
           version: 6.8.3
           arch: win64_msvc2022_64
-          modules: qtwebengine qtwebchannel
+          modules: qtwebengine qtwebchannel qtpositioning
 
       - name: Configure vcpkg
         shell: pwsh
@@ -34,6 +34,8 @@ jobs:
             throw "The Windows runner does not have vcpkg installed."
           }
           "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" >> $env:GITHUB_ENV
+          & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install --triplet x64-windows --x-manifest-root .
+          if ($LASTEXITCODE -ne 0) { throw "vcpkg install failed with exit code $LASTEXITCODE" }
 
       - name: Build UI
         working-directory: ui
@@ -44,10 +46,9 @@ jobs:
       - name: Build Windows executable
         shell: pwsh
         run: |
+          $prefixPath = "$env:QT_ROOT_DIR;$env:GITHUB_WORKSPACE/vcpkg_installed/x64-windows"
           cmake -S . -B build-windows -G "Visual Studio 17 2022" -A x64 `
-            "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
-            -DVCPKG_TARGET_TRIPLET=x64-windows `
-            "-DCMAKE_PREFIX_PATH=$env:QT_ROOT_DIR" `
+            "-DCMAKE_PREFIX_PATH=$prefixPath" `
             -Dsaucer_backend=Qt
           cmake --build build-windows --config Release --parallel
 
