@@ -171,10 +171,23 @@ export function useGlideScroll() {
             // a sideways shelf has already claimed it, or the wheel is a zoom
             if (event.defaultPrevented || event.ctrlKey) return
             if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
-            if (event.deltaMode === 0 && Math.abs(event.deltaY) < NOTCH) return
 
             const found = scroller(event.target)
             if (!found) return
+
+            /*
+             * While this panel is gliding, every notch over it is the glide's,
+             * whatever its size and wherever it lands. One handed to the engine
+             * mid-glide is scrolled there and then on the compositor - straight
+             * to where the notch ends - and the glide's next frame writes the
+             * panel back to where the spring has got to. For one frame the page
+             * stood somewhere else and jumped back: the ghost of the page a
+             * little above or below itself, most often when the wheel is pushed
+             * on at the bottom while the spring is still settling there.
+             */
+            const gliding = frame !== 0 && box === found
+
+            if (event.deltaMode === 0 && Math.abs(event.deltaY) < NOTCH && !gliding) return
 
             // whatever the platform counts in, in pixels
             const push =
@@ -204,8 +217,12 @@ export function useGlideScroll() {
             const next = Math.min(Math.max(from + push, 0), found.scrollHeight - found.clientHeight)
 
             // at either end of its travel the wheel is handed back rather than
-            // swallowed, so the gesture still belongs to whatever is behind it
-            if (next === from) return
+            // swallowed, so the gesture still belongs to whatever is behind it -
+            // but not while the glide is still on its way there (see above)
+            if (next === from) {
+                if (gliding) event.preventDefault()
+                return
+            }
 
             event.preventDefault()
             target = next
