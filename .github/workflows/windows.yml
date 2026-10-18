@@ -61,7 +61,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path $stage, $tools | Out-Null
           cmake --install build-windows --config Release --prefix $stage
 
-          $vcpkgBin = Join-Path $env:VCPKG_ROOT "installed/x64-windows/bin"
+          $vcpkgBin = Join-Path $env:GITHUB_WORKSPACE "vcpkg_installed/x64-windows/bin"
           Get-ChildItem $vcpkgBin -Filter *.dll | Copy-Item -Destination (Join-Path $stage "bin")
 
           $exe = Join-Path $stage "bin/yugen.exe"
