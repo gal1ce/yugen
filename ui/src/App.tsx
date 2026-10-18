@@ -12,7 +12,9 @@ import { sync_keybinds } from './state/keys'
 import { fetch_songs, library, load_favorites, sync_liked, sync_playlists, sync_profile, sync_view_covers } from './state/library'
 import { mpris_command, player, restore, start_player } from './state/player'
 import { cover_input_ref, pick_image, track_cover_target } from './state/images'
-import { saved_playback, ui } from './state/ui'
+import { column_css, COLUMNS, saved_playback, ui, type Column } from './state/ui'
+import { save_pref } from './lib/prefs'
+import { cn } from './lib/cn'
 import { TipLayer } from './components/ui/Tip'
 import { ContextMenu } from './components/layout/ContextMenu'
 import { Keys } from './components/layout/Keys'
@@ -146,6 +148,80 @@ function useStartup() {
     }, [])
 }
 
+/*
+ * The handle in the gutter beside a side column: drag to size it, double-click
+ * to put it back. The drag works in pixels and is held to the column's rem
+ * bounds, then kept as a share of the frame - so pulling past a bound and back
+ * moves the column again at once, rather than after a stretch of nothing.
+ */
+function Resizer({ column }: { column: Column }) {
+    const key = column === 'sidebar' ? 'sidebar_w' : 'panel_w'
+    const drag = useRef<{ from: number; width: number; frame: number; rem: number } | null>(null)
+
+    const share_for = (px: number) => {
+        const d = drag.current!
+        const [min, max] = COLUMNS[column].rem
+        const held = Math.min(Math.max(px, min * d.rem), max * d.rem)
+
+        return (held / d.frame) * 100
+    }
+
+    return (
+        <div
+            role='separator'
+            aria-orientation='vertical'
+            aria-label={column === 'sidebar' ? 'Resize the sidebar' : 'Resize the panel'}
+            className={cn('group absolute inset-y-0 z-20 w-3 cursor-col-resize touch-none', column === 'sidebar' ? '-right-3' : '-left-3')}
+            onPointerDown={(e) => {
+                const box = e.currentTarget.parentElement
+                const grid = box?.parentElement
+                if (!box || !grid || e.button !== 0) return
+
+                e.preventDefault()
+                e.currentTarget.setPointerCapture(e.pointerId)
+                e.currentTarget.dataset.active = ''
+                // the grid follows the pointer, not its own easing
+                grid.dataset.resizing = ''
+
+                const style = getComputedStyle(grid)
+                drag.current = {
+                    from: e.clientX,
+                    width: box.getBoundingClientRect().width,
+                    frame: grid.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+                    rem: parseFloat(getComputedStyle(document.documentElement).fontSize),
+                }
+            }}
+            onPointerMove={(e) => {
+                const d = drag.current
+                if (!d) return
+
+                // the panel grows leftwards, so its delta is turned round
+                const delta = e.clientX - d.from
+                ui.set({ [key]: share_for(d.width + (column === 'sidebar' ? delta : -delta)) })
+            }}
+            onPointerUp={(e) => {
+                if (!drag.current) return
+
+                drag.current = null
+                delete e.currentTarget.dataset.active
+                delete e.currentTarget.parentElement?.parentElement?.dataset.resizing
+                save_pref(COLUMNS[column].key, ui.get()[key])
+            }}
+            onPointerCancel={(e) => {
+                drag.current = null
+                delete e.currentTarget.dataset.active
+                delete e.currentTarget.parentElement?.parentElement?.dataset.resizing
+            }}
+            onDoubleClick={() => {
+                ui.set({ [key]: COLUMNS[column].share })
+                save_pref(COLUMNS[column].key, COLUMNS[column].share)
+            }}
+        >
+            <span className='absolute inset-y-10 left-1/2 w-0.5 -translate-x-1/2 scale-y-40 rounded-full bg-muted opacity-0 transition-[opacity,scale] duration-300 ease-soft group-hover:scale-y-100 group-hover:opacity-60 group-data-[active]:scale-y-100 group-data-[active]:opacity-80' />
+        </div>
+    )
+}
+
 // below this the panel has nowhere to go, and it waits until there is room
 const NARROW = '(max-width: 1180px)'
 
@@ -245,6 +321,8 @@ function Overlays() {
 export default function App() {
     const sidebar_hidden = useStore(ui, (s) => s.sidebar_hidden)
     const panel_hidden = useStore(ui, (s) => s.panel_hidden)
+    const sidebar_w = useStore(ui, (s) => s.sidebar_w)
+    const panel_w = useStore(ui, (s) => s.panel_w)
     const narrow = useNarrow()
     const panel_open = !panel_hidden && !narrow
 
@@ -264,18 +342,22 @@ export default function App() {
             <TopBar />
 
             <div
-                className='relative grid min-h-0 flex-1 gap-3 px-3 pb-3 transition-[grid-template-columns] duration-500 ease-soft'
+                className='relative grid min-h-0 flex-1 gap-3 px-3 pb-3 transition-[grid-template-columns] duration-500 ease-soft data-[resizing]:transition-none'
                 style={{
-                    gridTemplateColumns: [
-                        sidebar_hidden ? '0rem' : 'clamp(14rem, 16vw, 17rem)',
-                        'minmax(0, 1fr)',
-                        panel_open ? 'clamp(17rem, 21vw, 22rem)' : '0rem',
-                    ].join(' '),
+                    gridTemplateColumns: [sidebar_hidden ? '0rem' : column_css('sidebar', sidebar_w), 'minmax(0, 1fr)', panel_open ? column_css('panel', panel_w) : '0rem'].join(' '),
                 }}
             >
-                <Sidebar />
+                {/* each side column in a cell of its own, so its handle can stand
+                    in the gutter beside it; the panel inside fills it as before */}
+                <div className='relative grid min-h-0 min-w-0'>
+                    <Sidebar />
+                    {!sidebar_hidden && <Resizer column='sidebar' />}
+                </div>
                 <Page />
-                <NowPanel open={panel_open} />
+                <div className='relative grid min-h-0 min-w-0'>
+                    <NowPanel open={panel_open} />
+                    {panel_open && <Resizer column='panel' />}
+                </div>
 
             </div>
 
