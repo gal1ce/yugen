@@ -102,12 +102,13 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 target_compile_definitions(yugen PRIVATE $<$<CONFIG:Debug>:DEBUG>)
 
 # main() only steers WebKitGTK around nvidia's wayland fault when it is the engine.
-# on Qt it asks the screen its refresh rate instead, which wants QtGui directly
+# on Qt it asks the screen its refresh rate instead, which wants QtGui directly,
+# and keeps to one instance through a local socket, which wants QtNetwork
 if(saucer_backend STREQUAL "WebKitGtk")
     target_compile_definitions(yugen PRIVATE YUGEN_WEBKITGTK)
 elseif(saucer_backend STREQUAL "Qt")
-    find_package(Qt6 REQUIRED COMPONENTS Gui)
-    target_link_libraries(yugen PRIVATE Qt6::Gui)
+    find_package(Qt6 REQUIRED COMPONENTS Gui Network)
+    target_link_libraries(yugen PRIVATE Qt6::Gui Qt6::Network)
 endif()
 target_compile_options(${PROJECT_NAME} PRIVATE
     -Wall
