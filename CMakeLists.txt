@@ -75,8 +75,6 @@ FetchContent_Declare(
     # on both platforms the Qt page is handed saucer's own on-disk profile, so
     # the ui's storage survives a restart (the script says which bug it works around)
     COMMAND "${CMAKE_COMMAND}" -DSAUCER_SOURCE_DIR=<SOURCE_DIR> -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/apply-saucer-page-profile.cmake"
-    # and its one line that needs a C++26 standard library spelled out for GCC 14
-    COMMAND "${CMAKE_COMMAND}" -DSAUCER_SOURCE_DIR=<SOURCE_DIR> -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/apply-saucer-gcc14.cmake"
     EXCLUDE_FROM_ALL
 )
 
