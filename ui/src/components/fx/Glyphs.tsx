@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import { useDark } from '../../hooks/dark'
 import { spectrum, step_audio } from '../../lib/audio'
 import { workers_draw } from '../../lib/engine'
 import { add_painter, fx, reduced } from '../../lib/fx'
 import { useStore } from '../../lib/store'
-import { ui } from '../../state/ui'
 import { create_field, type Field, type FieldMessage, type FieldOptions } from './field'
 
 /*
@@ -81,9 +81,8 @@ function host_for(canvas: HTMLCanvasElement, options: FieldOptions, width: numbe
     return host
 }
 
-function colours(theme: string, strength: number) {
+function colours(dark: boolean, strength: number) {
     const styles = getComputedStyle(document.documentElement)
-    const dark = theme === 'dark' || (theme === 'system' && !window.matchMedia('(prefers-color-scheme: light)').matches)
 
     return {
         base: styles.getPropertyValue('--muted').trim() || '#888',
@@ -105,7 +104,8 @@ export function Glyphs(props: { className?: string; strength?: number; fade?: bo
 function Field({ className, strength = 1, fade = false, on_broken }: { className?: string; strength?: number; fade?: boolean; on_broken: () => void }) {
     const ref = useRef<HTMLCanvasElement>(null)
     const host = useRef<Host | null>(null)
-    const theme = useStore(ui, (s) => s.theme)
+    // follows the desktop too when the theme is 'system'
+    const dark = useDark()
     const motion = useStore(fx, (s) => s.motion)
     const still = motion !== 'full' || reduced()
 
@@ -117,7 +117,7 @@ function Field({ className, strength = 1, fade = false, on_broken }: { className
         const box = canvas.getBoundingClientRect()
         const dpr = Math.min(window.devicePixelRatio || 1, 2)
 
-        host.current = host_for(canvas, { dpr, fade, ...colours(ui.get().theme, strength) }, box.width, box.height, on_broken)
+        host.current = host_for(canvas, { dpr, fade, ...colours(dark, strength) }, box.width, box.height, on_broken)
 
         const sized = new ResizeObserver(() => {
             const next = canvas.getBoundingClientRect()
@@ -134,9 +134,9 @@ function Field({ className, strength = 1, fade = false, on_broken }: { className
     // the theme changed the page
     useEffect(() => {
         // a beat after the theme: the stylesheet's colours are read once they have changed
-        const timer = setTimeout(() => host.current?.post({ kind: 'recolour', ...colours(theme, strength) }), 160)
+        const timer = setTimeout(() => host.current?.post({ kind: 'recolour', ...colours(dark, strength) }), 160)
         return () => clearTimeout(timer)
-    }, [theme, strength])
+    }, [dark, strength])
 
     // the clock
     useEffect(() => {
