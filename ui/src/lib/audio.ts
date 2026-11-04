@@ -31,6 +31,9 @@ export const spectrum = {
 }
 
 let available: boolean | null = null
+// the backend does the fft itself (get_spectrum): 64 numbers a poll rather
+// than 2048 samples - most of what drawing the sound used to cost
+let banded = false
 let rate = 48000
 let asking = false
 let last_ask = 0
@@ -55,7 +58,8 @@ function available_now() {
     if (available !== null) return available
 
     try {
-        available = typeof bridge().get_audio_frames === 'function'
+        banded = typeof bridge().get_spectrum === 'function'
+        available = banded || typeof bridge().get_audio_frames === 'function'
     } catch {
         available = false
     }
@@ -116,6 +120,25 @@ function fft() {
     }
 }
 
+/*
+ * Bins to bands, and bands to how tall they stand.
+ *
+ * Two things decide whether this reads as the music. First the tilt: the
+ * bands are spaced in octaves and each is the mean of its bins, so music,
+ * whose energy falls about 3 dB an octave, would have its highs lie flat on
+ * the floor; adding those 3 dB an octave back levels them, the way a spectrum
+ * analyser is set up for pink noise. Second the scale: one gain for every
+ * band, following the loudest band of the moment - up at once, back down over
+ * a few seconds - with a 30 dB window under it. A kick lifts the low end
+ * against the rest, a quiet passage sinks the whole shape, and the bands keep
+ * their size relative to one another. (Each band scaled on its own, which an
+ * earlier version did, turned their noise into motion and looked random.)
+ */
+const OCTAVES = Math.log2(HIGH / LOW)
+const SPAN = 30
+let peak = -30
+let analysed = 0
+
 function analyse(frames: number[]) {
     const offset = Math.max(0, frames.length - SIZE)
 
@@ -126,6 +149,8 @@ function analyse(frames: number[]) {
 
     fft()
 
+    let top = -120
+
     for (let band = 0; band < BANDS; band++) {
         let sum = 0
         const from = bins[band]
@@ -134,24 +159,50 @@ function analyse(frames: number[]) {
         for (let bin = from; bin < to; bin++) sum += Math.hypot(re[bin], im[bin])
 
         const magnitude = (sum / (to - from)) * (4 / SIZE)
-        // -66 dB is silence, 0 dB is a full-scale tone; the highs are lifted a
-        // little, since music carries far less energy up there than it sounds
-        const db = 20 * Math.log10(magnitude + 1e-9) + (band / BANDS) * 9
-        target[band] = Math.min(1, Math.max(0, (db + 66) / 60))
+        const db = 20 * Math.log10(magnitude + 1e-9) + 3 * (band / BANDS) * OCTAVES
+
+        target[band] = db
+        if (db > top) top = db
+    }
+
+    scale(top)
+}
+
+// the backend's own bands (get_spectrum), already in dB with the same tilt
+function take(db: number[]) {
+    let top = -120
+
+    for (let band = 0; band < BANDS; band++) {
+        target[band] = db[band] ?? -120
+        if (target[band] > top) top = target[band]
+    }
+
+    scale(top)
+}
+
+function scale(top: number) {
+    const at = performance.now()
+    const dt = analysed ? Math.min((at - analysed) / 1000, 0.25) : 0.03
+    analysed = at
+
+    peak = top > peak ? top : peak + (top - peak) * (1 - Math.exp(-dt / 3))
+
+    for (let band = 0; band < BANDS; band++) {
+        target[band] = Math.min(1, Math.max(0, (target[band] - (peak - SPAN)) / SPAN)) ** 1.4
     }
 
     spectrum.live = true
 }
 
-// cava's gravity: up at once, down slowly
+// cava's gravity: up at once, down over about a tenth of a second
 function settle(dt: number) {
-    const fall = Math.exp(-dt * 7)
+    const fall = Math.exp(-dt * 9)
     let level = 0
     let bass = 0
 
     for (let band = 0; band < BANDS; band++) {
         const now = spectrum.bands[band]
-        const next = target[band] > now ? now + (target[band] - now) * 0.65 : now * fall + target[band] * (1 - fall)
+        const next = target[band] > now ? target[band] : now * fall + target[band] * (1 - fall)
 
         spectrum.bands[band] = next
         level += next
@@ -196,9 +247,9 @@ export function step_audio(now: number, dt: number) {
             asking = true
             last_ask = now
 
-            bridge()
-                .get_audio_frames!(SIZE)
-                .then(analyse)
+            const ask = banded ? bridge().get_spectrum!(BANDS).then(take) : bridge().get_audio_frames!(SIZE).then(analyse)
+
+            ask
                 .catch(() => {
                     available = false
                     spectrum.live = false

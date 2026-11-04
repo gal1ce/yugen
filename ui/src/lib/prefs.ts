@@ -6,8 +6,34 @@
  */
 const LAYOUT_KEY = 'yugen.layout'
 
-export const THEMES = ['system', 'light', 'dark'] as const
+/*
+ * Five palettes, each a full set of tokens (index.css, [data-theme]). System
+ * is not a palette of its own: it is Lamplight while the desktop is dark and
+ * Paper while it is light.
+ */
+export const THEMES = ['system', 'lamplight', 'ink', 'paper', 'gruvbox', 'midnight'] as const
 export type Theme = (typeof THEMES)[number]
+export type Palette = Exclude<Theme, 'system'>
+
+export const PALETTES: { id: Palette; label: string; dark: boolean; note: string; swatch: [string, string, string] }[] = [
+    { id: 'lamplight', label: 'Lamplight', dark: true, note: 'Warm graphite, a lamp in a dark room', swatch: ['#100f0e', '#1e1d1b', '#e5654a'] },
+    { id: 'ink', label: 'Ink', dark: true, note: 'Black and grey, nothing else', swatch: ['#0b0b0b', '#1c1c1c', '#e9e9e9'] },
+    { id: 'paper', label: 'Paper', dark: false, note: 'Grey on white, like a printed sleeve', swatch: ['#f6f6f5', '#ffffff', '#151515'] },
+    { id: 'gruvbox', label: 'Gruvbox', dark: true, note: 'The warm retro terminal palette', swatch: ['#1d2021', '#32302f', '#fe8019'] },
+    { id: 'midnight', label: 'Midnight', dark: true, note: 'Deep blue, for the small hours', swatch: ['#0a0e1a', '#161c2e', '#7aa2f7'] },
+]
+
+// the palette a theme setting stands for right now
+export const palette_of = (theme: Theme, system_dark: boolean): Palette => (theme === 'system' ? (system_dark ? 'lamplight' : 'paper') : theme)
+
+// the old three choices, read as palettes
+const THEME_RENAMES: Record<string, Theme> = { light: 'paper', dark: 'lamplight' }
+
+export const stored_theme = (): Theme => {
+    const raw = saved().theme
+    const value = typeof raw === 'string' ? (THEME_RENAMES[raw] ?? raw) : raw
+    return THEMES.includes(value as Theme) ? (value as Theme) : 'system'
+}
 
 export const VIEWS = ['library', 'songs', 'liked', 'albums', 'artists', 'playlist'] as const
 export type View = (typeof VIEWS)[number]
@@ -82,7 +108,174 @@ export const SUGGESTION_VIEWS: { id: SuggestionView; label: string }[] = [
     { id: 'artist', label: 'By artist' },
 ]
 
-export const AURA_RANGE = [0, 100] as const
+/*
+ * How the window looks and moves, for whoever is sitting at it. Each of these
+ * is a setting in Settings > Appearance, applied the moment it changes.
+ */
+
+// the accent when there is no cover to take one from, or the cover is not
+// asked to: the dark-theme shade, then the light one. shu first, the seal red
+export type Swatch = 'theme' | 'shu' | 'ochre' | 'moss' | 'indigo' | 'plum'
+
+// 'theme' is each palette's own accent (index.css); the rest replace it
+export const SWATCHES: { id: Exclude<Swatch, 'theme'>; label: string; dark: string; light: string }[] = [
+    { id: 'shu', label: 'Shu', dark: '#e5654a', light: '#b8432c' },
+    { id: 'ochre', label: 'Ochre', dark: '#d9a54a', light: '#8a6216' },
+    { id: 'moss', label: 'Moss', dark: '#93b26a', light: '#4f6b2c' },
+    { id: 'indigo', label: 'Indigo', dark: '#8ea2e8', light: '#3f51a8' },
+    { id: 'plum', label: 'Plum', dark: '#c98bb9', light: '#87406f' },
+]
+
+export type Scale = 'small' | 'medium' | 'large'
+
+export const SCALES: { id: Scale; label: string; factor: number }[] = [
+    { id: 'small', label: 'Small', factor: 0.92 },
+    { id: 'medium', label: 'Medium', factor: 1 },
+    { id: 'large', label: 'Large', factor: 1.1 },
+]
+
+export type Density = 'comfortable' | 'compact'
+
+export const DENSITIES: { id: Density; label: string }[] = [
+    { id: 'comfortable', label: 'Comfortable' },
+    { id: 'compact', label: 'Compact' },
+]
+
+// where the nebula is drawn behind the pages
+export type Backdrop = 'off' | 'home' | 'everywhere'
+
+export const BACKDROPS: { id: Backdrop; label: string }[] = [
+    { id: 'off', label: 'Off' },
+    { id: 'home', label: 'Home' },
+    { id: 'everywhere', label: 'Everywhere' },
+]
+
+// the nebula took the character field's place, and its choice of where with
+// it: whoever had the field off has the nebula off
+export function stored_backdrop(): Backdrop {
+    const value = saved().nebula ?? saved().field
+    return BACKDROPS.some((o) => o.id === value) ? (value as Backdrop) : 'home'
+}
+
+export type LyricsSize = 'small' | 'medium' | 'large'
+
+export const LYRICS_SIZES: { id: LyricsSize; label: string }[] = [
+    { id: 'small', label: 'Small' },
+    { id: 'medium', label: 'Medium' },
+    { id: 'large', label: 'Large' },
+]
+
+// how round the corners are, as a share of the full radius
+export type Corners = 'square' | 'subtle' | 'round'
+
+export const CORNERS: { id: Corners; label: string; factor: number }[] = [
+    { id: 'square', label: 'Square', factor: 0.25 },
+    { id: 'subtle', label: 'Subtle', factor: 0.6 },
+    { id: 'round', label: 'Round', factor: 1 },
+]
+
+/*
+ * Corners, part by part (settings > appearance): each part of the window takes
+ * one of the corner choices, or a pill where a pill makes sense. Each part has
+ * its own sizes, since "round" on a panel and "round" on a small button are
+ * not the same number of pixels. App sets them as --r-<part> on the root; the
+ * panels' choice also sets --corner, which the small things inside a panel -
+ * rows, cards' insides - are scaled by.
+ */
+export type Radius = Corners | 'pill'
+export type Region = 'panels' | 'buttons' | 'controls' | 'search' | 'menus' | 'covers'
+
+export const RADII: { id: Radius; label: string }[] = [...CORNERS.map(({ id, label }) => ({ id, label })), { id: 'pill', label: 'Pill' }]
+
+export const REGIONS: { id: Region; label: string; hint: string; css: string; rem: Record<Corners, number>; pill: boolean }[] = [
+    { id: 'panels', label: 'Panels', hint: 'The sidebar, the page, the side column, the player', css: '--r-panel', rem: { square: 0.375, subtle: 0.875, round: 1.5 }, pill: false },
+    { id: 'buttons', label: 'Buttons', hint: 'Play, shuffle, lyrics and every icon button', css: '--r-button', rem: { square: 0.25, subtle: 0.625, round: 1 }, pill: true },
+    { id: 'controls', label: 'Controls', hint: 'Tabs, filters, the rows of the sidebar', css: '--r-control', rem: { square: 0.25, subtle: 0.5, round: 0.75 }, pill: true },
+    { id: 'search', label: 'Search bar', hint: 'The field at the top of the page', css: '--r-search', rem: { square: 0.375, subtle: 0.75, round: 1.125 }, pill: true },
+    { id: 'menus', label: 'Menus and dialogs', hint: 'Right-click menus, search results, popups', css: '--r-menu', rem: { square: 0.375, subtle: 0.75, round: 1.125 }, pill: false },
+    { id: 'covers', label: 'Covers', hint: 'Album art everywhere', css: '--r-cover', rem: { square: 0.125, subtle: 0.375, round: 0.75 }, pill: false },
+]
+
+export const radius_css = (region: (typeof REGIONS)[number], radius: Radius) =>
+    radius === 'pill' ? '9999px' : `${region.rem[radius]}rem`
+
+// before parts could differ there was one choice for everything, and buttons,
+// controls and the search bar were always pills: that is what an old setting reads as
+export function stored_radii(): Record<Region, Radius> {
+    const raw = saved().radii as Partial<Record<Region, Radius>> | undefined
+    const old = CORNERS.some((o) => o.id === saved().corners) ? (saved().corners as Corners) : 'subtle'
+    const ids = RADII.map((o) => o.id)
+
+    return Object.fromEntries(
+        REGIONS.map((region) => {
+            const value = raw?.[region.id]
+            const fallback: Radius = region.pill ? 'pill' : old
+            return [region.id, value && ids.includes(value) && (region.pill || value !== 'pill') ? value : fallback]
+        }),
+    ) as Record<Region, Radius>
+}
+
+// how much of the cover's light reaches the room behind the panels
+export const LIGHT_RANGE = [0, 100] as const
+
+// liquid glass: the panels turn to frosted glass over the cover of what is
+// playing, and what floats over the page bends the light at its edges
+export type Glass = 'off' | 'on'
+
+// how the wheel settles: gentle trails a little, quick stops sooner
+export type Feel = 'gentle' | 'quick'
+
+export const FEELS: { id: Feel; label: string }[] = [
+    { id: 'gentle', label: 'Gentle' },
+    { id: 'quick', label: 'Quick' },
+]
+
+// what the wheel does (lib/smooth): a spring, a browser's short ease, or the raw engine
+export type Scrolling = 'glide' | 'standard' | 'instant'
+
+export const SCROLLINGS: { id: Scrolling; label: string; hint: string }[] = [
+    { id: 'glide', label: 'Glide', hint: 'The wheel glides on a spring and settles' },
+    { id: 'standard', label: 'Standard', hint: 'A short ease per notch, the way a browser scrolls' },
+    // the id is older than the name: with chromium's own scroll animation on
+    // (main.cpp), what the engine does unaided is no longer a jump
+    { id: 'instant', label: 'Native', hint: 'The engine scrolls on its own, with chromium\'s short ease' },
+]
+
+/*
+ * How fast the interface moves: every transition and spring is scaled by it
+ * (App, useAppearance; lib/motion). Off is no transitions at all - what moves
+ * on its own, the light and the wave, is Motion's business.
+ */
+export type Pace = 'off' | 'slow' | 'normal' | 'fast'
+
+export const PACES: { id: Pace; label: string; factor: number }[] = [
+    { id: 'off', label: 'Off', factor: 0 },
+    { id: 'slow', label: 'Slow', factor: 1.6 },
+    { id: 'normal', label: 'Normal', factor: 1 },
+    { id: 'fast', label: 'Fast', factor: 0.55 },
+]
+
+// a search asks both sources at once and shows each as it answers, or one tab at a time
+export type SearchMode = 'parallel' | 'tabs'
+
+export const SEARCH_MODES: { id: SearchMode; label: string }[] = [
+    { id: 'parallel', label: 'Both at once' },
+    { id: 'tabs', label: 'One at a time' },
+]
+
+// where last.fm's suggestions are offered
+export type Place = 'home' | 'playlists' | 'liked' | 'songs' | 'groups' | 'queue'
+
+export const PLACES: { id: Place; label: string; hint: string }[] = [
+    { id: 'home', label: 'Home', hint: 'A shelf of tracks you do not have yet' },
+    { id: 'playlists', label: 'Playlists', hint: 'More like this, under each playlist' },
+    { id: 'liked', label: 'Liked songs', hint: 'More like what you liked' },
+    { id: 'songs', label: 'All songs', hint: 'Under the full song list' },
+    { id: 'groups', label: 'Albums and artists', hint: 'Under an album or an artist' },
+    { id: 'queue', label: 'Queue', hint: 'A few suggestions under up next' },
+]
+
+export const DEFAULT_PLACES: Place[] = ['home', 'playlists', 'liked']
 
 function saved(): Record<string, unknown> {
     try {
@@ -108,16 +301,26 @@ export function stored_number(key: string, fallback: number, [min, max]: readonl
     return typeof value === 'number' && Number.isFinite(value) ? Math.min(Math.max(value, min), max) : fallback
 }
 
-export function stored_list<T extends string>(key: string, allowed?: readonly T[]): T[] {
+// the old switch, read as the new choice: smooth off now means a browser's ease
+export function stored_scrolling(): Scrolling {
+    const value = saved().scrolling
+    if (SCROLLINGS.some((o) => o.id === value)) return value as Scrolling
+
+    return saved().smooth === false ? 'standard' : 'glide'
+}
+
+export function stored_list<T extends string>(key: string, allowed?: readonly T[], fallback: T[] = []): T[] {
     const value = saved()[key]
-    if (!Array.isArray(value)) return []
+    if (!Array.isArray(value)) return fallback
 
     return value.filter(
         (item): item is T => typeof item === 'string' && (!allowed || allowed.includes(item as T)),
     )
 }
 
-export function save_pref(key: string, value: string | string[] | boolean | number) {
+export type PrefValue = string | string[] | boolean | number | Record<string, string>
+
+export function save_pref(key: string, value: PrefValue) {
     try {
         localStorage.setItem(LAYOUT_KEY, JSON.stringify({ ...saved(), [key]: value }))
     } catch {

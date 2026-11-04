@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <cmath>
+#include <complex>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -42,6 +44,9 @@
 #include <QStandardPaths>
 #include <QSurfaceFormat>
 #include <QThread>
+#include <QWebEngineSettings>
+#include <QWebEngineView>
+#include <saucer/modules/stable/qt.hpp>
 #endif
 
 // project
@@ -199,6 +204,89 @@ namespace
           return out;
      }
 
+     /*
+      * The tap, already heard the way the wave wants it.
+      *
+      * get_audio_frames hands 2048 floats to the page every 30 ms, and the
+      * page does the fft - but 2048 floats as json, thirty times a second, is
+      * most of what drawing the sound costs (measured, about a sixth of a core
+      * of the whole app). This does the same work here and answers with one
+      * number per band: a Hann-windowed fft of the newest 2048 frames, the
+      * bins gathered into bands spaced in equal steps of log frequency from
+      * 40 Hz to 14 kHz, each band the mean magnitude of its bins in dB, with
+      * 3 dB an octave added back so music, which falls about that much an
+      * octave, does not leave the highs lying flat. How tall a band stands
+      * is the page's business (ui/src/lib/audio.ts).
+      */
+     std::vector<float> tap_spectrum(std::size_t bands, float gain, float sample_rate)
+     {
+          constexpr std::size_t size = 2048;
+          constexpr float low = 40.0f;
+          constexpr float high = 14000.0f;
+          constexpr float pi = 3.14159265358979f;
+
+          static const std::array<float, size> window = [] {
+               std::array<float, size> w{};
+               for(std::size_t i = 0; i < size; i++) w[i] = 0.5f - 0.5f * std::cos(2.0f * pi * static_cast<float>(i) / (size - 1));
+               return w;
+          }();
+
+          const std::vector<float> frames = tap_read(size, gain);
+          std::vector<std::complex<float>> data(size);
+
+          // the newest frames at the end; a short tap is padded at the start
+          const std::size_t pad = size - frames.size();
+          for(std::size_t i = 0; i < frames.size(); i++) data[pad + i] = frames[i] * window[pad + i];
+
+          // iterative radix-2
+          for(std::size_t i = 1, j = 0; i < size; i++)
+          {
+               std::size_t bit = size >> 1;
+               for(; j & bit; bit >>= 1) j ^= bit;
+               j ^= bit;
+               if(i < j) std::swap(data[i], data[j]);
+          }
+
+          for(std::size_t len = 2; len <= size; len <<= 1)
+          {
+               const std::complex<float> step = std::polar(1.0f, -2.0f * pi / static_cast<float>(len));
+               for(std::size_t i = 0; i < size; i += len)
+               {
+                    std::complex<float> turn{1.0f, 0.0f};
+                    for(std::size_t k = 0; k < len / 2; k++)
+                    {
+                         const std::complex<float> odd = data[i + k + len / 2] * turn;
+                         data[i + k + len / 2] = data[i + k] - odd;
+                         data[i + k] += odd;
+                         turn *= step;
+                    }
+               }
+          }
+
+          bands = std::clamp<std::size_t>(bands, 1, 256);
+          const float octaves = std::log2(high / low);
+          const auto edge = [&](std::size_t i) {
+               const float hz = low * std::pow(high / low, static_cast<float>(i) / static_cast<float>(bands));
+               const auto bin = static_cast<std::size_t>(std::lround(hz / sample_rate * size));
+               return std::clamp<std::size_t>(bin, 1, size / 2 - 1);
+          };
+
+          std::vector<float> out(bands);
+          for(std::size_t band = 0; band < bands; band++)
+          {
+               const std::size_t from = edge(band);
+               const std::size_t to = std::max(from + 1, edge(band + 1));
+
+               float sum = 0.0f;
+               for(std::size_t bin = from; bin < to; bin++) sum += std::abs(data[bin]);
+
+               const float magnitude = sum / static_cast<float>(to - from) * (4.0f / size);
+               out[band] = 20.0f * std::log10(magnitude + 1e-9f) + 3.0f * (static_cast<float>(band) / static_cast<float>(bands)) * octaves;
+          }
+
+          return out;
+     }
+
 #if !defined(YUGEN_WEBKITGTK)
      /*
       * One yugen at a time
@@ -333,6 +421,17 @@ coco::stray start(saucer::application* app)
      // the webkit menu can't be edited, so it is turned off and drawn in the ui instead
      webview->set_context_menu(false);
 
+#if !defined(YUGEN_WEBKITGTK)
+     /*
+      * Chromium animates a wheel notch the way a browser does - a short ease
+      * rather than a jump - but QtWebEngine ships with that animation off
+      * (QWebEngineSettings::ScrollAnimatorEnabled), so anything the ui leaves
+      * to the engine stepped a whole notch at once. The ui eases the panels it
+      * knows about itself (ui/src/lib/smooth.ts); this covers everything else.
+      */
+     webview->native().webview->page()->settings()->setAttribute(QWebEngineSettings::ScrollAnimatorEnabled, true);
+#endif
+
      yugen::start_discord(APPLICATION_ID);
 
      /*
@@ -428,6 +527,13 @@ coco::stray start(saucer::application* app)
      webview->expose("get_audio_frames", [](int count) -> std::vector<float> {
           const float volume = std::max(sm::load_volume(), 0.05f);
           return tap_read(static_cast<std::size_t>(std::max(count, 0)), 1.0f / volume);
+     });
+
+     // the same, as bands in dB: see tap_spectrum
+     webview->expose("get_spectrum", [&engine](int bands) -> std::vector<float> {
+          const float volume = std::max(sm::load_volume(), 0.05f);
+          const auto rate = static_cast<float>(ma_engine_get_sample_rate(&engine));
+          return tap_spectrum(static_cast<std::size_t>(std::max(bands, 1)), 1.0f / volume, rate > 0 ? rate : 48000.0f);
      });
 
      webview->expose("get_sample_rate", [&engine]() -> float {

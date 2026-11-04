@@ -10,7 +10,7 @@ import { Button } from '../ui/Button'
 import { Cover } from '../ui/Cover'
 import { Dialog, DialogActions } from '../ui/Dialog'
 
-const field = 'h-10 w-full rounded-xl border border-line bg-surface-2 px-3.5 text-[0.82rem] text-fg outline-none transition-colors placeholder:text-muted focus:border-accent/40 focus:bg-surface-3'
+const field = 'h-10 w-full rounded-lg bg-surface-2 px-3 text-[0.875rem] text-fg outline-none shadow-[inset_0_0_0_1px_var(--line)] transition-[background-color,box-shadow] placeholder:text-muted focus:bg-surface-3 focus:shadow-[inset_0_0_0_1px_var(--line-strong)]'
 
 // the picture is the way to change it: it comes up under the pointer rather
 // than standing beside it as a second control. the file input is what the
@@ -18,8 +18,8 @@ const field = 'h-10 w-full rounded-xl border border-line bg-surface-2 px-3.5 tex
 function PicturePick({ data, round, on_pick, busy }: { data?: string; round?: boolean; on_pick: (e: React.ChangeEvent<HTMLInputElement>) => void; busy: boolean }) {
     return (
         <label className='group relative shrink-0 cursor-pointer'>
-            <Cover data={data} size='md' round={round} icon={32} className={round ? 'size-24' : 'size-28 rounded-2xl'} />
-            <span className={`absolute inset-0 grid place-items-center bg-black/55 text-white opacity-0 transition-opacity group-hover:opacity-100 ${round ? 'rounded-full' : 'rounded-2xl'}`}>
+            <Cover data={data} size='md' round={round} icon={32} className={round ? 'size-24' : 'size-28 rounded-md'} />
+            <span className={`absolute inset-0 grid place-items-center bg-black/55 text-white opacity-0 transition-opacity group-hover:opacity-100 ${round ? 'rounded-full' : 'rounded-md'}`}>
                 <Camera size={20} />
             </span>
             <input type='file' accept='image/png,image/jpeg' disabled={busy} className='hidden' onChange={on_pick} />
@@ -44,7 +44,7 @@ export function PlaylistDialog({ name }: { name: string }) {
             <div className='flex items-center gap-5'>
                 <PicturePick data={art} busy={busy} on_pick={(e) => void pick_image(e, { kind: 'playlist', name })} />
                 <div className='min-w-0 flex-1'>
-                    <label className='mb-1.5 block text-xs text-muted'>Name</label>
+                    <label className='mb-1.5 block text-[0.8125rem] text-muted'>Name</label>
                     <input
                         autoFocus
                         value={draft}
@@ -53,7 +53,7 @@ export function PlaylistDialog({ name }: { name: string }) {
                         onKeyDown={(e) => e.key === 'Enter' && draft.trim() && void commit()}
                         className={field}
                     />
-                    <p className='mt-2 text-xs text-muted'>{own ? 'This playlist has a cover of its own.' : 'Borrowing the cover of the first track in it.'}</p>
+                    <p className='mt-2 text-[0.8125rem] text-muted'>{own ? 'This playlist has a cover of its own' : 'Using the cover of its first track'}</p>
                 </div>
             </div>
             <DialogActions>
@@ -85,16 +85,16 @@ export function ProfileDialog() {
     }
 
     return (
-        <Dialog title='Edit profile' sub='Kept on this device only, next to your library.' on_close={close}>
+        <Dialog title='Edit profile' sub='Kept on this device, next to your library' on_close={close}>
             <div className='flex gap-5'>
                 <PicturePick data={pic} round busy={busy} on_pick={(e) => void pick_image(e, { kind: 'avatar' })} />
                 <div className='min-w-0 flex-1 space-y-3'>
                     <div>
-                        <label className='mb-1.5 block text-xs text-muted'>Name</label>
+                        <label className='mb-1.5 block text-[0.8125rem] text-muted'>Name</label>
                         <input autoFocus value={name} placeholder='Your name' onChange={(e) => set_name(e.currentTarget.value)} onKeyDown={(e) => e.key === 'Enter' && name.trim() && commit()} className={field} />
                     </div>
                     <div>
-                        <label className='mb-1.5 block text-xs text-muted'>Bio</label>
+                        <label className='mb-1.5 block text-[0.8125rem] text-muted'>Bio</label>
                         <textarea
                             value={bio}
                             placeholder='Add a bio'

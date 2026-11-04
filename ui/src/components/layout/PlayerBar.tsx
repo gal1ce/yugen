@@ -28,6 +28,7 @@ import { IconButton } from '../ui/Button'
 import { Heart, Range } from '../ui/Controls'
 import { Cover } from '../ui/Cover'
 import { tip } from '../../lib/tip'
+import { LightButton } from './Look'
 
 function NowPlaying() {
     const current = useStore(player, (s) => s.current)
@@ -39,7 +40,7 @@ function NowPlaying() {
         return (
             <div className='flex min-w-0 items-center gap-3'>
                 <Cover className='size-12' />
-                <p className='text-xs text-muted'>Nothing playing</p>
+                <p className='text-[0.8125rem] text-muted'>Nothing playing</p>
             </div>
         )
     }
@@ -49,14 +50,14 @@ function NowPlaying() {
             {/* the sleeve opens the words, the lines open the card about the
                 track: two things worth asking, one press each */}
             <button type='button' {...tip('Lyrics')} onClick={() => ui.set({ lyrics_open: true })} className='group relative shrink-0'>
-                <Cover data={cover} size='sm' className='size-12 transition-transform duration-300 ease-spring group-hover:scale-105' />
-                <span className='absolute inset-0 grid place-items-center rounded-lg bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100'>
-                    <Expand size={15} />
+                <Cover data={cover} size='sm' className='size-12 shadow-[0_6px_16px_-8px_rgb(0_0_0/0.6)]' />
+                <span className='absolute inset-0 grid place-items-center rounded-md bg-black/55 text-white opacity-0 transition-opacity group-hover:opacity-100'>
+                    <Expand size={16} />
                 </span>
             </button>
             <button type='button' {...tip('Track info')} onClick={() => ui.set({ info_open: true, info_face: 'about' })} className='min-w-0 text-left'>
-                <p className='truncate text-[0.82rem] font-medium hover:underline'>{title_of(current)}</p>
-                <p className='truncate text-xs text-muted'>{artist_of(current)}</p>
+                <p className='truncate text-[0.875rem] font-medium hover:underline'>{title_of(current)}</p>
+                <p className='truncate text-[0.8125rem] text-fg-2'>{artist_of(current)}</p>
             </button>
             <Heart liked={liked} on_toggle={() => void toggle_like(current)} className='size-8' />
         </div>
@@ -72,14 +73,24 @@ export function Progress() {
     const box = useRef<HTMLDivElement>(null)
     const dragging = useRef(false)
 
-    // written into the dom once a frame while playing, and never a render
+    // the last half pixel the bar was drawn at: a four minute track moves the
+    // bar about half a pixel a second, so most frames have nothing to change -
+    // and a frame with no change asks the compositor for nothing
+    const drawn = useRef(-1)
+
+    // written into the dom only when it moves, and never a render
     useClock((seconds) => {
         const at = Math.min(seconds, length || Infinity)
         const share = length ? (at / length) * 100 : 0
+        const width = box.current?.clientWidth || 1
+        const step = Math.round((share / 100) * width * 2)
 
-        // moved rather than resized: a transform is no layout, a width is one a frame
-        if (fill.current) fill.current.style.transform = `translateX(${share - 100}%)`
-        if (knob.current) knob.current.style.transform = `translateX(${share}%)`
+        if (step !== drawn.current) {
+            drawn.current = step
+            // moved rather than resized: a transform is no layout, a width is one a frame
+            if (fill.current) fill.current.style.transform = `translateX(${share - 100}%)`
+            if (knob.current) knob.current.style.transform = `translateX(${share}%)`
+        }
 
         const shown = format_time(at)
         if (elapsed.current && elapsed.current.textContent !== shown) elapsed.current.textContent = shown
@@ -91,7 +102,7 @@ export function Progress() {
     }
 
     return (
-        <div className='flex w-full items-center gap-2.5 text-[0.7rem] text-muted tabular-nums'>
+        <div className='flex w-full items-center gap-3 font-mono text-[0.6875rem] text-muted tabular-nums'>
             <span ref={elapsed} className='w-9 text-right'>
                 0:00
             </span>
@@ -120,16 +131,16 @@ export function Progress() {
                     hold_seek(null)
                 }}
             >
-                <div className='h-1 w-full overflow-hidden rounded-full bg-surface-3 transition-[height] group-hover:h-1.5 group-[.dragging]:h-1.5'>
+                <div className='h-[3px] w-full overflow-hidden rounded-full bg-surface-3'>
                     {/* parked off to the left by an inline transform, the same property the
                         clock writes. tailwind's translate-* classes are the separate
                         `translate` property, which would stack on top of it */}
-                    <span ref={fill} style={{ transform: 'translateX(-100%)' }} className='block h-full w-full rounded-full bg-fg group-hover:bg-accent group-[.dragging]:bg-accent' />
+                    <span ref={fill} style={{ transform: 'translateX(-100%)' }} className='block h-full w-full rounded-full bg-fg-2 will-change-transform group-hover:bg-accent group-[.dragging]:bg-accent' />
                 </div>
                 {/* the rail is as wide as the track, so a percentage of its own
                     width is a percentage of the track */}
-                <span ref={knob} className='pointer-events-none absolute inset-x-0 flex'>
-                    <span className='size-3 -translate-x-1/2 scale-0 rounded-full bg-fg shadow transition-transform group-hover:scale-100 group-[.dragging]:scale-100' />
+                <span ref={knob} className='pointer-events-none absolute inset-x-0 flex will-change-transform'>
+                    <span className='size-3 -translate-x-1/2 rounded-full bg-fg opacity-0 transition-opacity group-hover:opacity-100 group-[.dragging]:opacity-100' />
                 </span>
             </div>
             <span className='w-9'>{format_time(length)}</span>
@@ -151,13 +162,14 @@ export function Controls() {
     useDismiss(picking, stop_picking)
 
     return (
-        <div className='flex items-center gap-2'>
+        <div className='flex items-center gap-3'>
             {/* a click steps to the next state, a right-click picks one outright -
                 or deals the same one again, the only way to re-roll an order */}
             <div className='relative' onClick={(e) => e.stopPropagation()}>
                 <IconButton
                     size='sm'
                     variant={shuffle !== 'off' ? 'on' : 'plain'}
+                    aria-pressed={shuffle !== 'off'}
                     {...tip(`${shuffle_label} · right-click to pick`)}
                     disabled={!queue.length}
                     onClick={() => void shuffle_into(next_shuffle())}
@@ -169,10 +181,10 @@ export function Controls() {
                     className='relative'
                 >
                     <Shuffle size={16} />
-                    {shuffle === 'all' && <span className='absolute top-0.5 right-0.5 size-1.5 rounded-full bg-accent' />}
+                    {shuffle === 'all' && <span className='absolute bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full bg-accent' />}
                 </IconButton>
                 {picking && (
-                    <MenuPanel className='absolute bottom-full left-1/2 mb-3 w-60 -translate-x-1/2'>
+                    <MenuPanel className='absolute bottom-full left-1/2 mb-2 w-64 -translate-x-1/2'>
                         <MenuLabel>Shuffle</MenuLabel>
                         {SHUFFLES.map((option) => (
                             <MenuItem
@@ -191,21 +203,21 @@ export function Controls() {
                 )}
             </div>
             <IconButton {...tip('Previous')} disabled={!queue.length} onClick={() => skip(-1)}>
-                <SkipBack size={18} className='fill-current' />
+                <SkipBack size={18} />
             </IconButton>
             <button
                 type='button'
                 {...tip(paused ? 'Play' : 'Pause')}
                 disabled={!current}
                 onClick={() => void toggle_pause()}
-                className='grid size-11 place-items-center rounded-full bg-fg text-bg transition-[scale,opacity] hover:scale-105 active:scale-95 disabled:opacity-40'
+                className='grid size-10 place-items-center rounded-full bg-fg text-bg transition-[scale,opacity] active:scale-95 disabled:opacity-40'
             >
-                {paused || !current ? <Play size={19} className='ml-0.5 fill-current' /> : <Pause size={19} className='fill-current' />}
+                {paused || !current ? <Play size={18} className='ml-0.5' /> : <Pause size={18} />}
             </button>
             <IconButton {...tip('Next')} disabled={!queue.length} onClick={() => skip(1)}>
-                <SkipForward size={18} className='fill-current' />
+                <SkipForward size={18} />
             </IconButton>
-            <IconButton size='sm' variant={looped ? 'on' : 'plain'} {...tip(looped ? 'Stop repeating' : 'Repeat this track')} onClick={() => void toggle_loop()}>
+            <IconButton size='sm' variant={looped ? 'on' : 'plain'} aria-pressed={looped} {...tip(looped ? 'Stop repeating' : 'Repeat this track')} onClick={() => void toggle_loop()}>
                 {looped ? <Repeat1 size={16} /> : <Repeat size={16} />}
             </IconButton>
         </div>
@@ -237,7 +249,7 @@ function LyricsButton() {
 
     return (
         <IconButton size='sm' variant={open ? 'on' : 'plain'} disabled={!current} {...tip('Lyrics')} onClick={() => ui.set({ lyrics_open: !open })}>
-            <MicVocal size={17} />
+            <MicVocal size={16} />
         </IconButton>
     )
 }
@@ -253,8 +265,9 @@ function Extras() {
             <LyricsButton />
             <span className='relative'>
                 <PanelButton tab='queue' icon={<ListMusic size={16} />} label='Queue' />
-                {manual && <span className='pointer-events-none absolute top-0 right-0 size-1.5 rounded-full bg-accent' />}
+                {manual && <span className='pointer-events-none absolute bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full bg-accent' />}
             </span>
+            <LightButton />
             <IconButton
                 size='sm'
                 variant={share ? 'on' : 'plain'}
@@ -275,11 +288,21 @@ function Extras() {
     )
 }
 
+// the player along the foot of the window, glass when glass is on
+// the player along the foot of the window: a panel like the others, or with
+// liquid glass on, a slab of clear glass over the room's light
 export function PlayerBar() {
+    const glass = useStore(ui, (s) => s.glass)
+
     return (
-        <footer className='relative grid h-20 shrink-0 grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1fr)] items-center gap-6 border-t border-line bg-surface px-5'>
+        <footer
+            className={cn(
+                'relative grid h-[4.75rem] shrink-0 grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1fr)] items-center gap-6 rounded-(--r-panel) px-4',
+                glass ? 'float thin' : 'panel',
+            )}
+        >
             <NowPlaying />
-            <div className='flex flex-col items-center gap-1.5'>
+            <div className='flex flex-col items-center gap-1'>
                 <Controls />
                 <Progress />
             </div>

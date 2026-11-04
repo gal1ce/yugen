@@ -1,4 +1,6 @@
 import { useEffect, type ReactNode } from 'react'
+import { motion } from 'motion/react'
+import { spring } from '../../lib/motion'
 import { X } from './icons'
 import { cn } from '../../lib/cn'
 import { IconButton } from './Button'
@@ -25,6 +27,7 @@ export function Dialog({
     className?: string
     children: ReactNode
 }) {
+
     useEffect(() => {
         const on_key = (e: KeyboardEvent) => {
             if (e.key === 'Escape' && !busy) {
@@ -43,24 +46,27 @@ export function Dialog({
             onClick={busy ? undefined : on_close}
             onContextMenu={(e) => e.preventDefault()}
         >
-            <div
+            <motion.div
                 role='dialog'
-                className={cn('edge w-full max-w-md animate-pop-in rounded-2xl bg-surface p-6 shadow-soft', className)}
+                initial={{ opacity: 0, scale: 0.94, y: 12 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={spring.smooth}
+                className={cn('float relative w-full max-w-md rounded-(--r-menu) p-6', className)}
                 onClick={(e) => e.stopPropagation()}
             >
                 {title && (
                     <div className='mb-5 flex items-start gap-3'>
                         <div className='min-w-0 flex-1'>
-                            <h3 className='text-base font-semibold'>{title}</h3>
-                            {sub && <p className='mt-0.5 text-xs text-muted'>{sub}</p>}
+                            <h3 className='text-[1rem] font-medium'>{title}</h3>
+                            {sub && <p className='mt-1 text-[0.8125rem] text-muted'>{sub}</p>}
                         </div>
-                        <IconButton size='sm' {...tip('Close')} disabled={busy} onClick={on_close} className='-mt-1 -mr-2'>
+                        <IconButton size='sm' {...tip('Close')} disabled={busy} onClick={on_close} className='-mt-1.5 -mr-2'>
                             <X size={16} />
                         </IconButton>
                     </div>
                 )}
                 {children}
-            </div>
+            </motion.div>
         </div>
     )
 }

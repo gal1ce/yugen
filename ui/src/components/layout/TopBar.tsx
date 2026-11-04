@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Check, Download, LoaderCircle, PanelLeftOpen, PanelRightOpen, Monitor, Moon, Search, Settings, Sun, User, X } from '../ui/icons'
+import { motion } from 'motion/react'
+import { Check, Download, LoaderCircle, PanelLeftClose, PanelLeftOpen, PanelRightOpen, Search, Settings, User, X } from '../ui/icons'
 import { useDismiss } from '../../hooks/dismiss'
 import { cn } from '../../lib/cn'
 import { key_label } from '../../lib/keys'
-import { save_pref } from '../../lib/prefs'
-import { SOURCES, type SearchResult } from '../../lib/search'
+import { SOURCES, type SearchResult, type Source } from '../../lib/search'
 import { useStore } from '../../lib/store'
 import { library } from '../../state/library'
 import { PAGE, artwork, clear_search, download, owns, search, switch_source } from '../../state/search'
@@ -13,23 +13,27 @@ import { Button, IconButton } from '../ui/Button'
 import { Cover } from '../ui/Cover'
 import { Segmented } from '../ui/Controls'
 import { MenuItem, MenuPanel, MenuSep } from '../ui/Menu'
+import { Scroll } from '../ui/Scroll'
+import { QuickLook } from './Look'
+import { GlassBar } from './GlassBar'
+import { spring } from '../../lib/motion'
 import { tip } from '../../lib/tip'
+import { Spin } from '../ui/Spin'
 
-// the mark: one swell of a wave, the shape the sound is drawn in
+// the mark: one swell of a wave, the shape the sound is drawn in, beside the
+// name set in the serif of the liner notes
 export function Brand() {
     return (
-        <button type='button' onClick={() => open_view('library')} className='group flex items-center gap-2 rounded-lg pr-2'>
-            <svg viewBox='0 0 32 32' className='size-7 text-accent transition-transform duration-500 ease-spring group-hover:scale-110' aria-hidden>
-                <rect width='32' height='32' rx='9' fill='currentColor' opacity='0.16' />
-                <path d='M5 17c2.6 0 3.4-7 6-7s3.4 12 6 12 3.4-9 6-9 2.6 4 4 4' fill='none' stroke='currentColor' strokeWidth='2.6' strokeLinecap='round' strokeLinejoin='round' />
+        <button type='button' onClick={() => open_view('library')} className='flex h-9 items-center gap-2 rounded-lg px-2 text-fg'>
+            <svg viewBox='0 0 32 32' className='size-5 text-accent' aria-hidden>
+                <path d='M3 17c2.8 0 3.6-8 6.5-8s3.6 14 6.5 14 3.6-10 6.5-10 2.8 4 6.5 4' fill='none' stroke='currentColor' strokeWidth='2.6' strokeLinecap='round' strokeLinejoin='round' />
             </svg>
-            <span className='font-display text-[1.25rem] font-bold tracking-tight'>yugen</span>
+            <span className='font-serif text-[1.25rem] leading-none font-medium'>yugen</span>
         </button>
     )
 }
 
-function ResultRow({ result }: { result: SearchResult }) {
-    const source = useStore(ui, (s) => s.source)
+function ResultRow({ result, source }: { result: SearchResult; source: Source }) {
     const busy = useStore(ui, (s) => s.downloading.includes(result.ref))
     useStore(library, (s) => s.songs)
     const here = owns(result)
@@ -39,19 +43,49 @@ function ResultRow({ result }: { result: SearchResult }) {
         <button
             type='button'
             aria-disabled={busy || here}
-            onClick={() => !busy && !here && void download(result)}
-            className={cn('group flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors', here ? 'opacity-55' : 'hover:bg-surface-3')}
+            disabled={here}
+            onClick={() => !busy && !here && void download(result, source)}
+            className={cn('group flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors', here ? 'opacity-55' : 'hover:bg-surface-3')}
         >
-            {art ? <img src={art} alt='' loading='lazy' className='h-10 w-16 shrink-0 rounded-lg bg-surface-3 object-cover' /> : <Cover className='h-10 w-16' />}
+            {art ? <img src={art} alt='' loading='lazy' className='h-10 w-16 shrink-0 rounded-md bg-surface-3 object-cover' /> : <Cover className='h-10 w-16' />}
             <div className='min-w-0 flex-1'>
-                <p className='truncate text-[0.82rem]'>{result.title}</p>
-                <p className='text-xs text-muted'>{here ? 'In your library' : busy ? 'Downloading…' : source === 'yt' ? 'YouTube' : 'SoundCloud'}</p>
+                <p className='truncate text-[0.875rem]'>{result.title}</p>
+                <p className='text-[0.75rem] text-muted'>{here ? 'In your library' : busy ? 'Downloading' : source === 'yt' ? 'YouTube' : 'SoundCloud'}</p>
             </div>
-            <span className={cn('grid size-8 shrink-0 place-items-center rounded-lg', here ? 'text-accent' : 'text-muted group-hover:bg-accent group-hover:text-accent-fg')}>
-                {here ? <Check size={15} /> : busy ? <LoaderCircle size={15} className='animate-spin' /> : <Download size={15} />}
+            <span className={cn('grid size-8 shrink-0 place-items-center rounded-md', here ? 'text-fg-2' : 'text-muted group-hover:bg-surface-2 group-hover:text-fg')}>
+                {here ? <Check size={16} /> : busy ? <Spin><LoaderCircle size={16} /></Spin> : <Download size={16} />}
             </span>
         </button>
     )
+}
+
+// the results hang under the field: wider than it, right-aligned to it, glass
+// when glass is on, and arriving the way every popover does
+function Dropdown({ children }: { children: React.ReactNode }) {
+
+    return (
+        <motion.div
+            role='menu'
+            initial={{ opacity: 0, scale: 0.96, y: -6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={spring.smooth}
+            className='float absolute inset-x-0 top-full z-50 mt-2 origin-top rounded-(--r-menu) p-1.5'
+        >
+            {children}
+        </motion.div>
+    )
+}
+
+function Skeleton({ rows = 5 }: { rows?: number }) {
+    return Array.from({ length: rows }, (_, i) => (
+        <div key={i} className='flex items-center gap-3 px-2 py-1.5' aria-hidden>
+            <div className='h-10 w-16 rounded-md bg-surface-3' />
+            <div className='flex-1'>
+                <div className='h-3 w-3/5 rounded-sm bg-surface-3' />
+                <div className='mt-2 h-2.5 w-1/5 rounded-sm bg-surface-3' />
+            </div>
+        </div>
+    ))
 }
 
 /*
@@ -62,10 +96,14 @@ function SearchBox() {
     const query = useStore(ui, (s) => s.query)
     const open = useStore(ui, (s) => s.search_open)
     const source = useStore(ui, (s) => s.source)
-    const results = useStore(ui, (s) => s.results)
-    const searching = useStore(ui, (s) => s.searching)
     const shown = useStore(ui, (s) => s.shown)
     const shortcut = useStore(ui, (s) => s.keybinds.focus_search)
+    const mode = useStore(ui, (s) => s.search_mode)
+    const found = useStore(ui, (s) => s.found)
+    const busy = useStore(ui, (s) => s.busy)
+    const working = busy.length > 0
+    const results = found[source]
+    const loading = busy.includes(source)
     const input = useRef<HTMLInputElement>(null)
     const close = useCallback(() => ui.set({ search_open: false }), [])
 
@@ -77,19 +115,19 @@ function SearchBox() {
     }, [open])
 
     return (
-        <div className='relative w-full max-w-xl' onClick={(e) => e.stopPropagation()}>
+        <div className='relative w-full' onClick={(e) => e.stopPropagation()}>
             <label
                 className={cn(
-                    'flex h-10 w-full items-center rounded-2xl border bg-surface-2 transition-colors',
-                    open ? 'border-accent/30 bg-surface-3' : 'border-line hover:border-line-strong',
+                    'search-field relative flex h-10 w-full items-center rounded-(--r-search)',
                 )}
+                data-open={open ? '' : undefined}
             >
-                {searching ? <LoaderCircle size={16} className='ml-4 shrink-0 animate-spin text-muted' /> : <Search size={16} className='ml-4 shrink-0 text-muted' />}
+                {working ? <span className='ml-3 shrink-0 text-muted'><Spin><LoaderCircle size={16} /></Spin></span> : <Search size={16} className='ml-3 shrink-0 text-muted' />}
                 <input
                     ref={input}
                     data-search
                     value={query}
-                    placeholder='Search a song to download ♪(´▽｀)'
+                    placeholder='Search YouTube and SoundCloud'
                     aria-label='Search YouTube and SoundCloud'
                     onChange={(e) => ui.set({ query: e.currentTarget.value })}
                     onFocus={() => ui.set({ search_open: true })}
@@ -100,69 +138,74 @@ function SearchBox() {
                             e.currentTarget.blur()
                         }
                     }}
-                    className='h-full w-full min-w-0 bg-transparent px-3 text-[0.82rem] text-fg outline-none placeholder:text-muted'
+                    className='h-full w-full min-w-0 bg-transparent px-2.5 text-[0.875rem] text-fg outline-none placeholder:text-muted'
                 />
                 {query ? (
-                    <button type='button' {...tip('Clear')} onClick={clear_search} className='mr-2 rounded-lg p-1.5 text-muted transition-colors hover:bg-surface hover:text-fg'>
-                        <X size={14} />
+                    <button type='button' {...tip('Clear')} onClick={clear_search} className='mr-1 grid size-7 place-items-center rounded-[max(0.25rem,calc(var(--r-search)-0.375rem))] text-muted transition-colors hover:bg-surface-3 hover:text-fg'>
+                        <X size={16} />
                     </button>
                 ) : (
-                    shortcut && <kbd className='mr-3 hidden rounded-md border border-line px-1.5 py-0.5 font-sans text-[10px] whitespace-nowrap text-muted sm:block'>{key_label(shortcut)}</kbd>
+                    shortcut && <kbd className='keycap mr-2 hidden sm:inline-flex'>{key_label(shortcut)}</kbd>
                 )}
             </label>
 
             {open && (
-                <div className='edge absolute inset-x-0 top-full z-50 mt-2 animate-pop-in rounded-2xl bg-surface-2 p-2 shadow-soft'>
+                <Dropdown>
+                    {/* the two sources as tabs over one list, the way master had
+                        it; each tab says whether its answer is in, and how big */}
                     <div className='flex items-center justify-between px-1 pb-2'>
-                        <Segmented value={source} options={SOURCES} on_change={switch_source} />
-                        {results.length > 0 && <span className='pr-1 text-xs text-muted'>{results.length} results</span>}
+                        <Segmented
+                            value={source}
+                            on_change={switch_source}
+                            options={SOURCES.map((option) => ({
+                                id: option.id,
+                                label: (
+                                    <>
+                                        {option.label}
+                                        {busy.includes(option.id) ? (
+                                            <Spin>
+                                                <LoaderCircle size={12} className='text-muted' />
+                                            </Spin>
+                                        ) : (
+                                            found[option.id].length > 0 && <span className='font-mono text-[0.6875rem] text-muted'>{found[option.id].length}</span>
+                                        )}
+                                    </>
+                                ),
+                            }))}
+                        />
                     </div>
 
-                    <div className='max-h-[60vh] overflow-y-auto'>
-                        {searching &&
-                            Array.from({ length: 5 }, (_, i) => (
-                                <div key={i} className='flex items-center gap-3 px-2.5 py-2' aria-hidden>
-                                    <div className='skeleton h-10 w-16 rounded-lg' />
-                                    <div className='flex-1'>
-                                        <div className='skeleton h-3 w-3/5 rounded' />
-                                        <div className='skeleton mt-1.5 h-2.5 w-1/5 rounded' />
-                                    </div>
-                                </div>
-                            ))}
+                    <Scroll className='max-h-[66vh]'>
+                        {loading && !results.length && <Skeleton />}
 
-                        {!searching && !results.length && (
-                            <p className='px-3 py-6 text-center text-xs text-muted'>
-                                {query.trim() ? 'Nothing found. Press enter to search again.' : 'Type something and press enter.'}
+                        {!loading && !results.length && (
+                            <p className='px-3 py-6 text-center text-[0.8125rem] text-muted'>
+                                {query.trim() ? 'Nothing found. Press enter to search again' : mode === 'parallel' ? 'Type a title and press enter. YouTube and SoundCloud are asked at once' : 'Type a title and press enter'}
                             </p>
                         )}
 
-                        {!searching && results.slice(0, shown).map((result) => <ResultRow key={result.ref} result={result} />)}
+                        {results.slice(0, shown).map((result) => (
+                            <ResultRow key={result.ref} result={result} source={source} />
+                        ))}
 
-                        {!searching && results.length > shown && (
+                        {results.length > shown && (
                             <div className='flex justify-center pt-2 pb-1'>
                                 <Button variant='ghost' size='sm' onClick={() => ui.set({ shown: shown + PAGE })}>
-                                    Load more · {results.length - shown} left
+                                    Show {Math.min(PAGE, results.length - shown)} more
                                 </Button>
                             </div>
                         )}
-                    </div>
-                </div>
+                    </Scroll>
+                </Dropdown>
             )}
         </div>
     )
 }
 
-const THEME_OPTIONS = [
-    { id: 'system' as const, label: <Monitor size={14} />, hint: 'System' },
-    { id: 'light' as const, label: <Sun size={14} />, hint: 'Light' },
-    { id: 'dark' as const, label: <Moon size={14} />, hint: 'Dark' },
-]
-
 function ProfileMenu() {
     const [open, set_open] = useState(false)
     const username = useStore(library, (s) => s.username)
     const pic = useStore(library, (s) => s.profile_pic)
-    const theme = useStore(ui, (s) => s.theme)
     const close = useCallback(() => set_open(false), [])
 
     useDismiss(open, close)
@@ -171,77 +214,89 @@ function ProfileMenu() {
         <div className='relative' onClick={(e) => e.stopPropagation()}>
             <button
                 type='button'
-                {...tip(username ? `Hello, ${username}` : 'Profile')}
+                {...tip('Profile and settings')}
                 onClick={() => set_open(!open)}
-                className={cn('rounded-full ring-2 transition-[box-shadow,scale] active:scale-95', open ? 'ring-accent' : 'ring-transparent hover:ring-line-strong')}
+                className={cn('rounded-full outline-2 outline-offset-2 transition-[outline-color,scale] active:scale-95', open ? 'outline-line-strong' : 'outline-transparent hover:outline-line')}
             >
-                <Cover data={pic} size='sm' round className='size-9' icon={16} />
+                <Cover data={pic} size='sm' round className='size-8' icon={16} />
             </button>
 
             {open && (
-                <MenuPanel className='absolute top-full right-0 mt-2 w-56'>
-                    <div className='flex items-center gap-3 px-2.5 py-2'>
+                <MenuPanel className='absolute top-full right-0 mt-2 w-64 origin-top-right'>
+                    <div className='flex items-center gap-3 px-2 py-2'>
                         <Cover data={pic} size='sm' round className='size-9' icon={16} />
                         <div className='min-w-0'>
-                            <p className='truncate text-sm font-medium'>{username || 'Unnamed'}</p>
-                            <p className='text-xs text-muted'>Kept on this device</p>
+                            <p className='truncate text-[0.875rem] font-medium'>{username || 'Unnamed'}</p>
+                            <p className='text-[0.75rem] text-muted'>Kept on this device</p>
                         </div>
                     </div>
                     <MenuSep />
-                    <MenuItem icon={<User size={15} />} onClick={() => (close(), open_page('profile'))}>
+                    <MenuItem icon={<User size={16} />} onClick={() => (close(), open_page('profile'))}>
                         Profile
                     </MenuItem>
-                    <MenuItem icon={<Settings size={15} />} onClick={() => (close(), open_page('settings'))}>
+                    <MenuItem icon={<Settings size={16} />} onClick={() => (close(), open_page('settings'))}>
                         Settings
                     </MenuItem>
-                    <MenuSep />
-                    <div className='flex items-center justify-between px-2.5 py-1.5'>
-                        <span className='text-[0.8rem]'>Theme</span>
-                        <Segmented
-                            value={theme}
-                            options={THEME_OPTIONS}
-                            on_change={(next) => {
-                                ui.set({ theme: next })
-                                save_pref('theme', next)
-                            }}
-                            className='p-0.5'
-                        />
-                    </div>
+
                 </MenuPanel>
             )}
         </div>
     )
 }
 
-// a hidden panel comes back from here, where it cannot cover anything
-function PanelToggle({ side }: { side: 'sidebar' | 'panel' }) {
+// the side columns open and close from here, where nothing can cover them
+export function PanelToggle({ side }: { side: 'sidebar' | 'panel' }) {
     const hidden = useStore(ui, (s) => (side === 'sidebar' ? s.sidebar_hidden : s.panel_hidden))
-    if (!hidden) return null
 
     return side === 'sidebar' ? (
-        <IconButton size='sm' {...tip('Show sidebar')} onClick={() => set_pref('sidebar_hidden', false)}>
-            <PanelLeftOpen size={16} />
+        <IconButton size='sm' {...tip(hidden ? 'Show sidebar' : 'Hide sidebar')} aria-pressed={!hidden} onClick={() => set_pref('sidebar_hidden', !hidden)}>
+            {hidden ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
         </IconButton>
     ) : (
-        <IconButton size='sm' {...tip('Show panel')} onClick={() => set_pref('panel_hidden', false, 'rail_hidden')}>
+        <IconButton size='sm' {...tip(hidden ? 'Show lyrics and queue' : 'Hide lyrics and queue')} aria-pressed={!hidden} onClick={() => set_pref('panel_hidden', !hidden, 'rail_hidden')}>
             <PanelRightOpen size={16} />
         </IconButton>
     )
 }
 
-export function TopBar() {
+/*
+ * The bar at the top of the page: the search, and the way to the look, the
+ * side column, the profile and settings. It belongs to the page rather than
+ * to the window - it is the page's own head. At the top of a page the
+ * controls stand on the page with nothing behind them; once the page goes
+ * under, one bar comes up behind all of them and tears away from the top
+ * edge to float (layout/GlassBar), and settles back into it at the top. With
+ * the sidebar put away, the name and the way back to it come here.
+ */
+export function PageBar() {
+    const sidebar_hidden = useStore(ui, (s) => s.sidebar_hidden)
+    // the controls, which ride with the bar's body while it tears
+    const row = useRef<HTMLDivElement>(null)
+
     return (
-        <header className='relative z-30 flex h-16 shrink-0 items-center gap-4 px-5'>
-            <div className='flex w-60 shrink-0 items-center gap-1'>
-                <Brand />
-                <PanelToggle side='sidebar' />
-            </div>
-            <div className='flex min-w-0 flex-1 justify-center'>
-                <SearchBox />
-            </div>
-            <div className='flex w-60 shrink-0 items-center justify-end gap-2'>
-                <PanelToggle side='panel' />
-                <ProfileMenu />
+        <header className='page-bar absolute inset-x-0 top-0 z-30 h-16'>
+            <GlassBar row={row} />
+            {/* the controls' column is never narrower than the controls, and the
+                search keeps the middle of the page whatever the sides are doing */}
+            <div ref={row} className='relative grid h-full grid-cols-[minmax(0,1fr)_minmax(0,46rem)_minmax(max-content,1fr)] items-center gap-x-6 px-6 will-change-transform'>
+                <div className='flex min-w-0 items-center'>
+                    {sidebar_hidden && (
+                        <div className='flex items-center gap-1'>
+                            <PanelToggle side='sidebar' />
+                            <Brand />
+                        </div>
+                    )}
+                </div>
+                <div className='min-w-0'>
+                    <SearchBox />
+                </div>
+                <div className='flex min-w-0 justify-end'>
+                    <div className='flex items-center gap-1'>
+                        <QuickLook />
+                        <PanelToggle side='panel' />
+                        <ProfileMenu />
+                    </div>
+                </div>
             </div>
         </header>
     )

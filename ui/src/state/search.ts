@@ -1,5 +1,5 @@
 import { bridge, music_dir } from '../lib/bridge'
-import { fold, library_mark } from '../lib/names'
+import { library_mark } from '../lib/names'
 import { run_search, SOURCES, type SearchResult, type Source } from '../lib/search'
 import { memo_last } from '../lib/store'
 import { fetch_songs, library, sync_liked } from './library'
@@ -38,72 +38,72 @@ export function fetch_source(on: Source, wanted: string) {
     })
 }
 
-export async function search(on: Source = ui.get().source) {
-    const wanted = ui.get().query.trim()
-    if (!wanted) return
-
-    ui.set({ search_open: true })
-
-    const run = ++search_run
-
-    // both sources go out on the same enter: the tab not on screen costs one
-    // more yt-dlp process now, and switching to it is instant later
-    for (const other of SOURCES) {
-        if (other.id !== on) void fetch_source(other.id, wanted)
-    }
-
-    const already = searches.get(`${on}\n${wanted}`)?.found
-    if (already) return ui.set({ results: already, shown: PAGE, searching: false })
-
-    ui.set({ results: [], shown: PAGE, searching: true })
+/*
+ * One enter, and the answer lands under its source's tab the moment that
+ * source has it. With search_mode 'parallel' both sources go out at once, so
+ * the tab not on screen is usually ready by the time it is opened; with
+ * 'tabs' only the source on screen is asked, and the other when its tab is.
+ */
+async function ask(on: Source, wanted: string, run: number) {
+    ui.set((s) => ({ busy: s.busy.includes(on) ? s.busy : [...s.busy, on] }))
 
     const found = await fetch_source(on, wanted)
     if (run !== search_run) return
 
-    ui.set({ results: found, shown: PAGE, searching: false })
+    ui.set((s) => ({ found: { ...s.found, [on]: found }, busy: s.busy.filter((b) => b !== on) }))
+}
+
+// which query the tabs are holding answers for
+let asked_for = ''
+
+export async function search(on: Source = ui.get().source) {
+    const wanted = ui.get().query.trim()
+    if (!wanted) return
+
+    const run = ++search_run
+    asked_for = wanted
+
+    ui.set({ search_open: true, found: { yt: [], sc: [] }, busy: [], shown: PAGE })
+
+    const sources = ui.get().search_mode === 'parallel' ? SOURCES.map((s) => s.id) : [on]
+    await Promise.all(sources.map((id) => ask(id, wanted, run)))
 }
 
 export function switch_source(next: Source) {
-    ui.set({ source: next })
+    ui.set({ source: next, shown: PAGE })
 
-    if (ui.get().query.trim()) void search(next)
-    else ui.set({ results: [], shown: PAGE })
+    // one at a time: the tab opened is asked now, unless it already answered
+    const { query, found, busy } = ui.get()
+    if (asked_for && query.trim() === asked_for && !found[next].length && !busy.includes(next)) void ask(next, asked_for, search_run)
 }
 
 export function clear_search() {
     search_run++
-    ui.set({ query: '', results: [], shown: PAGE, searching: false })
-}
-
-// youtube hands back the id the file is named with, so that match is exact.
-// soundcloud hands back a page url, which leaves the title to go on
-const owned_of = memo_last((songs: string[]) => {
-    const ids = new Set<string>()
-    const titles = new Set<string>()
-
-    for (const name of songs) {
-        const { title, id } = library_mark(name)
-
-        if (id) ids.add(id)
-        titles.add(fold(title))
-    }
-
-    return { ids, titles }
-})
-
-export function owns(result: SearchResult) {
-    const owned = owned_of(library.get().songs)
-    return owned.ids.has(result.ref) || owned.titles.has(fold(result.title))
+    asked_for = ''
+    ui.set({ query: '', shown: PAGE, found: { yt: [], sc: [] }, busy: [] })
 }
 
 // soundcloud sends an artwork url, youtube's is built from the video id
 export const artwork = (result: SearchResult, source: Source) =>
     source === 'yt' ? `https://img.youtube.com/vi/${result.ref}/mqdefault.jpg` : result.thumbnail
 
+/*
+ * A result is in the library when a file there carries its id - downloads are
+ * named `<title> [<id>].mp3` - and only then. Going by the title as well made
+ * every track that shared a name with one already here look downloaded and
+ * refuse the click: three soundcloud uploads called LEGACY, one of them here.
+ */
+const owned_ids_of = memo_last((songs: string[]) => new Set(songs.map((name) => library_mark(name).id).filter(Boolean)))
+
+export function owns(result: SearchResult) {
+    return !!result.id && owned_ids_of(library.get().songs).has(result.id)
+}
+
+
 // every binding runs on a thread of its own, so downloads do not take turns:
 // only the row being fetched is held, the rest of the list stays live
-export async function download(result: SearchResult) {
-    const { downloading, source } = ui.get()
+export async function download(result: SearchResult, source: Source = ui.get().source) {
+    const { downloading } = ui.get()
     if (downloading.includes(result.ref) || owns(result)) return
 
     ui.set({ downloading: [...downloading, result.ref] })

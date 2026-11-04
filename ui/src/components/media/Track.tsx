@@ -34,6 +34,17 @@ const useTrack = (name: string) => {
     return { cover, liked, title: title_of(name), artist: artist_of(name) }
 }
 
+// any track can be picked up and dropped on the drift in the queue panel
+export const TRACK_DRAG = 'application/x-yugen-track'
+
+const drag = (name: string) => ({
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => {
+        e.dataTransfer.setData(TRACK_DRAG, name)
+        e.dataTransfer.effectAllowed = 'copy'
+    },
+})
+
 const usePlaying = (name: string) => useStore(player, (s) => (s.current === name ? (s.paused ? 'paused' : 'playing') : null))
 
 // the bars beside the track that is playing. normally a css animation; where
@@ -45,7 +56,9 @@ export function Bars({ still, className }: { still?: boolean; className?: string
     useEffect(() => {
         if (!paced() || still) return
 
-        return add_painter(0, (now) => {
+        // thirty a second is plenty for a bob this slow, and every frame it
+        // moves is a frame the whole window is composited again
+        return add_painter(30, (now) => {
             const bars = box.current?.children
             if (!bars) return
 
@@ -70,38 +83,32 @@ export const TrackCard = memo(function TrackCard({ name, within, className }: Tr
     const playing = usePlaying(name)
 
     return (
-        <div
-            className={cn('group relative min-w-0', className)}
-            onContextMenu={context({ kind: 'song', song: name, within })}
-        >
+        <div className={cn('group relative min-w-0', className)} {...drag(name)} onContextMenu={context({ kind: 'song', song: name, within })}>
             <button type='button' className='block w-full text-left' onClick={() => void play_from(name, within ?? null)}>
-                <div className='edge relative aspect-square overflow-hidden rounded-xl bg-surface-2 transition-[translate,box-shadow] duration-500 ease-spring group-hover:-translate-y-1.5 group-hover:shadow-glow group-hover:after:opacity-100'>
-                    <Cover data={cover} size='md' icon={28} className='size-full rounded-none transition-transform duration-700 ease-soft group-hover:scale-[1.05]' />
-                    <div className='absolute inset-0 bg-linear-to-t from-black/55 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100' />
+                <div className='relative aspect-square overflow-hidden rounded-(--r-cover) bg-surface-2 shadow-[0_14px_28px_-18px_rgb(0_0_0/0.7)]'>
+                    <Cover data={cover} size='md' icon={28} className='size-full rounded-none' />
+                    <div className='absolute inset-0 bg-black/25 opacity-0 transition-opacity group-hover:opacity-100' />
 
                     <span
                         className={cn(
-                            'absolute right-2.5 bottom-2.5 grid size-10 place-items-center rounded-full bg-accent text-accent-fg shadow-glow transition-[opacity,translate] duration-300 ease-soft',
-                            playing ? 'opacity-100' : 'translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100',
+                            'absolute right-2 bottom-2 grid size-9 place-items-center rounded-full bg-accent text-accent-fg transition-opacity',
+                            playing ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
                         )}
                     >
-                        {playing ? <Bars still={playing === 'paused'} className='on-accent' /> : <Play size={17} className='ml-0.5 fill-current' />}
+                        {playing ? <Bars still={playing === 'paused'} className='on-accent' /> : <Play size={16} className='ml-0.5' />}
                     </span>
                 </div>
 
-                <p className={cn('mt-2.5 truncate text-[0.82rem] font-medium', playing ? 'text-accent' : 'text-fg')}>{title}</p>
-                <p className='truncate text-xs text-muted'>{artist}</p>
+                <p className='mt-2 truncate text-[0.875rem] font-medium text-fg'>{title}</p>
+                <p className='truncate text-[0.8125rem] text-muted'>{artist}</p>
             </button>
 
-            {/* outside the main button, so buttons are not nested. it lifts with the cover */}
+            {/* outside the main button, so buttons are not nested */}
             <Heart
                 liked={liked}
                 on_toggle={() => void toggle_like(name)}
-                size={14}
-                className={cn(
-                    'absolute top-2 right-2 size-7 rounded-lg bg-black/65 text-white transition-all duration-500 ease-spring group-hover:-translate-y-1.5 hover:text-white',
-                    liked ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
-                )}
+                size={16}
+                className={cn('absolute top-2 right-2 size-8 bg-black/55 text-white hover:text-white', liked ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}
             />
         </div>
     )
@@ -115,22 +122,21 @@ export const TrackLine = memo(function TrackLine({ name, within, index = 0 }: Tr
         <div
             role='button'
             tabIndex={0}
+            {...drag(name)}
             onClick={() => void play_from(name, within ?? null)}
             onKeyDown={(e) => e.key === 'Enter' && void play_from(name, within ?? null)}
             onContextMenu={context({ kind: 'song', song: name, within })}
-            className='group flex h-11 items-center gap-3 rounded-xl px-3 transition-colors hover:bg-surface-2'
+            className={cn('group relative flex h-(--row-line) items-center gap-3 rounded-lg px-3 transition-colors hover:bg-surface-2', playing && 'needle')}
         >
-            <span className='grid w-6 shrink-0 place-items-center text-xs text-muted tabular-nums'>
-                {playing ? <Bars still={playing === 'paused'} /> : index + 1}
-            </span>
-            <div className='min-w-0 flex-1'>
-                <p className={cn('truncate text-[0.82rem]', playing && 'text-accent')}>{title}</p>
-            </div>
-            <p className='hidden w-1/3 truncate text-xs text-muted md:block'>{artist}</p>
-            <Heart liked={liked} on_toggle={() => void toggle_like(name)} size={15} className={cn('size-7', !liked && 'opacity-0 group-hover:opacity-100')} />
+            <span className='grid w-7 shrink-0 place-items-center font-mono text-[0.75rem] text-muted tabular-nums'>{playing ? <Bars still={playing === 'paused'} /> : index + 1}</span>
+            <p className={cn('min-w-0 flex-1 truncate text-[0.875rem]', playing ? 'font-medium text-fg' : 'text-fg')}>{title}</p>
+            <p className='hidden w-1/3 truncate text-[0.8125rem] text-muted md:block'>{artist}</p>
+            <Heart liked={liked} on_toggle={() => void toggle_like(name)} size={16} className={cn('size-8', !liked && 'opacity-0 group-hover:opacity-100')} />
         </div>
     )
 })
+
+const row_grid = 'grid-cols-[2rem_minmax(0,1fr)_2rem_3.5rem] md:grid-cols-[2rem_minmax(0,1.6fr)_minmax(0,1fr)_7rem_2rem_3.5rem]'
 
 export const TrackRow = memo(function TrackRow({ name, within, index = 0 }: TrackProps) {
     const { cover, liked, title, artist } = useTrack(name)
@@ -140,32 +146,31 @@ export const TrackRow = memo(function TrackRow({ name, within, index = 0 }: Trac
         <div
             role='button'
             tabIndex={0}
+            {...drag(name)}
             onClick={() => void play_from(name, within ?? null)}
             onKeyDown={(e) => e.key === 'Enter' && void play_from(name, within ?? null)}
             onContextMenu={context({ kind: 'song', song: name, within })}
-            className='group grid h-14 grid-cols-[2rem_minmax(0,1fr)_2.25rem_3rem] items-center gap-3 rounded-xl px-3 transition-colors hover:bg-surface-2 md:grid-cols-[2rem_minmax(0,1.6fr)_minmax(0,1fr)_7rem_2.25rem_3rem]'
+            className={cn('group relative grid h-(--row) items-center gap-3 rounded-lg px-3 transition-colors hover:bg-surface-2', row_grid, playing && 'needle')}
         >
-            <span className='grid place-items-center text-xs text-muted tabular-nums'>
-                {playing ? <Bars still={playing === 'paused'} /> : index + 1}
-            </span>
+            <span className='grid place-items-center font-mono text-[0.75rem] text-muted tabular-nums'>{playing ? <Bars still={playing === 'paused'} /> : index + 1}</span>
             <div className='flex min-w-0 items-center gap-3'>
-                <Cover data={cover} size='sm' className='size-10' icon={15} />
+                <Cover data={cover} size='sm' className='size-9 in-[[data-density=compact]]:size-7' icon={14} />
                 <div className='min-w-0'>
-                    <p className={cn('truncate text-[0.82rem] font-medium', playing && 'text-accent')}>{title}</p>
-                    <p className='truncate text-xs text-muted'>{artist}</p>
+                    <p className={cn('truncate text-[0.875rem]', playing ? 'font-medium text-fg' : 'text-fg')}>{title}</p>
+                    <p className='truncate text-[0.8125rem] text-muted in-[[data-density=compact]]:hidden'>{artist}</p>
                 </div>
             </div>
-            <p className='hidden truncate text-xs text-muted md:block'>{album_of(name)}</p>
-            <p className='hidden text-xs text-muted md:block'>{format_date(added_of(name))}</p>
-            <Heart liked={liked} on_toggle={() => void toggle_like(name)} size={15} className={cn('size-8', !liked && 'opacity-0 group-hover:opacity-100')} />
-            <p className='text-right text-xs text-muted tabular-nums'>{format_time(length_of(name))}</p>
+            <p className='hidden truncate text-[0.8125rem] text-fg-2 md:block'>{album_of(name)}</p>
+            <p className='hidden text-[0.8125rem] text-muted md:block'>{format_date(added_of(name))}</p>
+            <Heart liked={liked} on_toggle={() => void toggle_like(name)} size={16} className={cn('size-8', !liked && 'opacity-0 group-hover:opacity-100')} />
+            <p className='text-right font-mono text-[0.75rem] text-muted tabular-nums'>{format_time(length_of(name))}</p>
         </div>
     )
 })
 
 // the head over a full list: what each column is
 export const TrackRowHead = () => (
-    <div className='mb-1 grid grid-cols-[2rem_minmax(0,1fr)_2.25rem_3rem] gap-3 border-b border-line px-3 pb-2 text-[0.68rem] font-medium tracking-wide text-muted uppercase md:grid-cols-[2rem_minmax(0,1.6fr)_minmax(0,1fr)_7rem_2.25rem_3rem]'>
+    <div className={cn('mb-1 grid h-8 items-center gap-3 border-b border-line px-3 text-[0.75rem] text-muted', row_grid)}>
         <span className='text-center'>#</span>
         <span>Title</span>
         <span className='hidden md:block'>Album</span>
@@ -175,4 +180,4 @@ export const TrackRowHead = () => (
     </div>
 )
 
-export const card_grid = 'grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-x-5 gap-y-7'
+export const card_grid = 'grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-x-5 gap-y-6'

@@ -27,12 +27,12 @@ export const Cover = memo(function Cover({
     const url = useThumb(data, size)
 
     return (
-        <span className={cn('relative block shrink-0 overflow-hidden bg-surface-3', round ? 'rounded-full' : 'rounded-lg', className)}>
+        <span className={cn('relative block shrink-0 overflow-hidden bg-surface-3', round ? 'rounded-full' : 'rounded-(--r-cover)', className)}>
             {url ? (
                 <img src={url} alt='' decoding='async' className='size-full object-cover' />
             ) : (
                 !data && (
-                    <span className='grid size-full place-items-center text-muted/60'>
+                    <span className='grid size-full place-items-center text-muted'>
                         <Music size={icon} />
                     </span>
                 )

@@ -90,8 +90,26 @@ function nearby_memory(key: string) {
 
 // a playlist and the liked songs are hand-picked, so they are the two listings
 // where 'what else is like this' means anything
-export const nearby_key_of = (view: View, selection: string | null) =>
-    view === 'playlist' && selection ? `playlist:${selection}` : view === 'liked' ? 'liked' : ''
+/*
+ * Which listings carry the shelf is a setting (settings, suggestions): a
+ * playlist and the liked songs by default, since those are hand-picked; the
+ * whole library and an album or an artist on request. Off altogether, none.
+ */
+export const nearby_key_of = (view: View, selection: string | null) => {
+    const { suggest_on, places } = ui.get()
+    if (!suggest_on) return ''
+
+    if (view === 'playlist' && selection) return places.includes('playlists') ? `playlist:${selection}` : ''
+    if (view === 'liked') return places.includes('liked') ? 'liked' : ''
+    if (view === 'songs') return places.includes('songs') ? 'songs' : ''
+    if ((view === 'albums' || view === 'artists') && selection) return places.includes('groups') ? `${view}:${selection}` : ''
+
+    return ''
+}
+
+// what the shelf says it is based on
+export const nearby_named = (view: View, selection: string | null) =>
+    view === 'liked' ? 'your liked songs' : view === 'songs' ? 'your whole library' : selection ?? 'this listing'
 
 // what a suggestion is measured against: something already on disk is not one.
 // the tags and the file name both count - a download names the file after the
@@ -423,4 +441,29 @@ export async function download_suggestion(track: Suggestion) {
     } finally {
         suggest.set(({ getting }) => ({ getting: getting.filter((key) => key !== track.key) }))
     }
+}
+
+/*
+ * A few suggestions under the queue, drawn from the track that is playing:
+ * what last.fm would put after it. One small pass per track, kept, so going
+ * back to a track does not ask again.
+ */
+export const queue_suggest = create_store<{ for: string; tracks: Suggestion[]; busy: boolean }>({ for: '', tracks: [], busy: false })
+
+const queue_cache = new Map<string, Suggestion[]>()
+const queue_served = new Set<string>()
+let queue_run = 0
+
+export async function load_queue_suggestions(name: string) {
+    const held = queue_cache.get(name)
+    if (held) return queue_suggest.set({ for: name, tracks: held, busy: false })
+
+    const run = ++queue_run
+    queue_suggest.set({ for: name, tracks: [], busy: true })
+
+    const tracks = await gather([name], 5, queue_served, () => run === queue_run).catch(() => [] as Suggestion[])
+    if (run !== queue_run) return
+
+    queue_cache.set(name, tracks)
+    queue_suggest.set({ tracks, busy: false })
 }

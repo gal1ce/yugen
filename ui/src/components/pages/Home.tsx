@@ -1,11 +1,7 @@
 import { useEffect } from 'react'
 import { DotsThree, FolderOpen, Info, LoaderCircle, MicVocal, Pause, Play, Shuffle } from '../ui/icons'
-import { useDark } from '../../hooks/dark'
 import { tip } from '../../lib/tip'
-import { Aurora } from '../fx/Aurora'
 import { Wave } from '../fx/Wave'
-import { spotlight } from '../../hooks/spotlight'
-import { cn } from '../../lib/cn'
 import { format_date, format_span } from '../../lib/format'
 import { useStore } from '../../lib/store'
 import { arrivals_of, span_of, useAlbums, useArtists, useFavoriteSongs, useLikedSongs, useQueue } from '../../state/derive'
@@ -18,17 +14,13 @@ import { Empty } from '../ui/Controls'
 import { Cover } from '../ui/Cover'
 import { SeeAll, Shelf } from '../media/Rail'
 import { DiscoverShelf } from '../media/Suggest'
-import { TrackCard } from '../media/Track'
+import { Bars, TrackCard } from '../media/Track'
+import { Spin } from '../ui/Spin'
 
 const SHELF = 12
 
-function greeting() {
-    const hour = new Date().getHours()
-    return hour < 5 ? 'Up late' : hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
-}
-
-function Greeting() {
-    const username = useStore(library, (s) => s.username)
+// the page's own title, and what the library holds, each figure a way into it
+function Head() {
     const songs = useStore(library, (s) => s.songs)
     useStore(library, (s) => s.meta)
     const albums = useAlbums()
@@ -36,33 +28,29 @@ function Greeting() {
     const liked = useLikedSongs()
     const span = span_of(songs)
 
-    const fact = (label: string, count: number, go: () => void) => (
-        <button type='button' onClick={go} className='rounded-full border border-line px-3 py-1 transition-colors hover:border-line-strong hover:text-fg'>
-            <b className='font-semibold text-fg'>{count}</b> {label}
+    const fact = (count: number, label: string, go: () => void) => (
+        <button type='button' onClick={go} className='transition-colors hover:text-fg'>
+            <span className='font-mono text-fg-2 tabular-nums'>{count}</span> {label}
         </button>
     )
 
     return (
-        <div className='mb-7'>
-            <h1 className='font-display text-[2.4rem] leading-tight font-bold tracking-tight'>
-                {greeting()}
-                {username && <span className='text-muted'>, {username}</span>}
-            </h1>
+        <div className='mb-8'>
+            <h1 className='font-serif text-[2.25rem] leading-tight font-medium'>Library</h1>
             {songs.length > 0 && (
-                <div className='mt-3 flex flex-wrap items-center gap-2 text-xs text-muted'>
-                    {fact('songs', songs.length, () => open_view('songs'))}
-                    {fact('albums', albums.size, () => open_view('albums'))}
-                    {fact('artists', artists.size, () => open_view('artists'))}
-                    {fact('liked', liked.length, () => open_view('liked'))}
-                    {span > 0 && <span className='pl-1'>{format_span(span)} of music</span>}
+                <div className='mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.8125rem] text-muted'>
+                    {fact(songs.length, 'songs', () => open_view('songs'))}
+                    {fact(albums.size, 'albums', () => open_view('albums'))}
+                    {fact(artists.size, 'artists', () => open_view('artists'))}
+                    {fact(liked.length, 'liked', () => open_view('liked'))}
+                    {span > 0 && <span>{format_span(span)} in all</span>}
                 </div>
             )}
         </div>
     )
 }
 
-// what is playing, as big as the page allows - or, with nothing cued, the way
-// to start
+// what is playing, as the sleeve itself - or, with nothing cued, the way to start
 function Hero() {
     const current = useStore(player, (s) => s.current)
     const paused = useStore(player, (s) => s.paused)
@@ -70,33 +58,35 @@ function Hero() {
     const songs = useStore(library, (s) => s.songs)
     useStore(library, (s) => (current ? s.meta[current] : undefined))
     const queue = useQueue()
-    const dark = useDark()
+    const wave = useStore(ui, (s) => s.home_wave)
 
     if (!current) {
         if (!songs.length) return null
 
         return (
-            <section {...spotlight} className='spotlight edge mb-10 flex items-center gap-6 overflow-hidden rounded-3xl bg-surface p-7'>
+            <section className='mb-12 flex flex-wrap items-center gap-x-6 gap-y-4 py-4'>
                 <div className='min-w-0 flex-1'>
-                    <p className='text-[0.68rem] font-medium tracking-wider text-accent uppercase'>Your library</p>
-                    <h2 className='mt-1.5 font-display text-[1.9rem] font-bold tracking-tight'>Pick up anywhere.</h2>
-                    <p className='mt-1 text-sm text-muted'>{songs.length} tracks waiting. Start from the top, or let it shuffle.</p>
-                    <div className='mt-5 flex gap-2'>
-                        <Button icon={<Play size={15} className='fill-current' />} onClick={() => void play_listing(songs)}>
-                            Play all
-                        </Button>
-                        <Button
-                            variant='secondary'
-                            icon={<Shuffle size={15} />}
-                            onClick={async () => {
-                                await shuffle_into('all')
-                                const order = player.get().shuffled
-                                if (order?.length) void play_music(order[0])
-                            }}
-                        >
-                            Shuffle everything
-                        </Button>
-                    </div>
+                    <h2 className='text-[1.125rem] font-medium'>Nothing playing</h2>
+                    <p className='mt-1 text-[0.875rem] text-fg-2'>
+                        {songs.length} tracks, from the top or in any order
+                    </p>
+                </div>
+                <div className='flex gap-2'>
+                    <Button size='lg' icon={<Play size={16} />} onClick={() => void play_listing(songs)}>
+                        Play all
+                    </Button>
+                    <Button
+                        size='lg'
+                        variant='secondary'
+                        icon={<Shuffle size={16} />}
+                        onClick={async () => {
+                            await shuffle_into('all')
+                            const order = player.get().shuffled
+                            if (order?.length) void play_music(order[0])
+                        }}
+                    >
+                        Shuffle
+                    </Button>
                 </div>
             </section>
         )
@@ -105,58 +95,70 @@ function Hero() {
     const at = queue.indexOf(current)
     const next = (at < 0 ? queue : queue.slice(at + 1)).slice(0, 3)
 
+    /*
+     * The sleeve and its words on the page's own ground, held by a hairline
+     * rather than a filled card, with the sound rising behind them from the
+     * floor of that frame and fading out at both ends.
+     */
     return (
-        <section className='edge relative mb-10 overflow-hidden rounded-3xl bg-surface p-6'>
-            {/* the cover's own colours, moving, with the sound along the floor */}
-            <Aurora base={dark ? '#111113' : 'transparent'} speed={0.7} className={dark ? 'opacity-55' : 'opacity-40'} />
-            <div className='pointer-events-none absolute inset-0 bg-linear-to-r from-surface via-surface/70 to-transparent' />
-            <Wave className='absolute inset-x-0 bottom-0 h-20 w-full opacity-50' gain={0.8} />
+        <section className='@container relative mb-14 overflow-hidden rounded-(--r-panel) border border-line p-6 pb-20'>
+            {wave && (
+                <Wave
+                    gain={0.95}
+                    className='absolute inset-x-0 bottom-0 -z-0 h-32 w-full [mask-image:linear-gradient(90deg,transparent,#000_12%,#000_88%,transparent)]'
+                />
+            )}
 
-            <div className='relative flex items-center gap-7'>
+            <div className='relative flex items-end gap-8'>
                 <button
                     type='button'
                     {...tip('Lyrics')}
                     onClick={() => ui.set({ lyrics_open: true })}
                     onContextMenu={context({ kind: 'song', song: current })}
-                    className='group shrink-0'
+                    className='group relative shrink-0'
                 >
-                    <Cover data={cover} icon={40} className='size-44 rounded-2xl shadow-soft transition-transform duration-500 ease-spring group-hover:scale-[1.03]' />
+                    {/* the sleeve as an object on the table: a long soft shadow
+                        under it, a tight one where it touches */}
+                    <Cover data={cover} icon={40} className='size-52 rounded-[calc(var(--r-cover)*1.6)] shadow-[0_30px_50px_-26px_rgb(0_0_0/0.85),0_2px_8px_rgb(0_0_0/0.3)] transition-[scale] duration-300 ease-(--ease-out) group-active:scale-[0.98]' />
                 </button>
 
-                <div className='min-w-0 flex-1'>
-                    <p className='flex items-center gap-2 text-[0.68rem] font-medium tracking-wider text-accent uppercase'>{paused ? 'Paused' : 'Now playing'}</p>
-                    <h2 className='mt-1.5 truncate font-display text-[2.3rem] leading-tight font-bold tracking-tight'>{title_of(current)}</h2>
-                    <p className='mt-1 truncate text-sm text-muted'>
+                <div className='min-w-0 flex-1 pb-1'>
+                    <p className='flex items-center gap-2 text-[0.8125rem] text-fg-2'>
+                        <Bars still={paused} /> {paused ? 'Paused' : 'Now playing'}
+                    </p>
+                    <h2 className='mt-2 truncate font-serif text-[clamp(2.25rem,3.4vw,3.25rem)] leading-[1.06] font-medium'>{title_of(current)}</h2>
+                    <p className='mt-2 truncate text-[1rem] text-fg-2'>
                         {artist_of(current)} · {album_of(current)}
                     </p>
 
-                    <div className='mt-5 flex flex-wrap gap-2'>
-                        <Button icon={paused ? <Play size={15} className='fill-current' /> : <Pause size={15} className='fill-current' />} onClick={() => void toggle_pause()}>
+                    <div className='mt-6 flex items-center gap-2'>
+                        <Button size='lg' icon={paused ? <Play size={16} /> : <Pause size={16} />} onClick={() => void toggle_pause()}>
                             {paused ? 'Resume' : 'Pause'}
                         </Button>
-                        <Button variant='secondary' icon={<MicVocal size={15} />} onClick={() => ui.set({ lyrics_open: true })}>
+                        <Button size='lg' variant='secondary' icon={<MicVocal size={16} />} onClick={() => ui.set({ lyrics_open: true })}>
                             Lyrics
                         </Button>
-                        <IconButton variant='outline' {...tip('Track info')} onClick={() => ui.set({ info_open: true, info_face: 'about' })}>
-                            <Info size={17} />
+                        <IconButton size='lg' variant='soft' {...tip('Track info')} onClick={() => ui.set({ info_open: true, info_face: 'about' })}>
+                            <Info size={18} />
                         </IconButton>
                         <IconButton
-                            variant='outline'
+                            size='lg'
+                            variant='soft'
                             {...tip('More')}
                             onClick={(e) => {
                                 e.stopPropagation()
                                 const rect = e.currentTarget.getBoundingClientRect()
-                                open_menu({ kind: 'song', song: current }, rect.left, rect.bottom + 6)
+                                open_menu({ kind: 'song', song: current }, rect.left, rect.bottom + 4)
                             }}
                         >
-                            <DotsThree size={20} />
+                            <DotsThree size={18} />
                         </IconButton>
                     </div>
                 </div>
 
                 {next.length > 0 && (
-                    <div className='hidden w-64 shrink-0 xl:block'>
-                        <p className='mb-2 text-[0.68rem] font-medium tracking-wide text-muted uppercase'>Up next</p>
+                    <div className='hidden w-64 shrink-0 pb-1 @4xl:block'>
+                        <p className='mb-2 px-2 text-[0.8125rem] text-muted'>Up next</p>
                         {next.map((name) => (
                             <UpNext key={name} name={name} />
                         ))}
@@ -175,12 +177,12 @@ function UpNext({ name }: { name: string }) {
             type='button'
             onClick={() => void play_music(name)}
             onContextMenu={context({ kind: 'song', song: name })}
-            className='flex w-full items-center gap-3 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-surface-2'
+            className='flex h-12 w-full items-center gap-3 rounded-lg px-2 text-left transition-colors hover:bg-surface-2'
         >
-            <Cover data={cover} size='sm' className='size-9' icon={14} />
+            <Cover data={cover} size='sm' className='size-8' icon={14} />
             <div className='min-w-0'>
-                <p className='truncate text-[0.8rem]'>{title_of(name)}</p>
-                <p className='truncate text-xs text-muted'>{artist_of(name)}</p>
+                <p className='truncate text-[0.8125rem]'>{title_of(name)}</p>
+                <p className='truncate text-[0.75rem] text-muted'>{artist_of(name)}</p>
             </div>
         </button>
     )
@@ -196,7 +198,7 @@ function Shelves() {
     return (
         <>
             {favorites.length > 0 && (
-                <Shelf title='Favorites' note='The ones you starred.' action={<SeeAll on_click={() => open_page('profile')} />}>
+                <Shelf title='Favorites' note='The ones you starred' action={<SeeAll on_click={() => open_page('profile')} />}>
                     {favorites.slice(0, SHELF).map((name, i) => (
                         <TrackCard key={name} name={name} within={favorites} index={i} />
                     ))}
@@ -204,7 +206,7 @@ function Shelves() {
             )}
 
             {liked.length > 0 && (
-                <Shelf title='Liked songs' note={`${liked.length} tracks with a heart on them.`} action={<SeeAll on_click={() => open_view('liked')} />}>
+                <Shelf title='Liked songs' note={`${liked.length} tracks`} action={<SeeAll on_click={() => open_view('liked')} />}>
                     {liked.slice(0, SHELF).map((name, i) => (
                         <TrackCard key={name} name={name} within={liked} index={i} />
                     ))}
@@ -212,7 +214,7 @@ function Shelves() {
             )}
 
             {arrivals.length >= 4 && (
-                <Shelf title='New arrivals' note={`Last added ${format_date(added_of(arrivals[0])).toLowerCase()}.`} action={<SeeAll on_click={() => open_view('songs')} />}>
+                <Shelf title='New arrivals' note={`Last added ${format_date(added_of(arrivals[0])).toLowerCase()}`} action={<SeeAll on_click={() => open_view('songs')} />}>
                     {arrivals.map((name, i) => (
                         <TrackCard key={name} name={name} within={arrivals} index={i} />
                     ))}
@@ -227,27 +229,28 @@ export function HomePage() {
     const loading = useStore(library, (s) => s.loading)
     const error = useStore(library, (s) => s.scan_error)
     const folder = useStore(library, (s) => s.folder)
+    const discover = useStore(ui, (s) => s.suggest_on && s.places.includes('home'))
 
     // the first pass waits for this page: it is a round trip per seed
     useEffect(() => {
-        if (songs) want_similar()
-    }, [songs])
+        if (songs && discover) want_similar()
+    }, [songs, discover])
 
     return (
         <>
-            <Greeting />
+            <Head />
             <Hero />
 
             {songs ? (
                 <>
                     <Shelves />
-                    <DiscoverShelf />
+                    {discover && <DiscoverShelf />}
                 </>
             ) : (
                 <Empty
-                    icon={loading ? <LoaderCircle size={22} className='animate-spin' /> : <FolderOpen size={22} />}
-                    title={loading ? 'Scanning your library…' : error ? 'Could not read your library' : 'No music here yet'}
-                    className={cn('mt-2')}
+                    icon={loading ? <Spin><LoaderCircle size={20} /></Spin> : <FolderOpen size={20} />}
+                    title={loading ? 'Scanning your library' : error ? 'Could not read your library' : 'No music here yet'}
+                    className='mt-2'
                 >
                     {loading ? null : error ? error : `Drop some mp3 files into ${folder || '~/Music'}, or search for a song above to download it.`}
                 </Empty>

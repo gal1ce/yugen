@@ -105,12 +105,14 @@ target_compile_definitions(yugen PRIVATE $<$<CONFIG:Debug>:DEBUG>)
 
 # main() only steers WebKitGTK around nvidia's wayland fault when it is the engine.
 # on Qt it asks the screen its refresh rate instead, which wants QtGui directly,
-# and keeps to one instance through a local socket, which wants QtNetwork
+# keeps to one instance through a local socket, which wants QtNetwork, and turns
+# chromium's scroll animation on through the page settings, which want the
+# web engine's own headers
 if(saucer_backend STREQUAL "WebKitGtk")
     target_compile_definitions(yugen PRIVATE YUGEN_WEBKITGTK)
 elseif(saucer_backend STREQUAL "Qt")
-    find_package(Qt6 REQUIRED COMPONENTS Gui Network)
-    target_link_libraries(yugen PRIVATE Qt6::Gui Qt6::Network)
+    find_package(Qt6 REQUIRED COMPONENTS Gui Network WebEngineCore WebEngineWidgets)
+    target_link_libraries(yugen PRIVATE Qt6::Gui Qt6::Network Qt6::WebEngineCore Qt6::WebEngineWidgets)
 endif()
 target_compile_options(${PROJECT_NAME} PRIVATE
     -Wall

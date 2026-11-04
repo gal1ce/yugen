@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
 import { CaretDoubleLeft, ChevronLeft, ChevronRight } from '../ui/icons'
 import { IconButton } from '../ui/Button'
 import { cancel_frame, next_frame } from '../../lib/frames'
@@ -8,13 +7,13 @@ import { tip } from '../../lib/tip'
 // a heading, what it points at, and whatever sits under it
 export function Section({ title, note, action, children, className }: { title: ReactNode; note?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
     return (
-        <section className={className ?? 'mb-10'}>
+        <section className={className ?? 'mb-12'}>
             <div className='mb-4 flex items-end gap-3'>
                 <div className='min-w-0'>
-                    <h2 className='truncate font-display text-[1.3rem] font-bold tracking-tight'>{title}</h2>
-                    {note && <p className='mt-0.5 text-xs text-muted'>{note}</p>}
+                    <h2 className='truncate text-[1.125rem] font-medium text-fg'>{title}</h2>
+                    {note && <p className='mt-0.5 text-[0.8125rem] text-muted'>{note}</p>}
                 </div>
-                <div className='ml-auto flex shrink-0 items-center gap-1.5'>{action}</div>
+                <div className='ml-auto flex shrink-0 items-center gap-1'>{action}</div>
             </div>
             {children}
         </section>
@@ -22,9 +21,9 @@ export function Section({ title, note, action, children, className }: { title: R
 }
 
 export const SeeAll = ({ on_click }: { on_click: () => void }) => (
-    <button type='button' onClick={on_click} className='group flex items-center gap-0.5 text-xs font-medium text-muted transition-colors hover:text-fg'>
+    <button type='button' onClick={on_click} className='flex h-8 items-center gap-1 rounded-md px-2 text-[0.8125rem] text-muted transition-colors hover:text-fg'>
         See all
-        <ChevronRight size={14} className='transition-transform group-hover:translate-x-0.5' />
+        <ChevronRight size={14} />
     </button>
 )
 
@@ -139,37 +138,26 @@ export function Shelf({ title, note, action, children }: { title: ReactNode; not
                 <>
                     {action}
                     {overflow && (
-                        <div className='ml-1.5 flex items-center gap-1'>
-                            <AnimatePresence initial={false}>
-                                {reach.far && (
-                                    <motion.div
-                                        key='home'
-                                        initial={{ opacity: 0, width: 0, scale: 0.6 }}
-                                        animate={{ opacity: 1, width: 'auto', scale: 1 }}
-                                        exit={{ opacity: 0, width: 0, scale: 0.6 }}
-                                        transition={{ type: 'spring', stiffness: 520, damping: 34 }}
-                                        className='flex justify-center overflow-hidden'
-                                    >
-                                        <IconButton size='sm' variant='on' {...tip('Back to start')} onClick={() => go(0, HOME_MS)}>
-                                            <CaretDoubleLeft size={14} />
-                                        </IconButton>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
+                        <div className='ml-1 flex items-center gap-1'>
+                            {reach.far && (
+                                <IconButton size='sm' {...tip('Back to start')} onClick={() => go(0, HOME_MS)} className='animate-fade-in'>
+                                    <CaretDoubleLeft size={16} />
+                                </IconButton>
+                            )}
                             <IconButton size='sm' variant='outline' {...tip('Previous')} disabled={!reach.left} onClick={() => page(-1)}>
-                                <ChevronLeft size={14} />
+                                <ChevronLeft size={16} />
                             </IconButton>
                             <IconButton size='sm' variant='outline' {...tip('Next')} disabled={!reach.right} onClick={() => page(1)}>
-                                <ChevronRight size={14} />
+                                <ChevronRight size={16} />
                             </IconButton>
                         </div>
                     )}
                 </>
             }
         >
-            {/* clipped, not scrollable: the padding keeps a card's hover lift
-                and shadow from being cut off at the edges */}
-            <div ref={box} className='-mx-2 -mt-2 flex gap-5 overflow-hidden px-2 pt-2 pb-2 [&>*]:w-40 [&>*]:shrink-0'>
+            {/* clipped, not scrollable: the padding keeps a card's shadow from
+                being cut off at the edges */}
+            <div ref={box} className='-mx-2 -mt-2 flex gap-5 overflow-hidden px-2 pt-2 pb-4 [&>*]:w-40 [&>*]:shrink-0'>
                 {children}
             </div>
         </Section>

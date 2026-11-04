@@ -1,32 +1,42 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { LoaderCircle } from './icons'
 import { cn } from '../../lib/cn'
+import { Spin } from './Spin'
 
 export type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
 export type Size = 'sm' | 'md' | 'lg'
 
-// primary: the accent lit a little from the top, glowing on hover. secondary: a
-// gradient edge that turns to the accent on hover. the slow parts take their
-// time, the press is quick
+/*
+ * Buttons are pills pressed into the surface they sit on, not boxes laid on
+ * top of it: primary is the one thing to do on a screen, in the accent;
+ * secondary is a tint of the text colour over whatever is under it, so it
+ * takes the colour of the panel, the light and the glass rather than
+ * covering them. No outlines - a hairline round a button is what made them
+ * read as drawn over the page. A hover is a step in tint, a press a small step
+ * down in size.
+ */
+const soft = 'bg-[color-mix(in_oklab,var(--fg)_8%,transparent)] hover:bg-[color-mix(in_oklab,var(--fg)_13%,transparent)]'
+
+// `btn`, `btn-fill` and `btn-accent` are what liquid glass hangs on (index.css):
+// a filled button turns to a piece of glass, a bare one only under the pointer
 const variants: Record<Variant, string> = {
-    primary:
-        'bg-accent bg-linear-to-b from-[color-mix(in_oklab,var(--accent)_82%,white)] to-accent text-accent-fg shadow-primary hover:brightness-[1.06]',
-    secondary: 'edge edge-hover bg-surface-2 text-fg hover:bg-surface-3',
-    ghost: 'text-muted hover:text-fg hover:bg-surface-2',
-    danger: 'bg-danger/10 text-danger border border-danger/25 hover:bg-danger/20',
+    primary: 'btn btn-fill btn-accent bg-accent text-accent-fg hover:bg-[color-mix(in_oklab,var(--accent)_86%,var(--fg))]',
+    secondary: `btn btn-fill ${soft} text-fg`,
+    ghost: 'btn text-fg-2 hover:bg-[color-mix(in_oklab,var(--fg)_8%,transparent)] hover:text-fg',
+    danger: 'btn btn-fill bg-danger/10 text-danger hover:bg-danger/15',
 }
 
 const sizes: Record<Size, string> = {
-    sm: 'h-8 px-3 text-xs gap-1.5 rounded-lg',
-    md: 'h-9 px-4 text-[0.8rem] gap-2 rounded-xl',
-    lg: 'h-11 px-5 text-sm gap-2 rounded-xl',
+    sm: 'h-8 gap-1.5 rounded-(--r-button) px-3.5 text-[0.8125rem]',
+    md: 'h-9 gap-2 rounded-(--r-button) px-4 text-[0.875rem]',
+    lg: 'h-11 gap-2 rounded-(--r-button) px-5 text-[0.875rem]',
 }
 
 const button_class = (variant: Variant = 'primary', size: Size = 'md', className?: string) =>
     cn(
         'inline-flex shrink-0 select-none items-center justify-center font-medium whitespace-nowrap',
-        'transition-[color,background-color,box-shadow,filter,opacity,scale] active:scale-[0.97] active:duration-150',
-        'disabled:pointer-events-none disabled:opacity-45',
+        'transition-[color,background-color,opacity,scale] active:scale-[0.98]',
+        'disabled:pointer-events-none disabled:opacity-40',
         variants[variant],
         sizes[size],
         className,
@@ -42,19 +52,20 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 export function Button({ variant = 'primary', size = 'md', loading, icon, className, children, disabled, type = 'button', ...rest }: ButtonProps) {
     return (
         <button type={type} disabled={disabled || loading} className={button_class(variant, size, className)} {...rest}>
-            {loading ? <LoaderCircle size={15} className='animate-spin' /> : icon}
+            {loading ? <Spin><LoaderCircle size={16} /></Spin> : icon}
             {children}
         </button>
     )
 }
 
 const icon_variants = {
-    outline: 'edge edge-hover text-fg hover:bg-surface-2',
-    plain: 'text-muted hover:bg-surface-2 hover:text-fg',
-    // over a picture, the same in both themes. a dark backing rather than a
-    // blur: one blur per card is what the old ui drowned in
-    overlay: 'bg-black/65 text-white hover:bg-black/80',
-    on: 'bg-accent/15 text-accent hover:bg-accent/25',
+    soft: `btn btn-fill ${soft} text-fg-2 hover:text-fg`,
+    // kept for callers that ask for it: the same soft fill, no ring
+    outline: `btn btn-fill ${soft} text-fg-2 hover:text-fg`,
+    plain: 'btn text-muted hover:bg-[color-mix(in_oklab,var(--fg)_8%,transparent)] hover:text-fg',
+    // over a picture, the same in both themes
+    overlay: 'bg-black/60 text-white hover:bg-black/75',
+    on: 'btn text-accent hover:bg-[color-mix(in_oklab,var(--fg)_8%,transparent)]',
 }
 
 type IconButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -62,7 +73,7 @@ type IconButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
     size?: 'sm' | 'md' | 'lg'
 }
 
-const icon_sizes = { sm: 'size-7 rounded-lg', md: 'size-9 rounded-full', lg: 'size-11 rounded-full' }
+const icon_sizes = { sm: 'size-8 rounded-(--r-button)', md: 'size-9 rounded-(--r-button)', lg: 'size-11 rounded-(--r-button)' }
 
 // icon only, so it always carries a label - tip() gives it one
 export function IconButton({ variant = 'plain', size = 'md', className, children, type = 'button', ...rest }: IconButtonProps) {
@@ -71,7 +82,7 @@ export function IconButton({ variant = 'plain', size = 'md', className, children
             type={type}
             className={cn(
                 'inline-flex shrink-0 items-center justify-center',
-                'transition-[color,background-color,opacity,scale] active:scale-95 active:duration-150 disabled:pointer-events-none disabled:opacity-35',
+                'transition-[color,background-color,opacity,scale] active:scale-95 disabled:pointer-events-none disabled:opacity-35',
                 icon_sizes[size],
                 icon_variants[variant],
                 className,
