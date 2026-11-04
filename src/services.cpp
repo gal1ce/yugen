@@ -11,6 +11,8 @@
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
+#include <format>
+#include <functional>
 #include <fstream>
 #include <memory>
 #include <mutex>
@@ -88,6 +90,19 @@ namespace yugen
           constexpr const char* LIKED_SONGS_FILE = "/liked_songs.json";
           constexpr const char* COVERS_FILE      = "/covers.json";
           constexpr const char* CUSTOM_COVERS    = "/custom_covers.json";
+          // a title of the listener's own for a track, by its full path, shown
+          // in place of the one in its tags - in the ui and on discord. the
+          // file itself is never written
+          constexpr const char* CUSTOM_TITLES    = "/custom_titles.json";
+          // the cloudinary account covers are put up on, so discord can fetch
+          // a picture that only exists on this machine: name, api_key and
+          // secret_key. written by hand; without it nothing is uploaded
+          constexpr const char* CLOUDINARY_FILE  = "/cloudinary.json";
+          // what has been put up there already: a key (the picture's sha1, or
+          // the file a tag cover came out of) -> its url. an empty url is a
+          // track with no picture of its own to put up, kept so it is not
+          // read again
+          constexpr const char* CLOUD_COVERS     = "/cloud_covers.json";
           // covers for the listings that are not playlists - Liked Songs and
           // All songs - asked for through the playlist cover calls under a
           // reserved name. kept out of playlists.json so they never come back
@@ -172,6 +187,18 @@ namespace yugen
           std::mutex u_cover_mtx;
           json u_cover_cache;
           bool u_cover_cache_loaded = false;
+
+          // custom_titles.json, the same arrangement once more
+          std::mutex title_mtx;
+          json title_cache;
+          bool title_cache_loaded = false;
+
+          // cloud_covers.json, and the uploads under way, so a pause and a
+          // resume while one is still going do not send the picture twice
+          std::mutex cloud_mtx;
+          json cloud_cache;
+          bool cloud_cache_loaded = false;
+          std::set<std::string> cloud_inflight;
 
 
           // lookups already in flight, so two publishes of the same track do not
@@ -612,6 +639,41 @@ namespace yugen
           }
      }
  
+     /*
+      * Custom titles: custom_titles.json into memory once, read and written
+      * under title_mtx, the whole file rewritten on every change - the same
+      * shape as the custom covers above. An empty title is no title: the entry
+      * is taken out and the tags speak again.
+      */
+     static void load_title_cache()
+     {
+          if(title_cache_loaded) return;
+
+          title_cache_loaded = true;
+          title_cache = json::object();
+
+          const std::string path = config_dir() + CUSTOM_TITLES;
+          if(!fs::exists(path)) return;
+
+          std::ifstream f(path);
+          if(!f.is_open()) return;
+
+          const auto data = json::parse(f, nullptr, false);
+          if(!data.is_discarded() && data.is_object()) title_cache = data;
+     }
+
+     static std::optional<std::string> custom_title(const std::string& file_path)
+     {
+          std::lock_guard<std::mutex> lk(title_mtx);
+
+          load_title_cache();
+
+          const auto hit = title_cache.find(file_path);
+          if(hit == title_cache.end() || !hit->is_string() || hit->get<std::string>().empty()) return std::nullopt;
+
+          return hit->get<std::string>();
+     }
+
      std::string Core::get_cover(const std::string& file_path)
      {
           // file_path is a key also, so we can use it.
@@ -1339,6 +1401,261 @@ namespace yugen
           worker.detach();
      }
 
+     /*
+      * Covers on discord that only exist on this machine.
+      *
+      * Discord draws an activity's picture by fetching a url, so a cover the
+      * listener gave a track, or one that is only in the file's own tags, has
+      * to be put somewhere public first. That is a cloudinary account the
+      * listener owns (cloudinary.json). An upload is signed - the secret never
+      * leaves this process - and named after the picture's own sha1, so the
+      * same picture is only ever put up once and a changed one goes up anew.
+      * The url handed to discord asks cloudinary for a 512 square of it.
+      *
+      * Uploads run on a thread of their own, like the itunes lookup: the status
+      * goes up at once with whatever is known, and is put up again with the
+      * picture once it is there - if the track is still the one playing.
+      */
+     struct CloudAccount
+     {
+          std::string name;
+          std::string api_key;
+          std::string secret;
+     };
+
+     // read on every upload rather than once: it is a few bytes, and an
+     // account added or fixed while the player is running is then picked up
+     static std::optional<CloudAccount> cloud_account()
+     {
+          std::ifstream f(config_dir() + CLOUDINARY_FILE);
+          if(!f.is_open()) return std::nullopt;
+
+          const auto data = json::parse(f, nullptr, false);
+          if(data.is_discarded() || !data.is_object()) return std::nullopt;
+
+          const auto text = [&](const char* key) {
+               const auto it = data.find(key);
+               return it != data.end() && it->is_string() ? it->get<std::string>() : std::string{};
+          };
+
+          CloudAccount account {.name = text("name"), .api_key = text("api_key"), .secret = text("secret_key")};
+          if(account.name.empty() || account.api_key.empty() || account.secret.empty()) return std::nullopt;
+
+          return account;
+     }
+
+     // sha-1, as cloudinary signs with it, in lowercase hex. a few dozen lines
+     // here rather than a crypto library linked in for one hash
+     static std::string sha1_hex(const std::string& input)
+     {
+          std::uint32_t h[5] = {0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0};
+
+          std::string msg = input;
+          const std::uint64_t bits = static_cast<std::uint64_t>(input.size()) * 8;
+          msg += static_cast<char>(0x80);
+          while(msg.size() % 64 != 56) msg += '\0';
+          for(int i = 7; i >= 0; i--) msg += static_cast<char>((bits >> (i * 8)) & 0xFF);
+
+          const auto rotl = [](std::uint32_t x, int n) { return (x << n) | (x >> (32 - n)); };
+
+          for(std::size_t chunk = 0; chunk < msg.size(); chunk += 64)
+          {
+               std::uint32_t w[80];
+               for(int i = 0; i < 16; i++)
+               {
+                    const auto* b = reinterpret_cast<const unsigned char*>(msg.data() + chunk + i * 4);
+                    w[i] = (std::uint32_t(b[0]) << 24) | (std::uint32_t(b[1]) << 16) | (std::uint32_t(b[2]) << 8) | std::uint32_t(b[3]);
+               }
+               for(int i = 16; i < 80; i++) w[i] = rotl(w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16], 1);
+
+               std::uint32_t a = h[0], b = h[1], c = h[2], d = h[3], e = h[4];
+               for(int i = 0; i < 80; i++)
+               {
+                    std::uint32_t f, k;
+                    if(i < 20) { f = (b & c) | (~b & d); k = 0x5A827999; }
+                    else if(i < 40) { f = b ^ c ^ d; k = 0x6ED9EBA1; }
+                    else if(i < 60) { f = (b & c) | (b & d) | (c & d); k = 0x8F1BBCDC; }
+                    else { f = b ^ c ^ d; k = 0xCA62C1D6; }
+
+                    const std::uint32_t t = rotl(a, 5) + f + e + k + w[i];
+                    e = d; d = c; c = rotl(b, 30); b = a; a = t;
+               }
+
+               h[0] += a; h[1] += b; h[2] += c; h[3] += d; h[4] += e;
+          }
+
+          std::string out;
+          for(const auto word : h) out += std::format("{:08x}", word);
+          return out;
+     }
+
+     // Callers must hold cloud_mtx.
+     static void load_cloud_cache()
+     {
+          if(cloud_cache_loaded) return;
+
+          cloud_cache_loaded = true;
+          cloud_cache = json::object();
+
+          const std::string path = config_dir() + CLOUD_COVERS;
+          if(!fs::exists(path)) return;
+
+          std::ifstream f(path);
+          if(!f.is_open()) return;
+
+          const auto data = json::parse(f, nullptr, false);
+          if(!data.is_discarded() && data.is_object()) cloud_cache = data;
+     }
+
+     static std::optional<std::string> cached_cloud(const std::string& key)
+     {
+          std::lock_guard<std::mutex> lk(cloud_mtx);
+
+          load_cloud_cache();
+
+          const auto hit = cloud_cache.find(key);
+          if(hit == cloud_cache.end() || !hit->is_string()) return std::nullopt;
+
+          return hit->get<std::string>();
+     }
+
+     static void store_cloud(const std::string& key, const std::string& url)
+     {
+          std::lock_guard<std::mutex> lk(cloud_mtx);
+
+          load_cloud_cache();
+
+          cloud_cache[key] = url;
+
+          std::ofstream out(config_dir() + CLOUD_COVERS);
+          if(out.is_open()) out << cloud_cache.dump(4);
+     }
+
+     // One signed upload; the url discord is to fetch, or "" when it failed.
+     static std::string upload_cover(const CloudAccount& account, const std::string& base64_img)
+     {
+          // the format, off the first bytes of the data; jpeg unless it says otherwise
+          const char* mime = base64_img.starts_with("iVBOR") ? "image/png"
+               : base64_img.starts_with("R0lG") ? "image/gif"
+               : base64_img.starts_with("UklG") ? "image/webp"
+               : "image/jpeg";
+
+          const std::string public_id = "yugen/" + sha1_hex(base64_img);
+          const std::string timestamp = std::to_string(std::chrono::duration_cast<std::chrono::seconds>(
+               std::chrono::system_clock::now().time_since_epoch()).count());
+
+          // every parameter but the file and the key, sorted, then the secret
+          const std::string signature = sha1_hex("overwrite=true&public_id=" + public_id + "&timestamp=" + timestamp + account.secret);
+
+          CURL* curl = curl_easy_init();
+          if(!curl) return "";
+
+          curl_mime* form = curl_mime_init(curl);
+          const auto field = [&](const char* name, const std::string& value) {
+               curl_mimepart* part = curl_mime_addpart(form);
+               curl_mime_name(part, name);
+               curl_mime_data(part, value.data(), value.size());
+          };
+
+          field("file", std::string("data:") + mime + ";base64," + base64_img);
+          field("api_key", account.api_key);
+          field("timestamp", timestamp);
+          field("public_id", public_id);
+          field("overwrite", "true");
+          field("signature", signature);
+
+          const std::string endpoint = "https://api.cloudinary.com/v1_1/" + account.name + "/image/upload";
+          std::string response;
+
+          curl_easy_setopt(curl, CURLOPT_URL, endpoint.c_str());
+          curl_easy_setopt(curl, CURLOPT_MIMEPOST, form);
+          curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, +[](void* data, std::size_t size, std::size_t count, std::string* out) {
+               out->append(static_cast<const char*>(data), size * count);
+               return size * count;
+          });
+          curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+          curl_easy_setopt(curl, CURLOPT_USERAGENT, "yugen/1.0");
+          curl_easy_setopt(curl, CURLOPT_TIMEOUT, 60L);
+
+          const CURLcode res = curl_easy_perform(curl);
+          curl_mime_free(form);
+          curl_easy_cleanup(curl);
+
+          if(res != CURLE_OK)
+          {
+               std::println("[Discord] Cover upload failed: {}", curl_easy_strerror(res));
+               return "";
+          }
+
+          const auto data = json::parse(response, nullptr, false);
+          if(data.is_discarded() || !data.contains("secure_url") || !data["secure_url"].is_string())
+          {
+               const std::string reason = !data.is_discarded() && data.contains("error") && data["error"].contains("message")
+                    ? data["error"]["message"].get<std::string>() : response.substr(0, 200);
+               std::println("[Discord] Cover upload refused: {}", reason);
+               return "";
+          }
+
+          // a 512 square, cut to fill, at whatever quality cloudinary thinks enough
+          std::string url = data["secure_url"].get<std::string>();
+          const auto at = url.find("/upload/");
+          if(at != std::string::npos) url.insert(at + 8, "c_fill,w_512,h_512,q_auto/");
+
+          std::println("[Discord] Cover uploaded: {}", url);
+          return url;
+     }
+
+     // Puts the status up again if `file_path` is still what it shows. Taken
+     // under the lock and published outside it, as republish_activity() does.
+     static void republish_if_playing(const std::string& file_path)
+     {
+          bool same = false;
+          {
+               std::lock_guard<std::mutex> lk(discord_mtx);
+               same = !discord_track.file_path.empty() && discord_track.file_path == file_path;
+          }
+
+          if(same) republish_activity();
+     }
+
+     /*
+      * The url of a picture put up on cloudinary under `key`, if it is there;
+      * otherwise "" and, with an account to put it on, an upload on its way.
+      * `read` hands over the picture as base64 and is only called on the
+      * upload's own thread, so reading a file's tags never holds up a status.
+      */
+     static std::string cloud_cover(const std::string& key, const std::string& file_path, std::function<std::string()> read)
+     {
+          if(const auto known = cached_cloud(key)) return *known;
+
+          const auto account = cloud_account();
+          if(!account) return "";
+
+          {
+               std::lock_guard<std::mutex> lk(cloud_mtx);
+               if(!cloud_inflight.insert(key).second) return "";
+          }
+
+          std::thread worker{[account = *account, key, file_path, read = std::move(read)]()
+          {
+               const std::string picture = read();
+               // nothing to put up is an answer, and kept; a failed upload is
+               // not, and is tried again the next time the track goes up
+               const std::string url = picture.empty() ? "" : upload_cover(account, picture);
+               if(picture.empty() || !url.empty()) store_cloud(key, url);
+
+               {
+                    std::lock_guard<std::mutex> lk(cloud_mtx);
+                    cloud_inflight.erase(key);
+               }
+
+               if(!url.empty()) republish_if_playing(file_path);
+          }};
+
+          worker.detach();
+          return "";
+     }
+
      // Builds the status and queues it; the library's worker thread does the
      // writing, so this returns without touching the socket.
      //
@@ -1369,10 +1686,24 @@ namespace yugen
           const std::int64_t started = now - static_cast<std::int64_t>(SoundManager::get_pos());
           const std::int64_t ends = started + static_cast<std::int64_t>(SoundManager::get_len());
 
+          // a title of the listener's own wins over the tags
+          const std::string title = custom_title(track.file_path).value_or(track.title);
+
           // the cover, if one is known by now; the logo stands in until then and
-          // whenever the track turns out to have no artwork anywhere
+          // whenever the track turns out to have no artwork anywhere. a cover
+          // the listener gave the track comes first, put up on cloudinary; then
+          // youtube's thumbnail and the itunes lookup; and when those found
+          // nothing, the picture in the file's own tags, put up the same way
           const std::string key = fs::path(track.file_path).filename().string();
-          std::string image = youtube_cover(key);
+          std::string image;
+
+          if(const auto own = cached_u_cover(track.file_path))
+          {
+               const std::string picture = *own;
+               image = cloud_cover("custom:" + sha1_hex(picture), track.file_path, [picture] { return picture; });
+          }
+
+          if(image.empty()) image = youtube_cover(key);
 
           if(image.empty())
           {
@@ -1380,6 +1711,12 @@ namespace yugen
 
                if(known) image = *known;
                else if(!key.empty()) request_cover_async(track, key);
+
+               if(known && known->empty())
+               {
+                    const std::string path = track.file_path;
+                    image = cloud_cover("file:" + key, path, [path] { return Core::get_cover(path); });
+               }
           }
 
           if(image.empty()) image = DISCORD_LOGO_ASSET;
@@ -1390,7 +1727,7 @@ namespace yugen
              // "Listening to yugen", which is the closest a third party app
              // gets to how the spotify integration looks
              .setStatusDisplayType(discord::StatusDisplayType::Details)
-             .setDetails(track.title)
+             .setDetails(title)
              .setState(track.artist)
              .setLargeImageKey(image)
              .setLargeImageText(track.album.empty() ? "Yugen" : track.album)
@@ -1970,9 +2307,42 @@ namespace yugen
           if(!file_path.empty() && !base64_img.empty())
           {
                store_u_cover(file_path, base64_img);
+               // the track on discord now has a picture of its own to show
+               republish_if_playing(file_path);
                return true;
           }
 
           return false;
+     }
+
+     bool MusicManager::set_track_title(const std::string& file_path, const std::string& title)
+     {
+          if(file_path.empty()) return false;
+
+          {
+               std::lock_guard<std::mutex> lk(title_mtx);
+
+               load_title_cache();
+
+               if(title.empty()) title_cache.erase(file_path);
+               else title_cache[file_path] = title;
+
+               std::ofstream out(config_dir() + CUSTOM_TITLES);
+               if(!out.is_open()) return false;
+               out << title_cache.dump(4);
+          }
+
+          republish_if_playing(file_path);
+          return true;
+     }
+
+     // json text, full path -> title, parsed on the ui side
+     std::string MusicManager::get_track_titles()
+     {
+          std::lock_guard<std::mutex> lk(title_mtx);
+
+          load_title_cache();
+
+          return title_cache.dump();
      }
 }

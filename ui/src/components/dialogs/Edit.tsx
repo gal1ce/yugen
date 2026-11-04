@@ -3,7 +3,7 @@ import { Camera } from '../ui/icons'
 import { useStore } from '../../lib/store'
 import { playlist_art } from '../../state/derive'
 import { pick_image } from '../../state/images'
-import { library, save_profile } from '../../state/library'
+import { library, save_profile, set_title } from '../../state/library'
 import { rename_playlist } from '../../state/playlists'
 import { ui } from '../../state/ui'
 import { Button } from '../ui/Button'
@@ -121,6 +121,50 @@ export function ProfileDialog() {
                 <Button disabled={!name.trim()} onClick={commit}>
                     Save
                 </Button>
+            </DialogActions>
+        </Dialog>
+    )
+}
+
+/*
+ * A title of the listener's own for a track: shown everywhere the track is,
+ * and on discord, in place of the one in its tags - which stays in the file,
+ * and is still what lyrics are looked up by. Emptied, or back to the tags'
+ * own, the tags speak again.
+ */
+export function TitleDialog({ name }: { name: string }) {
+    const tag = useStore(library, (s) => s.tagged[name] ?? s.meta[name]?.[0] ?? name.replace(/\.mp3$/i, ''))
+    const own = useStore(library, (s) => s.titles[name])
+    const [draft, set_draft] = useState(own ?? tag)
+    const close = () => ui.set({ retitling: null })
+
+    const commit = async (title: string) => {
+        close()
+        await set_title(name, title)
+    }
+
+    return (
+        <Dialog title='Rename track' sub='Shown here and on Discord. The file keeps its own title' on_close={close}>
+            <label className='mb-1.5 block text-[0.8125rem] text-muted'>Title</label>
+            <input
+                autoFocus
+                value={draft}
+                placeholder={tag}
+                onChange={(e) => set_draft(e.currentTarget.value)}
+                onKeyDown={(e) => e.key === 'Enter' && void commit(draft)}
+                className={field}
+            />
+            <p className='mt-2 truncate text-[0.8125rem] text-muted'>In the file: {tag}</p>
+            <DialogActions>
+                {own && (
+                    <Button variant='ghost' className='mr-auto' onClick={() => void commit('')}>
+                        Use the file&apos;s title
+                    </Button>
+                )}
+                <Button variant='ghost' onClick={close}>
+                    Cancel
+                </Button>
+                <Button onClick={() => void commit(draft)}>Save</Button>
             </DialogActions>
         </Dialog>
     )

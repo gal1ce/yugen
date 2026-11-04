@@ -812,6 +812,14 @@ coco::stray start(saucer::application* app)
           return mm::update_track_cover(file_path, base64_img);
      });
 
+     expose_async(webview, "set_track_title", [](std::string file_path, std::string title){
+          return mm::set_track_title(file_path, title);
+     });
+
+     expose_async(webview, "get_track_titles", []{
+          return mm::get_track_titles();
+     });
+
      /*
       * The window is set up last, once every binding exists, so the page cannot
       * load and call into a function that has not been exposed yet.

@@ -11,8 +11,14 @@ import { warm_thumbs } from '../lib/thumbs'
  */
 export type LibraryState = {
     songs: string[]
-    // file name -> [title, artist, album, seconds, added]
+    // file name -> [title, artist, album, seconds, added]. the title is the
+    // listener's own where they gave one (titles), so everything that shows a
+    // track shows that
     meta: Record<string, string[]>
+    // file name -> a title of the listener's own, and the one in its tags it
+    // stands in for - which is what lyrics and last.fm are asked by
+    titles: Record<string, string>
+    tagged: Record<string, string>
     // file name -> base64 of the picture in its tags
     covers: Record<string, string>
     liked: Set<string>
@@ -33,6 +39,8 @@ export type LibraryState = {
 export const library = create_store<LibraryState>({
     songs: [],
     meta: {},
+    titles: {},
+    tagged: {},
     covers: {},
     liked: new Set(),
     favorites: [],
@@ -51,6 +59,8 @@ export const library = create_store<LibraryState>({
 const meta_of = (name: string) => library.get().meta[name]
 
 export const title_of = (name: string) => meta_of(name)?.[0] || name.replace(/\.mp3$/i, '')
+// the title in the file's tags, whatever the listener calls it
+export const tag_title_of = (name: string) => library.get().tagged[name] ?? title_of(name)
 export const artist_of = (name: string) => artist_tag(meta_of(name))
 export const album_of = (name: string) => album_tag(meta_of(name))
 export const length_of = (name: string) => Number(meta_of(name)?.[3]) || 0
@@ -82,11 +92,16 @@ export async function fetch_songs() {
 
         const { meta: known } = library.get()
         const meta: Record<string, string[]> = {}
+        const titles = await own_titles(dir)
+        const tagged: Record<string, string> = {}
 
         for (let i = 0; i < names.length; i += SCAN_BATCH) {
             await Promise.all(
                 names.slice(i, i + SCAN_BATCH).map(async (name) => {
-                    const tags = await bridge().get_metadata(dir + name)
+                    const read = await bridge().get_metadata(dir + name)
+                    const own = titles[name]
+                    if (own) tagged[name] = read[0] ?? ''
+                    const tags = own ? [own, ...read.slice(1)] : read
                     // unchanged tags keep the same array, so nothing drawn from them redraws
                     meta[name] = known[name] && same_tags(known[name], tags) ? known[name] : tags
                 }),
@@ -95,7 +110,7 @@ export async function fetch_songs() {
 
         if (run !== scan_run) return { names, meta }
 
-        library.set({ songs: names, meta, scan_error: null, folder: dir })
+        library.set({ songs: names, meta, titles: Object.fromEntries(Object.entries(titles).filter(([name]) => name in meta)), tagged, scan_error: null, folder: dir })
         void fetch_covers(names, dir, run)
 
         return { names, meta }
@@ -106,6 +121,46 @@ export async function fetch_songs() {
     } finally {
         if (run === scan_run) library.set({ loading: false })
     }
+}
+
+// the listener's own titles, by file name. an old backend without them, or a
+// file that will not parse, is no titles at all
+async function own_titles(dir: string): Promise<Record<string, string>> {
+    try {
+        const all: Record<string, string> = JSON.parse((await bridge().get_track_titles()) || '{}')
+        return Object.fromEntries(Object.entries(all).filter(([path, title]) => path.startsWith(dir) && typeof title === 'string' && title).map(([path, title]) => [path.slice(dir.length), title]))
+    } catch {
+        return {}
+    }
+}
+
+/*
+ * Gives a track a title of the listener's own, or (empty) takes it away. The
+ * backend keeps it and puts it on discord; here the track's tags are redrawn
+ * with it, keeping the one from the file aside for lyrics and last.fm.
+ */
+export async function set_title(name: string, title: string) {
+    const clean = title.trim()
+    const { meta, titles, tagged } = library.get()
+    const tag = tagged[name] ?? meta[name]?.[0] ?? ''
+    // the same as the tags is no title of its own
+    const own = clean && clean !== tag ? clean : ''
+
+    if (!(await bridge().set_track_title((await music_dir()) + name, own))) return false
+
+    const next_titles = { ...titles }
+    const next_tagged = { ...tagged }
+    if (own) {
+        next_titles[name] = own
+        next_tagged[name] = tag
+    } else {
+        delete next_titles[name]
+        delete next_tagged[name]
+    }
+
+    const row = meta[name] ?? []
+    library.set({ titles: next_titles, tagged: next_tagged, meta: { ...meta, [name]: [own || tag, ...row.slice(1)] } })
+    return true
 }
 
 async function fetch_covers(names: string[], dir: string, run: number) {
