@@ -169,7 +169,8 @@ export function GlassBar({ row }: { row: RefObject<HTMLElement | null> }) {
     const glass = useStore(ui, (s) => s.glass)
     const body = useRef<HTMLDivElement>(null)
     const shade = useRef<HTMLDivElement>(null)
-    const motion = useRef({ p: bar.get().lift > 0 ? 1 : 0, v: 0, frame: 0, last: 0, target: 0, follow: false, rest: 0 })
+    // from the edge: a bar turned on below the top of a page tears off, rather than being there
+    const motion = useRef({ p: 0, v: 0, frame: 0, last: 0, target: 0, follow: false, rest: 0 })
     // the box the shape is drawn in, and how tall the bar is at rest
     const layout = useRef({ width: 0, height: 0 })
 

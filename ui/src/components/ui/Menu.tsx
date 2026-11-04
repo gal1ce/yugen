@@ -4,10 +4,13 @@ import { motion } from 'motion/react'
 import { spring } from '../../lib/motion'
 import { Check, ChevronRight } from './icons'
 import { cn } from '../../lib/cn'
+import { HoverGlass } from './HoverGlass'
 
 // the panel every menu in the app is drawn in: right-click menus, the sort
 // menu, the profile menu. it grows out of where it was opened from (the
-// caller's origin-* class) on a spring, and is glass when glass is on
+// caller's origin-* class) on a spring, and is glass when glass is on. its
+// rows share one hover that moves between them (ui/HoverGlass); every caller
+// places it, so it is always positioned for that to hang in
 export function MenuPanel({
     className,
     style,
@@ -43,6 +46,7 @@ export function MenuPanel({
             onContextMenu={(e) => e.preventDefault()}
             className={cn('float z-50 min-w-48 rounded-(--r-menu) p-1', className)}
         >
+            <HoverGlass className='rounded-[max(0.125rem,calc(var(--r-menu)-0.25rem))]' />
             {children}
         </motion.div>
     )
@@ -62,9 +66,10 @@ export function MenuItem({ icon, checked, danger, hint, more, className, childre
         <button
             type='button'
             role='menuitem'
+            data-hover
             className={cn(
-                'flex h-8 w-full items-center gap-2.5 rounded-[max(0.125rem,calc(var(--r-menu)-0.25rem))] px-2 text-left text-[0.8125rem] transition-colors duration-100',
-                danger ? 'text-danger hover:bg-danger/10' : 'text-fg hover:bg-surface-3',
+                'relative flex h-8 w-full items-center gap-2.5 rounded-[max(0.125rem,calc(var(--r-menu)-0.25rem))] px-2 text-left text-[0.8125rem] transition-colors duration-100',
+                danger ? 'text-danger hover:bg-danger/10' : 'text-fg',
                 'disabled:pointer-events-none disabled:opacity-40',
                 className,
             )}

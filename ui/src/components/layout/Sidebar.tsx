@@ -17,6 +17,7 @@ import { Cover } from '../ui/Cover'
 import { MenuItem, MenuLabel, MenuPanel } from '../ui/Menu'
 import { tip } from '../../lib/tip'
 import { Spin } from '../ui/Spin'
+import { HoverGlass } from '../ui/HoverGlass'
 import { Brand, PanelToggle } from './TopBar'
 
 type Row = { kind: Shelf; name: string; count: number; pinned: boolean }
@@ -27,9 +28,10 @@ function NavItem({ id, label, icon: Glyph, count }: { id: View; label: string; i
     return (
         <button
             type='button'
+            data-hover
             aria-current={active ? 'page' : undefined}
             onClick={() => open_view(id)}
-            className={cn('relative flex h-(--row-nav) w-full items-center gap-2.5 rounded-[min(var(--r-control),1.25rem)] px-3 text-[0.875rem] transition-colors', active ? 'text-fg' : 'text-fg-2 hover:bg-surface-2 hover:text-fg')}
+            className={cn('relative flex h-(--row-nav) w-full items-center gap-2.5 rounded-[min(var(--r-control),1.25rem)] px-3 text-[0.875rem] transition-colors', active ? 'text-fg' : 'text-fg-2 hover:text-fg')}
         >
             {/* one pill and its needle, sliding between the rows on a spring */}
             {active && <motion.span layoutId='nav-active' transition={spring.snappy} className='needle absolute inset-0 rounded-[min(var(--r-control),1.25rem)] bg-surface-2 shadow-[inset_0_0_0_1px_var(--line)]' />}
@@ -49,7 +51,9 @@ function Nav() {
     const artists = useArtists().size
 
     return (
-        <nav className='space-y-0.5'>
+        <nav className='relative space-y-0.5'>
+            {/* the hover: one piece of glass that peels off the open row */}
+            <HoverGlass className='rounded-[min(var(--r-control),1.25rem)]' />
             <NavItem id='library' label='Home' icon={Home} count={songs} />
             <NavItem id='songs' label='Songs' icon={Music2} count={songs} />
             <NavItem id='liked' label='Liked songs' icon={Heart} count={liked} />
@@ -91,13 +95,14 @@ function RowButton({ row, view }: { row: Row; view: LibraryView }) {
     return (
         <button
             type='button'
+            data-hover
             aria-current={active ? 'page' : undefined}
             onClick={open}
             onContextMenu={menu}
             className={cn(
                 'relative flex w-full items-center gap-2.5 rounded-[min(var(--r-control),1.25rem)] text-left transition-colors',
                 view === 'list' ? 'h-12 px-2' : 'h-(--row-nav) px-3',
-                active ? 'needle bg-surface-2 text-fg' : 'text-fg-2 hover:bg-surface-2 hover:text-fg',
+                active ? 'needle bg-surface-2 text-fg' : 'text-fg-2 hover:text-fg',
             )}
         >
             {view === 'list' ? (
@@ -197,7 +202,9 @@ function Shelves() {
 
             <Scroll className='-mx-1 flex-1' inner='px-1 pb-2'>
                 {rows.length ? (
-                    <div className={view === 'grid' ? 'grid grid-cols-2 gap-3 p-1' : view === 'compact-grid' ? 'grid grid-cols-3 gap-2 p-1' : 'space-y-0.5'}>
+                    <div className={view === 'grid' ? 'grid grid-cols-2 gap-3 p-1' : view === 'compact-grid' ? 'grid grid-cols-3 gap-2 p-1' : 'relative space-y-0.5'}>
+                        {/* the rows' hover, as in the nav above; the covers of a grid keep their ring */}
+                        {(view === 'list' || view === 'compact') && <HoverGlass className='rounded-[min(var(--r-control),1.25rem)]' />}
                         {rows.map((row) => <RowButton key={`${row.kind}:${row.name}`} row={row} view={view} />)}
                     </div>
                 ) : (
