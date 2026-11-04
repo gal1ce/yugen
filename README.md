@@ -1,28 +1,19 @@
 # yugen
 
 <p align="center">
-  <img src="screenshots/home.png" width="85%" alt="the home page in Ink, a track playing, the queue in the column on the right" />
-  <br />
-  <em>home, with what is playing and the queue after it</em>
+  <img src="screenshots/home.png" width="85%" alt="the home page with a track playing, the light of its cover behind the panels" />
 </p>
 
 <p align="center">
-  <img src="screenshots/lyrics.png" width="85%" alt="the full-screen lyrics page, the record on the left and the sung line lit on the right" />
+  <img src="screenshots/lyrics.png" width="85%" alt="the full-screen lyrics page, the record on the left and the sung line lit word by word on the right" />
   <br />
   <em>the lyrics page, the words timed to the track</em>
 </p>
 
 <p align="center">
-  <img src="screenshots/songs.png" width="49%" alt="all songs as a grid of covers in Lamplight, tinted by the playing cover" />
-  <img src="screenshots/song-details.png" width="49%" alt="a track's card, open over the home page" />
+  <img src="screenshots/songs.png" width="85%" alt="all songs as a list, with the queue in the column beside it" />
   <br />
-  <em>the library as covers, and a track's card</em>
-</p>
-
-<p align="center">
-  <img src="screenshots/settings.png" width="85%" alt="settings in the Paper theme, with the palettes and the section index beside them" />
-  <br />
-  <em>settings, in Paper: palettes, glass, corners, motion</em>
+  <em>the library, and the queue after what is playing</em>
 </p>
 
 A desktop music player for Linux. Plays local mp3 files, searches and downloads
