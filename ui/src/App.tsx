@@ -316,6 +316,7 @@ function Page() {
     const view = useStore(ui, (s) => s.view)
     const selection = useStore(ui, (s) => s.selection)
     const nebula = useStore(ui, (s) => s.nebula)
+    const floating = useStore(ui, (s) => s.bar_float)
     const scroller = useRef<HTMLDivElement>(null)
     const frame = useRef<HTMLDivElement>(null)
 
@@ -371,6 +372,9 @@ function Page() {
                 lists below are read on the panel alone */}
             {drawn && <Nebula strength={home ? 0.9 : 0.55} className='[mask-image:linear-gradient(#000,#000_25%,transparent_80%)]' />}
             <Scroll box={scroller} className='relative h-full'>
+                {/* by default the bar is the top of the page and goes up with it;
+                    floating, it stays over the page (a setting) */}
+                {!floating && <PageBar floating={false} />}
                 <motion.div
                     key={`${page}:${view}:${selection}`}
                     initial={{ opacity: 0, y: 8 }}
@@ -381,7 +385,7 @@ function Page() {
                     {body}
                 </motion.div>
             </Scroll>
-            <PageBar />
+            {floating && <PageBar floating />}
         </div>
     )
 }

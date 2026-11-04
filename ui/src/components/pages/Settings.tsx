@@ -16,6 +16,7 @@ import { tip } from '../../lib/tip'
 import { Button } from '../ui/Button'
 import { Range, Segmented, Switch } from '../ui/Controls'
 import { glide_to } from '../../hooks/glide'
+import { HoverGlass } from '../ui/HoverGlass'
 
 /*
  * The settings page is one shape throughout, so it reads the same wherever
@@ -64,7 +65,7 @@ function Block({ title, hint, children }: { title: string; hint?: string; childr
         <div className='py-4'>
             <p className='text-[0.875rem]'>{title}</p>
             {hint && <p className='mt-0.5 text-[0.8125rem] text-muted'>{hint}</p>}
-            <div className='mt-3'>{children}</div>
+            <div className='mt-3 @container'>{children}</div>
         </div>
     )
 }
@@ -101,7 +102,8 @@ function ThemePicker() {
     const system = PALETTES.find((p) => p.id === shown)!
 
     return (
-        <div role='radiogroup' aria-label='Theme' className='-mx-2 grid grid-cols-3 gap-1'>
+        // six abreast once the card is wide enough for them, three until then
+        <div role='radiogroup' aria-label='Theme' className='-mx-2 grid grid-cols-3 gap-1 @5xl:grid-cols-6'>
             <ThemeCard id='system' label='System' note='Follows the desktop' swatch={system.swatch} current={theme} shown={shown} />
             {PALETTES.map((p) => (
                 <ThemeCard key={p.id} id={p.id} label={p.label} note={p.note} swatch={p.swatch} current={theme} shown={shown} />
@@ -262,11 +264,14 @@ function Index() {
     }, [])
 
     return (
-        <nav className='sticky top-20 hidden w-44 shrink-0 self-start lg:block'>
+        <nav className='relative hidden lg:block'>
+            <HoverGlass className='rounded-[min(var(--r-control),1.25rem)]' />
             {SECTIONS.map(([id, label]) => (
                 <button
                     key={id}
                     type='button'
+                    data-hover
+                    aria-current={here === id ? 'location' : undefined}
                     onClick={(e) => {
                         const target = document.getElementById(`settings-${id}`)
                         const box = e.currentTarget.closest<HTMLElement>('.overflow-y-auto')
@@ -330,6 +335,7 @@ export function SettingsPage() {
     const lp_lyrics = useStore(ui, (s) => s.lp_lyrics)
     const lp_wave = useStore(ui, (s) => s.lp_wave)
     const home_wave = useStore(ui, (s) => s.home_wave)
+    const bar_float = useStore(ui, (s) => s.bar_float)
     const scrolling = useStore(ui, (s) => s.scrolling)
     const search_mode = useStore(ui, (s) => s.search_mode)
     const feel = useStore(ui, (s) => s.feel)
@@ -342,157 +348,163 @@ export function SettingsPage() {
     const held = reduced()
 
     return (
-        <div className='mx-auto max-w-5xl'>
-            <button type='button' onClick={leave_page} className='mb-6 flex h-8 items-center gap-1.5 rounded-md text-[0.8125rem] text-muted transition-colors hover:text-fg'>
-                <ArrowLeft size={16} /> Back
-            </button>
-            <h1 className='mb-8 font-serif text-[2.25rem] leading-tight font-medium'>Settings</h1>
-
-            <div className='flex gap-10'>
+        // the cards are kept to a width a row reads across - a label on the
+        // left and its control on the right, not a window apart - and the head
+        // (back, the title, the index) stands beside them, staying put while
+        // they go by under the bar
+        <div className='mx-auto max-w-[86rem] lg:grid lg:grid-cols-[11rem_minmax(0,72rem)] lg:gap-x-10'>
+            <div className='lg:sticky lg:top-20 lg:self-start'>
+                <button type='button' onClick={leave_page} className='mb-6 flex h-8 items-center gap-1.5 rounded-md text-[0.8125rem] text-muted transition-colors hover:text-fg'>
+                    <ArrowLeft size={16} /> Back
+                </button>
+                <h1 className='mb-8 font-serif text-[2.25rem] leading-tight font-medium'>Settings</h1>
                 <Index />
+            </div>
 
-                <div className='min-w-0 flex-1'>
-                    <Group id='appearance' title='Appearance'>
-                        <Block title='Theme'>
-                            <ThemePicker />
-                        </Block>
-                        <Row title='Colour from the cover' hint='The accent is taken from the artwork of what is playing'>
-                            <Switch on={cover_accent} label='Colour from the cover' on_toggle={() => set_pref('cover_accent', !cover_accent)} />
-                        </Row>
-                        <Row title='Accent' hint={cover_accent ? 'When nothing is playing, or a cover has no colour to give' : 'Used everywhere'}>
-                            <Swatches />
-                        </Row>
-                        <Row title='Interface size'>
-                            <Segmented value={scale} options={SCALES} on_change={(next) => set_pref('scale', next)} />
-                        </Row>
-                        <Row title='Density' hint='How tall the rows in a listing are'>
-                            <Segmented value={density} options={DENSITIES} on_change={(next) => set_pref('density', next)} />
-                        </Row>
-                    </Group>
+            <div className='min-w-0'>
+                <Group id='appearance' title='Appearance'>
+                    <Block title='Theme'>
+                        <ThemePicker />
+                    </Block>
+                    <Row title='Colour from the cover' hint='The accent is taken from the artwork of what is playing'>
+                        <Switch on={cover_accent} label='Colour from the cover' on_toggle={() => set_pref('cover_accent', !cover_accent)} />
+                    </Row>
+                    <Row title='Accent' hint={cover_accent ? 'When nothing is playing, or a cover has no colour to give' : 'Used everywhere'}>
+                        <Swatches />
+                    </Row>
+                    <Row title='Interface size'>
+                        <Segmented value={scale} options={SCALES} on_change={(next) => set_pref('scale', next)} />
+                    </Row>
+                    <Row title='Density' hint='How tall the rows in a listing are'>
+                        <Segmented value={density} options={DENSITIES} on_change={(next) => set_pref('density', next)} />
+                    </Row>
+                    <Row title='Floating bar' hint={bar_float ? 'The search and the buttons beside it stay over the page, on a bar that comes away from the top as you scroll' : 'The search and the buttons beside it scroll away with the page'}>
+                        <Switch on={bar_float} label='Floating bar' on_toggle={() => set_pref('bar_float', !bar_float)} />
+                    </Row>
+                </Group>
 
-                    <Group id='corners' title='Corners' note='How round things are, everywhere at once or part by part'>
-                        <Corners />
-                    </Group>
+                <Group id='corners' title='Corners' note='How round things are, everywhere at once or part by part'>
+                    <Corners />
+                </Group>
 
-                    <Group id='light' title='Light and glass' note='The cover of what is playing lights the room the panels stand in'>
-                        <Row title='Cover light' hint='The artwork, blurred into light behind the panels. Also the sun button in the player'>
-                            <Switch on={light_on} label='Cover light' on_toggle={() => set_pref('aura_on', !light_on)} />
-                        </Row>
-                        <Sub off={!light_on}>
-                            <Row title='Strength'>
-                                <Range
-                                    value={light}
-                                    min={LIGHT_RANGE[0]}
-                                    max={LIGHT_RANGE[1]}
-                                    step={5}
-                                    aria-label='Cover light strength'
-                                    on_change={(value) => ui.set({ aura: value })}
-                                    onPointerUp={() => save_pref('aura', ui.get().aura)}
-                                    onKeyUp={() => save_pref('aura', ui.get().aura)}
-                                    className='range-accent w-48'
-                                />
-                                <span className='w-9 text-right font-mono text-[0.75rem] text-muted tabular-nums'>{light}%</span>
-                            </Row>
-                            <Row title='Moving light' hint='Turns slowly while music plays, still when it is paused'>
-                                <Switch on={light_motion} label='Moving light' on_toggle={() => set_pref('light_motion', !light_motion)} />
-                            </Row>
-                        </Sub>
-                        <Row title='Liquid glass' hint='Panels, the bar, the search, menus, the player and buttons turn to glass. Off, everything is solid'>
-                            <Switch on={glass} label='Liquid glass' on_toggle={() => set_pref('glass', !glass)} />
-                        </Row>
-                        <Row title='Blur' hint='Far lyric lines go out of focus, and liquid glass is frosted rather than clear'>
-                            <Switch on={blur} label='Blur' on_toggle={() => set_pref('blur', !blur)} />
-                        </Row>
-                    </Group>
-
-                    <Group id='motion' title='Motion'>
-                        <Row title='Animations' hint={pace === 'off' ? 'Pages, menus and dialogs appear without moving' : 'How fast pages, menus, dialogs and the lyrics move'}>
-                            <Segmented value={pace} options={PACES} on_change={(next) => set_pref('pace', next)} />
-                        </Row>
-                        <Row title='Ambient motion' hint={MOTIONS.find((option) => option.id === motion)?.hint}>
-                            <Segmented value={motion} options={MOTIONS} on_change={set_motion} />
-                        </Row>
-                        <Row title='Nebula' hint='A slow cloud of light behind the pages, in the colours of what is playing'>
-                            <Segmented value={nebula} options={BACKDROPS} on_change={(next) => set_pref('nebula', next)} />
-                        </Row>
-                        <Row title='Scrolling' hint={held ? 'Your desktop asks for reduced motion, so scrolling is left as it is' : SCROLLINGS.find((o) => o.id === scrolling)?.hint} dimmed={held}>
-                            <Segmented value={scrolling} options={SCROLLINGS} on_change={(next) => set_pref('scrolling', next)} />
-                        </Row>
-                        <Sub off={held || scrolling !== 'glide'}>
-                            <Row title='Glide feel' hint='Gentle trails a little after the wheel stops, quick settles sooner'>
-                                <Segmented value={feel} options={FEELS} on_change={(next) => set_pref('feel', next)} />
-                            </Row>
-                        </Sub>
-                    </Group>
-
-                    <Group id='lyrics' title='Lyrics' note='The full-screen page opened from the cover or the lyrics button'>
-                        <Row title='Show the words' hint='Off, the page is the record alone, in the middle. Also top right on the page itself'>
-                            <Switch on={lp_lyrics} label='Show the words' on_toggle={() => set_pref('lp_lyrics', !lp_lyrics)} />
-                        </Row>
-                        <Sub off={!lp_lyrics}>
-                            <Row title='Text size'>
-                                <Segmented value={lyrics_size} options={LYRICS_SIZES} on_change={(next) => set_pref('lyrics_size', next)} />
-                            </Row>
-                        </Sub>
-                        <Row title='Wave on the lyrics page' hint='The sound rising along the foot of the page'>
-                            <Switch on={lp_wave} label='Wave on the lyrics page' on_toggle={() => set_pref('lp_wave', !lp_wave)} />
-                        </Row>
-                        <Row title='Wave on Home' hint='Behind what is playing at the top of Home'>
-                            <Switch on={home_wave} label='Wave on Home' on_toggle={() => set_pref('home_wave', !home_wave)} />
-                        </Row>
-                    </Group>
-
-                    <Group id='search' title='Search'>
-                        <Row title='Sources' hint={search_mode === 'parallel' ? 'YouTube and SoundCloud are asked at once; each tab fills as its answer lands' : 'Only the open tab is asked; the other when you switch to it'}>
-                            <Segmented value={search_mode} options={SEARCH_MODES} on_change={(next) => set_pref('search_mode', next)} />
-                        </Row>
-                    </Group>
-
-                    <Group id='suggestions' title='Suggestions' note='Tracks you do not have yet, picked by last.fm. Needs a last.fm key'>
-                        <Row title='Suggestions'>
-                            <Switch on={suggest_on} label='Suggestions' on_toggle={() => set_pref('suggest_on', !suggest_on)} />
-                        </Row>
-                        <Sub off={!suggest_on}>
-                            {PLACES.map((place) => {
-                                const shown = places.includes(place.id)
-
-                                return (
-                                    <Row key={place.id} title={place.label} hint={place.hint}>
-                                        <Switch on={shown} label={place.label} on_toggle={() => set_pref('places', shown ? places.filter((p) => p !== place.id) : [...places, place.id])} />
-                                    </Row>
-                                )
-                            })}
-                        </Sub>
-                    </Group>
-
-                    <Group id='sharing' title='Sharing'>
-                        <Row title='Discord activity' hint='Shows the track you are playing on your Discord profile'>
-                            <Switch
-                                on={share}
-                                label='Share activity on Discord'
-                                on_toggle={() => {
-                                    void set_sharing(!share)
-                                    set_pref('share_dc', !share)
-                                }}
+                <Group id='light' title='Light and glass' note='The cover of what is playing lights the room the panels stand in'>
+                    <Row title='Cover light' hint='The artwork, blurred into light behind the panels. Also the sun button in the player'>
+                        <Switch on={light_on} label='Cover light' on_toggle={() => set_pref('aura_on', !light_on)} />
+                    </Row>
+                    <Sub off={!light_on}>
+                        <Row title='Strength'>
+                            <Range
+                                value={light}
+                                min={LIGHT_RANGE[0]}
+                                max={LIGHT_RANGE[1]}
+                                step={5}
+                                aria-label='Cover light strength'
+                                on_change={(value) => ui.set({ aura: value })}
+                                onPointerUp={() => save_pref('aura', ui.get().aura)}
+                                onKeyUp={() => save_pref('aura', ui.get().aura)}
+                                className='range-accent w-48'
                             />
+                            <span className='w-9 text-right font-mono text-[0.75rem] text-muted tabular-nums'>{light}%</span>
                         </Row>
-                    </Group>
-
-                    <Group id='library' title='Library'>
-                        <Row title='Music folder' hint={folder || '~/Music'}>
-                            <span className='font-mono text-[0.75rem] text-muted tabular-nums'>{songs} tracks</span>
-                            <Button variant='secondary' size='sm' loading={loading} icon={<RefreshCw size={16} />} onClick={() => void fetch_songs()}>
-                                Rescan
-                            </Button>
+                        <Row title='Moving light' hint='Turns slowly while music plays, still when it is paused'>
+                            <Switch on={light_motion} label='Moving light' on_toggle={() => set_pref('light_motion', !light_motion)} />
                         </Row>
-                    </Group>
+                    </Sub>
+                    <Row title='Liquid glass' hint='Panels, the bar, the search, menus, the player and buttons turn to glass. Off, everything is solid'>
+                        <Switch on={glass} label='Liquid glass' on_toggle={() => set_pref('glass', !glass)} />
+                    </Row>
+                    <Row title='Blur' hint='Far lyric lines go out of focus, and liquid glass is frosted rather than clear'>
+                        <Switch on={blur} label='Blur' on_toggle={() => set_pref('blur', !blur)} />
+                    </Row>
+                </Group>
 
-                    <Group id='keys' title='Keyboard shortcuts'>
-                        <Block title='Shortcuts'>
-                            <KeybindEditor />
-                        </Block>
-                    </Group>
-                </div>
+                <Group id='motion' title='Motion'>
+                    <Row title='Animations' hint={pace === 'off' ? 'Pages, menus and dialogs appear without moving' : 'How fast pages, menus, dialogs and the lyrics move'}>
+                        <Segmented value={pace} options={PACES} on_change={(next) => set_pref('pace', next)} />
+                    </Row>
+                    <Row title='Ambient motion' hint={MOTIONS.find((option) => option.id === motion)?.hint}>
+                        <Segmented value={motion} options={MOTIONS} on_change={set_motion} />
+                    </Row>
+                    <Row title='Nebula' hint='A slow cloud of light behind the pages, in the colours of what is playing'>
+                        <Segmented value={nebula} options={BACKDROPS} on_change={(next) => set_pref('nebula', next)} />
+                    </Row>
+                    <Row title='Scrolling' hint={held ? 'Your desktop asks for reduced motion, so scrolling is left as it is' : SCROLLINGS.find((o) => o.id === scrolling)?.hint} dimmed={held}>
+                        <Segmented value={scrolling} options={SCROLLINGS} on_change={(next) => set_pref('scrolling', next)} />
+                    </Row>
+                    <Sub off={held || scrolling !== 'glide'}>
+                        <Row title='Glide feel' hint='Gentle trails a little after the wheel stops, quick settles sooner'>
+                            <Segmented value={feel} options={FEELS} on_change={(next) => set_pref('feel', next)} />
+                        </Row>
+                    </Sub>
+                </Group>
+
+                <Group id='lyrics' title='Lyrics' note='The full-screen page opened from the cover or the lyrics button'>
+                    <Row title='Show the words' hint='Off, the page is the record alone, in the middle. Also top right on the page itself'>
+                        <Switch on={lp_lyrics} label='Show the words' on_toggle={() => set_pref('lp_lyrics', !lp_lyrics)} />
+                    </Row>
+                    <Sub off={!lp_lyrics}>
+                        <Row title='Text size'>
+                            <Segmented value={lyrics_size} options={LYRICS_SIZES} on_change={(next) => set_pref('lyrics_size', next)} />
+                        </Row>
+                    </Sub>
+                    <Row title='Wave on the lyrics page' hint='The sound rising along the foot of the page'>
+                        <Switch on={lp_wave} label='Wave on the lyrics page' on_toggle={() => set_pref('lp_wave', !lp_wave)} />
+                    </Row>
+                    <Row title='Wave on Home' hint='Behind what is playing at the top of Home'>
+                        <Switch on={home_wave} label='Wave on Home' on_toggle={() => set_pref('home_wave', !home_wave)} />
+                    </Row>
+                </Group>
+
+                <Group id='search' title='Search'>
+                    <Row title='Sources' hint={search_mode === 'parallel' ? 'YouTube and SoundCloud are asked at once; each tab fills as its answer lands' : 'Only the open tab is asked; the other when you switch to it'}>
+                        <Segmented value={search_mode} options={SEARCH_MODES} on_change={(next) => set_pref('search_mode', next)} />
+                    </Row>
+                </Group>
+
+                <Group id='suggestions' title='Suggestions' note='Tracks you do not have yet, picked by last.fm. Needs a last.fm key'>
+                    <Row title='Suggestions'>
+                        <Switch on={suggest_on} label='Suggestions' on_toggle={() => set_pref('suggest_on', !suggest_on)} />
+                    </Row>
+                    <Sub off={!suggest_on}>
+                        {PLACES.map((place) => {
+                            const shown = places.includes(place.id)
+
+                            return (
+                                <Row key={place.id} title={place.label} hint={place.hint}>
+                                    <Switch on={shown} label={place.label} on_toggle={() => set_pref('places', shown ? places.filter((p) => p !== place.id) : [...places, place.id])} />
+                                </Row>
+                            )
+                        })}
+                    </Sub>
+                </Group>
+
+                <Group id='sharing' title='Sharing'>
+                    <Row title='Discord activity' hint='Shows the track you are playing on your Discord profile'>
+                        <Switch
+                            on={share}
+                            label='Share activity on Discord'
+                            on_toggle={() => {
+                                void set_sharing(!share)
+                                set_pref('share_dc', !share)
+                            }}
+                        />
+                    </Row>
+                </Group>
+
+                <Group id='library' title='Library'>
+                    <Row title='Music folder' hint={folder || '~/Music'}>
+                        <span className='font-mono text-[0.75rem] text-muted tabular-nums'>{songs} tracks</span>
+                        <Button variant='secondary' size='sm' loading={loading} icon={<RefreshCw size={16} />} onClick={() => void fetch_songs()}>
+                            Rescan
+                        </Button>
+                    </Row>
+                </Group>
+
+                <Group id='keys' title='Keyboard shortcuts'>
+                    <Block title='Shortcuts'>
+                        <KeybindEditor />
+                    </Block>
+                </Group>
             </div>
         </div>
     )

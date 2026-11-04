@@ -10,14 +10,16 @@ import { Button } from '../ui/Button'
 import { Cover } from '../ui/Cover'
 import { Dialog, DialogActions } from '../ui/Dialog'
 
-const field = 'h-10 w-full rounded-lg bg-surface-2 px-3 text-[0.875rem] text-fg outline-none shadow-[inset_0_0_0_1px_var(--line)] transition-[background-color,box-shadow] placeholder:text-muted focus:bg-surface-3 focus:shadow-[inset_0_0_0_1px_var(--line-strong)]'
+// a text field: the well and its edge are the `field` class (index.css)
+const field = 'field h-10 w-full px-3 text-[0.875rem] text-fg outline-none placeholder:text-muted'
 
 // the picture is the way to change it: it comes up under the pointer rather
 // than standing beside it as a second control. the file input is what the
-// click lands on - see Profile
+// click lands on - see Profile. it keeps to the picture's own size: beside a
+// taller form it would otherwise stretch, and the overlay with it
 function PicturePick({ data, round, on_pick, busy }: { data?: string; round?: boolean; on_pick: (e: React.ChangeEvent<HTMLInputElement>) => void; busy: boolean }) {
     return (
-        <label className='group relative shrink-0 cursor-pointer'>
+        <label className='group relative shrink-0 cursor-pointer self-start'>
             <Cover data={data} size='md' round={round} icon={32} className={round ? 'size-24' : 'size-28 rounded-md'} />
             <span className={`absolute inset-0 grid place-items-center bg-black/55 text-white opacity-0 transition-opacity group-hover:opacity-100 ${round ? 'rounded-full' : 'rounded-md'}`}>
                 <Camera size={20} />

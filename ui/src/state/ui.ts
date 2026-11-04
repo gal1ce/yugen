@@ -116,6 +116,9 @@ export type UiState = {
     lp_wave: boolean
     // the wave behind what is playing on the home page
     home_wave: boolean
+    // the page's bar stays over the page, torn off the top as it scrolls,
+    // rather than scrolling away with it
+    bar_float: boolean
     share_dc: boolean
     sort: Sort
     layouts: Record<LayoutKey, Layout>
@@ -199,6 +202,7 @@ export const ui = create_store<UiState>({
     lp_lyrics: stored_flag('lp_lyrics', true),
     lp_wave: stored_flag('lp_wave', true),
     home_wave: stored_flag('home_wave', true),
+    bar_float: stored_flag('bar_float', false),
     share_dc: stored_flag('share_dc', true),
     sort: stored_pref('sort', SORTS.map((s) => s.id), 'title'),
     layouts: {

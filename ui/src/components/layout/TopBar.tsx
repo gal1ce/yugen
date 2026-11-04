@@ -263,22 +263,24 @@ export function PanelToggle({ side }: { side: 'sidebar' | 'panel' }) {
  * The bar at the top of the page: the search, and the way to the look, the
  * side column, the profile and settings. It belongs to the page rather than
  * to the window - it is the page's own head. At the top of a page the
- * controls stand on the page with nothing behind them; once the page goes
- * under, one bar comes up behind all of them and tears away from the top
- * edge to float (layout/GlassBar), and settles back into it at the top. With
- * the sidebar put away, the name and the way back to it come here.
+ * controls stand on the page with nothing behind them. By default that is
+ * all: the bar is the top of the page and scrolls away with it (App puts it
+ * inside the page's scroller). Floating (a setting), it stays over the page
+ * instead: once the page goes under, one bar comes up behind all of it and
+ * tears away from the top edge (layout/GlassBar), and settles back into it at
+ * the top. With the sidebar put away, the name and the way back to it come here.
  */
-export function PageBar() {
+export function PageBar({ floating }: { floating: boolean }) {
     const sidebar_hidden = useStore(ui, (s) => s.sidebar_hidden)
     // the controls, which ride with the bar's body while it tears
     const row = useRef<HTMLDivElement>(null)
 
     return (
         <header className='page-bar absolute inset-x-0 top-0 z-30 h-16'>
-            <GlassBar row={row} />
+            {floating && <GlassBar row={row} />}
             {/* the controls' column is never narrower than the controls, and the
                 search keeps the middle of the page whatever the sides are doing */}
-            <div ref={row} className='relative grid h-full grid-cols-[minmax(0,1fr)_minmax(0,46rem)_minmax(max-content,1fr)] items-center gap-x-6 px-6 will-change-transform'>
+            <div ref={row} className={cn('relative grid h-full grid-cols-[minmax(0,1fr)_minmax(0,46rem)_minmax(max-content,1fr)] items-center gap-x-6 px-6', floating && 'will-change-transform')}>
                 <div className='flex min-w-0 items-center'>
                     {sidebar_hidden && (
                         <div className='flex items-center gap-1'>
