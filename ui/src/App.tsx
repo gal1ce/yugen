@@ -24,6 +24,8 @@ import { NowPanel } from './components/layout/NowPanel'
 import { PlayerBar } from './components/layout/PlayerBar'
 import { Sidebar } from './components/layout/Sidebar'
 import { PageBar } from './components/layout/TopBar'
+import { Dock, LibraryPage, PhoneBar, SearchPage, TabBar } from './components/layout/Phone'
+import { usePhone } from './hooks/phone'
 import { set_scroll } from './state/bar'
 import { Ambient } from './components/fx/Ambient'
 import { usePalette } from './hooks/dark'
@@ -311,8 +313,10 @@ function useNarrow() {
     return narrow
 }
 
-function Page() {
-    const page = useStore(ui, (s) => s.page)
+function Page({ phone = false }: { phone?: boolean }) {
+    // the library and search pages are a phone's tabs; on a desktop the
+    // sidebar and the bar are those, and the page under them is home
+    const page = useStore(ui, (s) => (!phone && (s.page === 'library' || s.page === 'search') ? null : s.page))
     const view = useStore(ui, (s) => s.view)
     const selection = useStore(ui, (s) => s.selection)
     const nebula = useStore(ui, (s) => s.nebula)
@@ -348,7 +352,11 @@ function Page() {
     const home = !page && view === 'library' && !selection
 
     const body =
-        page === 'settings' ? (
+        page === 'library' ? (
+            <LibraryPage />
+        ) : page === 'search' ? (
+            <SearchPage />
+        ) : page === 'settings' ? (
             <SettingsPage />
         ) : page === 'profile' ? (
             <ProfilePage />
@@ -365,7 +373,7 @@ function Page() {
     const drawn = !page && (nebula === 'everywhere' || (nebula === 'home' && home))
 
     return (
-        <div ref={frame} className='panel relative min-h-0 min-w-0 overflow-hidden rounded-(--r-panel)'>
+        <div ref={frame} className={phone ? 'relative h-full min-h-0 overflow-hidden' : 'panel relative min-h-0 min-w-0 overflow-hidden rounded-(--r-panel)'}>
             {/* behind the page's own content and inside its panel, under the
                 cover's light rather than over it: the room stays the cover's,
                 and the cloud is the page's. it fades out down the page, so the
@@ -374,18 +382,19 @@ function Page() {
             <Scroll box={scroller} className='relative h-full'>
                 {/* by default the bar is the top of the page and goes up with it;
                     floating, it stays over the page (a setting) */}
-                {!floating && <PageBar floating={false} />}
+                {phone ? <PhoneBar /> : !floating && <PageBar floating={false} />}
                 <motion.div
                     key={`${page}:${view}:${selection}`}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={spring.smooth}
-                    className='mx-auto max-w-[1480px] px-8 pt-20 pb-16'
+                    // on a phone the foot of the page is left clear for the dock and the tabs
+                    className={phone ? 'px-4 pt-16 pb-[calc(env(safe-area-inset-bottom)+10.5rem)]' : 'mx-auto max-w-[1480px] px-8 pt-20 pb-16'}
                 >
                     {body}
                 </motion.div>
             </Scroll>
-            {floating && <PageBar floating />}
+            {floating && !phone && <PageBar floating />}
         </div>
     )
 }
@@ -445,6 +454,7 @@ export default function App() {
     const sidebar_w = useStore(ui, (s) => s.sidebar_w)
     const panel_w = useStore(ui, (s) => s.panel_w)
     const narrow = useNarrow()
+    const phone = usePhone()
     const panel_open = !panel_hidden && !narrow
 
     useAppearance()
@@ -453,6 +463,41 @@ export default function App() {
     useStartup()
     // every panel in the app scrolls, and all of them the same way
     useSmoothPrefs()
+
+    // a phone's own tabs have no place on a desktop: leaving one for the other
+    // (a window made wider) puts them away
+    useEffect(() => {
+        const { page } = ui.get()
+        if (!phone && (page === 'library' || page === 'search')) ui.set({ page: null })
+    }, [phone])
+
+    // the cover picker the track menu opens - see state/images
+    const cover_input = (
+        <input
+            ref={cover_input_ref}
+            type='file'
+            accept='image/png,image/jpeg'
+            aria-hidden
+            tabIndex={-1}
+            className='hidden'
+            onChange={(e) => void pick_image(e, { kind: 'track', name: track_cover_target() })}
+        />
+    )
+
+    if (phone) {
+        return (
+            <MotionConfig reducedMotion='user'>
+                <div className='relative h-full' onContextMenu={(e) => e.preventDefault()}>
+                    <Room />
+                    <Page phone />
+                    <Dock />
+                    <TabBar />
+                    <Overlays />
+                    {cover_input}
+                </div>
+            </MotionConfig>
+        )
+    }
 
     return (
         <MotionConfig reducedMotion='user'>
@@ -495,15 +540,7 @@ export default function App() {
 
             {/* opened from the track menu, and deliberately not inside it - see
                 state/images */}
-            <input
-                ref={cover_input_ref}
-                type='file'
-                accept='image/png,image/jpeg'
-                aria-hidden
-                tabIndex={-1}
-                className='hidden'
-                onChange={(e) => void pick_image(e, { kind: 'track', name: track_cover_target() })}
-            />
+            {cover_input}
         </div>
         </MotionConfig>
     )

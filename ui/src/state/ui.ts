@@ -67,12 +67,15 @@ export type MenuTarget =
 export type Menu = MenuTarget & { x: number; y: number }
 
 // the full pages drawn instead of the library: every way of navigating has to
-// put them away, which is what leave_page is for
-export type Page = 'settings' | 'profile' | null
+// put them away, which is what leave_page is for. library and search are a
+// phone's own: there the sidebar and the search field are tabs of their own
+export type Page = 'settings' | 'profile' | 'library' | 'search' | null
 
 export type CropFor = { kind: 'avatar' } | { kind: 'playlist'; name: string } | { kind: 'track'; name: string } | { kind: 'view'; view: ViewCover }
 
 export type PanelTab = 'lyrics' | 'queue'
+
+export type SheetFace = 'player' | 'lyrics' | 'queue'
 
 export type UiState = {
     view: View
@@ -146,6 +149,8 @@ export type UiState = {
     info_face: 'about' | 'lyrics'
     // the whole window given over to the words of what is playing
     lyrics_open: boolean
+    // on a phone that page is the whole player, and shows one face at a time
+    sheet_face: SheetFace
 
     query: string
     search_open: boolean
@@ -234,6 +239,7 @@ export const ui = create_store<UiState>({
     info_open: false,
     info_face: 'about',
     lyrics_open: false,
+    sheet_face: 'player',
 
     query: '',
     search_open: false,
@@ -261,6 +267,12 @@ export function open_playlist(name: string) {
 
 export function open_group(kind: 'albums' | 'artists', name: string) {
     ui.set({ page: null, view: kind, selection: name })
+}
+
+// the words of what is playing over the whole window. on a desktop that page
+// is the lyrics; on a phone it is the player, opened at the face asked for
+export function open_lyrics(face: SheetFace = 'lyrics') {
+    ui.set({ lyrics_open: true, sheet_face: face })
 }
 
 export function open_page(page: Page) {

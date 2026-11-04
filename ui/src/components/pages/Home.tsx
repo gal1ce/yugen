@@ -8,7 +8,7 @@ import { arrivals_of, span_of, useAlbums, useArtists, useFavoriteSongs, useLiked
 import { added_of, album_of, artist_of, library, title_of } from '../../state/library'
 import { play_listing, play_music, player, shuffle_into, toggle_pause } from '../../state/player'
 import { want_similar } from '../../state/suggest'
-import { context, open_menu, open_page, open_view, ui } from '../../state/ui'
+import { context, open_lyrics, open_menu, open_page, open_view, ui } from '../../state/ui'
 import { Button, IconButton } from '../ui/Button'
 import { Empty } from '../ui/Controls'
 import { Cover } from '../ui/Cover'
@@ -19,7 +19,8 @@ import { Spin } from '../ui/Spin'
 
 const SHELF = 12
 
-// the page's own title, and what the library holds, each figure a way into it
+// the page's own title, and what the library holds, each figure a way into it.
+// a phone has the library a tab away, and starts the page at what is playing
 function Head() {
     const songs = useStore(library, (s) => s.songs)
     useStore(library, (s) => s.meta)
@@ -35,7 +36,7 @@ function Head() {
     )
 
     return (
-        <div className='mb-8'>
+        <div className='mb-8 max-sm:hidden'>
             <h1 className='font-serif text-[2.25rem] leading-tight font-medium'>Library</h1>
             {songs.length > 0 && (
                 <div className='mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.8125rem] text-muted'>
@@ -101,63 +102,65 @@ function Hero() {
      * floor of that frame and fading out at both ends.
      */
     return (
-        <section className='@container relative mb-14 overflow-hidden rounded-(--r-panel) border border-line p-6 pb-20'>
+        <section className='@container relative mb-14 overflow-hidden rounded-(--r-panel) border border-line p-6 pb-20 max-sm:mt-2 max-sm:mb-10 max-sm:p-4 max-sm:pb-16'>
             {wave && (
                 <Wave
                     gain={0.95}
-                    className='absolute inset-x-0 bottom-0 -z-0 h-32 w-full [mask-image:linear-gradient(90deg,transparent,#000_12%,#000_88%,transparent)]'
+                    className='absolute inset-x-0 bottom-0 -z-0 h-32 w-full max-sm:h-14 [mask-image:linear-gradient(90deg,transparent,#000_12%,#000_88%,transparent)]'
                 />
             )}
 
-            <div className='relative flex items-end gap-8'>
+            {/* a grid, so on a phone the buttons can leave the narrow column beside
+                the sleeve and take the card's whole width under both */}
+            <div className='relative grid grid-cols-[auto_minmax(0,1fr)] grid-rows-[1fr_auto] items-end gap-x-8 @4xl:grid-cols-[auto_minmax(0,1fr)_auto] max-sm:grid-rows-none max-sm:items-center max-sm:gap-x-4'>
                 <button
                     type='button'
                     {...tip('Lyrics')}
-                    onClick={() => ui.set({ lyrics_open: true })}
+                    onClick={() => open_lyrics('player')}
                     onContextMenu={context({ kind: 'song', song: current })}
-                    className='group relative shrink-0'
+                    className='group relative row-span-2 shrink-0 max-sm:row-span-1'
                 >
                     {/* the sleeve as an object on the table: a long soft shadow
                         under it, a tight one where it touches */}
-                    <Cover data={cover} icon={40} className='size-52 rounded-[calc(var(--r-cover)*1.6)] shadow-[0_30px_50px_-26px_rgb(0_0_0/0.85),0_2px_8px_rgb(0_0_0/0.3)] transition-[scale] duration-300 ease-(--ease-out) group-active:scale-[0.98]' />
+                    <Cover data={cover} icon={40} className='size-52 max-sm:size-[6.5rem] rounded-[calc(var(--r-cover)*1.6)] shadow-[0_30px_50px_-26px_rgb(0_0_0/0.85),0_2px_8px_rgb(0_0_0/0.3)] transition-[scale] duration-300 ease-(--ease-out) group-active:scale-[0.98]' />
                 </button>
 
-                <div className='min-w-0 flex-1 pb-1'>
+                <div className='col-start-2 row-start-1 min-w-0 pb-1'>
                     <p className='flex items-center gap-2 text-[0.8125rem] text-fg-2'>
                         <Bars still={paused} /> {paused ? 'Paused' : 'Now playing'}
                     </p>
-                    <h2 className='mt-2 truncate font-serif text-[clamp(2.25rem,3.4vw,3.25rem)] leading-[1.06] font-medium'>{title_of(current)}</h2>
-                    <p className='mt-2 truncate text-[1rem] text-fg-2'>
+                    <h2 className='mt-2 truncate font-serif text-[clamp(2.25rem,3.4vw,3.25rem)] leading-[1.06] font-medium max-sm:mt-1 max-sm:text-[2rem]'>{title_of(current)}</h2>
+                    <p className='mt-2 truncate text-[1rem] text-fg-2 max-sm:mt-1 max-sm:text-[0.8125rem]'>
                         {artist_of(current)} · {album_of(current)}
                     </p>
+                </div>
 
-                    <div className='mt-6 flex items-center gap-2'>
-                        <Button size='lg' icon={paused ? <Play size={16} /> : <Pause size={16} />} onClick={() => void toggle_pause()}>
-                            {paused ? 'Resume' : 'Pause'}
-                        </Button>
-                        <Button size='lg' variant='secondary' icon={<MicVocal size={16} />} onClick={() => ui.set({ lyrics_open: true })}>
-                            Lyrics
-                        </Button>
-                        <IconButton size='lg' variant='soft' {...tip('Track info')} onClick={() => ui.set({ info_open: true, info_face: 'about' })}>
-                            <Info size={18} />
-                        </IconButton>
-                        <IconButton
-                            size='lg'
-                            variant='soft'
-                            {...tip('More')}
-                            onClick={(e) => {
-                                e.stopPropagation()
-                                const rect = e.currentTarget.getBoundingClientRect()
-                                open_menu({ kind: 'song', song: current }, rect.left, rect.bottom + 4)
-                            }}
-                        >
-                            <DotsThree size={18} />
-                        </IconButton>
-                    </div>
+                <div className='col-start-2 row-start-2 mt-6 flex items-center gap-2 max-sm:col-span-2 max-sm:col-start-1 max-sm:mt-4 max-sm:flex-wrap'>
+                    <Button size='lg' icon={paused ? <Play size={16} /> : <Pause size={16} />} onClick={() => void toggle_pause()}>
+                        {paused ? 'Resume' : 'Pause'}
+                    </Button>
+                    <Button size='lg' variant='secondary' icon={<MicVocal size={16} />} onClick={() => open_lyrics()}>
+                        Lyrics
+                    </Button>
+                    <IconButton size='lg' variant='soft' {...tip('Track info')} onClick={() => ui.set({ info_open: true, info_face: 'about' })}>
+                        <Info size={18} />
+                    </IconButton>
+                    <IconButton
+                        size='lg'
+                        variant='soft'
+                        {...tip('More')}
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            const rect = e.currentTarget.getBoundingClientRect()
+                            open_menu({ kind: 'song', song: current }, rect.left, rect.bottom + 4)
+                        }}
+                    >
+                        <DotsThree size={18} />
+                    </IconButton>
                 </div>
 
                 {next.length > 0 && (
-                    <div className='hidden w-64 shrink-0 pb-1 @4xl:block'>
+                    <div className='col-start-3 row-span-2 row-start-1 hidden w-64 shrink-0 pb-1 @4xl:block'>
                         <p className='mb-2 px-2 text-[0.8125rem] text-muted'>Up next</p>
                         {next.map((name) => (
                             <UpNext key={name} name={name} />

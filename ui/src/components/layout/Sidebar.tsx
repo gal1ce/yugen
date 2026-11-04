@@ -44,7 +44,7 @@ function NavItem({ id, label, icon: Glyph, count }: { id: View; label: string; i
     )
 }
 
-function Nav() {
+export function Nav() {
     const songs = useStore(library, (s) => s.songs.length)
     const liked = useLikedSongs().length
     const albums = useAlbums().size
@@ -152,7 +152,7 @@ function ViewMenu() {
     )
 }
 
-function Shelves() {
+export function Shelves() {
     const shelves = useStore(ui, (s) => s.shelves)
     const view = useStore(ui, (s) => s.library_view)
     const pins = useStore(ui, (s) => s.pins)

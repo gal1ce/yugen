@@ -59,7 +59,7 @@ function SortMenu() {
 
 // Liked Songs and All songs: their own sleeve if one was given, the drawn tile
 // if not, and either way the click that picks a new one (through the crop)
-const tile = 'size-44 rounded-md shadow-[0_24px_40px_-22px_rgb(0_0_0/0.75),0_2px_6px_rgb(0_0_0/0.3)]'
+const tile = 'size-44 max-sm:size-28 rounded-md shadow-[0_24px_40px_-22px_rgb(0_0_0/0.75),0_2px_6px_rgb(0_0_0/0.3)]'
 
 // Liked songs and All songs: their own sleeve if one was given, a plain one
 // if not, and either way the click that picks a new one (through the crop)
@@ -107,7 +107,7 @@ function Head({ listed }: { listed: string[] }) {
                 onClick={() => editable && ui.set({ editing: selection })}
                 className='group relative shrink-0'
             >
-                <Cover data={art} size='md' round={artist} icon={44} className={artist ? 'size-44 shadow-[0_24px_40px_-22px_rgb(0_0_0/0.75)]' : tile} />
+                <Cover data={art} size='md' round={artist} icon={44} className={artist ? 'size-44 max-sm:size-28 shadow-[0_24px_40px_-22px_rgb(0_0_0/0.75)]' : tile} />
                 {editable && (
                     <span className='absolute inset-0 grid place-items-center rounded-md bg-black/55 text-white opacity-0 transition-opacity group-hover:opacity-100'>
                         <Pencil size={20} />
@@ -123,17 +123,17 @@ function Head({ listed }: { listed: string[] }) {
                     <ArrowLeft size={16} /> All {view}
                 </button>
             )}
-            <div className='flex items-end gap-8'>
+            <div className='flex items-end gap-8 max-sm:gap-4'>
                 {sleeve}
                 <div className='min-w-0 flex-1 pb-1'>
                     <p className='text-[0.8125rem] text-muted'>{kind}</p>
-                    <h1 className='mt-1 truncate font-serif text-[2.75rem] leading-[1.08] font-medium'>{title}</h1>
+                    <h1 className='mt-1 truncate font-serif text-[2.75rem] leading-[1.08] font-medium max-sm:text-[2rem]'>{title}</h1>
                     <p className='mt-2 text-[0.8125rem] text-muted'>
                         <span className='font-mono text-fg-2 tabular-nums'>{listed.length}</span> {listed.length === 1 ? 'track' : 'tracks'}
                         {span > 0 && <> · {format_span(span)}</>}
                     </p>
 
-                    <div className='mt-6 flex flex-wrap items-center gap-2'>
+                    <div className='mt-6 flex flex-wrap items-center gap-2 max-sm:mt-4'>
                         <Button size='lg' disabled={!listed.length} icon={<Play size={16} />} onClick={() => void play_listing(listed)}>
                             Play
                         </Button>

@@ -91,8 +91,10 @@ function Skeleton({ rows = 5 }: { rows?: number }) {
 /*
  * The search. It shells out to yt-dlp, so it goes out on enter rather than on
  * every key, and both sources go out on the same enter - see state/search.
+ * Inline (a phone's search tab) the results are the page under the field
+ * rather than a dropdown over it.
  */
-function SearchBox() {
+export function SearchBox({ inline = false }: { inline?: boolean }) {
     const query = useStore(ui, (s) => s.query)
     const open = useStore(ui, (s) => s.search_open)
     const source = useStore(ui, (s) => s.source)
@@ -107,12 +109,63 @@ function SearchBox() {
     const input = useRef<HTMLInputElement>(null)
     const close = useCallback(() => ui.set({ search_open: false }), [])
 
-    useDismiss(open, close, { scroll: false })
+    useDismiss(open && !inline, close, { scroll: false })
 
-    // the shortcut opens the box and puts the caret in it
+    // the shortcut opens the box and puts the caret in it; the search tab is
+    // opened to type into
     useEffect(() => {
-        if (open) input.current?.focus()
-    }, [open])
+        if (open || inline) input.current?.focus()
+    }, [open, inline])
+
+    const listing = (
+        <>
+            {/* the two sources as tabs over one list, the way master had
+                it; each tab says whether its answer is in, and how big */}
+            <div className='flex items-center justify-between px-1 pb-2'>
+                <Segmented
+                    value={source}
+                    on_change={switch_source}
+                    options={SOURCES.map((option) => ({
+                        id: option.id,
+                        label: (
+                            <>
+                                {option.label}
+                                {busy.includes(option.id) ? (
+                                    <Spin>
+                                        <LoaderCircle size={12} className='text-muted' />
+                                    </Spin>
+                                ) : (
+                                    found[option.id].length > 0 && <span className='font-mono text-[0.6875rem] text-muted'>{found[option.id].length}</span>
+                                )}
+                            </>
+                        ),
+                    }))}
+                />
+            </div>
+
+            <Scroll className={inline ? '' : 'max-h-[66vh]'}>
+                {loading && !results.length && <Skeleton />}
+
+                {!loading && !results.length && (
+                    <p className='px-3 py-6 text-center text-[0.8125rem] text-muted'>
+                        {query.trim() ? 'Nothing found. Press enter to search again' : mode === 'parallel' ? 'Type a title and press enter. YouTube and SoundCloud are asked at once' : 'Type a title and press enter'}
+                    </p>
+                )}
+
+                {results.slice(0, shown).map((result) => (
+                    <ResultRow key={result.ref} result={result} source={source} />
+                ))}
+
+                {results.length > shown && (
+                    <div className='flex justify-center pt-2 pb-1'>
+                        <Button variant='ghost' size='sm' onClick={() => ui.set({ shown: shown + PAGE })}>
+                            Show {Math.min(PAGE, results.length - shown)} more
+                        </Button>
+                    </div>
+                )}
+            </Scroll>
+        </>
+    )
 
     return (
         <div className='relative w-full' onClick={(e) => e.stopPropagation()}>
@@ -145,64 +198,16 @@ function SearchBox() {
                         <X size={16} />
                     </button>
                 ) : (
-                    shortcut && <kbd className='keycap mr-2 hidden sm:inline-flex'>{key_label(shortcut)}</kbd>
+                    !inline && shortcut && <kbd className='keycap mr-2 hidden sm:inline-flex'>{key_label(shortcut)}</kbd>
                 )}
             </label>
 
-            {open && (
-                <Dropdown>
-                    {/* the two sources as tabs over one list, the way master had
-                        it; each tab says whether its answer is in, and how big */}
-                    <div className='flex items-center justify-between px-1 pb-2'>
-                        <Segmented
-                            value={source}
-                            on_change={switch_source}
-                            options={SOURCES.map((option) => ({
-                                id: option.id,
-                                label: (
-                                    <>
-                                        {option.label}
-                                        {busy.includes(option.id) ? (
-                                            <Spin>
-                                                <LoaderCircle size={12} className='text-muted' />
-                                            </Spin>
-                                        ) : (
-                                            found[option.id].length > 0 && <span className='font-mono text-[0.6875rem] text-muted'>{found[option.id].length}</span>
-                                        )}
-                                    </>
-                                ),
-                            }))}
-                        />
-                    </div>
-
-                    <Scroll className='max-h-[66vh]'>
-                        {loading && !results.length && <Skeleton />}
-
-                        {!loading && !results.length && (
-                            <p className='px-3 py-6 text-center text-[0.8125rem] text-muted'>
-                                {query.trim() ? 'Nothing found. Press enter to search again' : mode === 'parallel' ? 'Type a title and press enter. YouTube and SoundCloud are asked at once' : 'Type a title and press enter'}
-                            </p>
-                        )}
-
-                        {results.slice(0, shown).map((result) => (
-                            <ResultRow key={result.ref} result={result} source={source} />
-                        ))}
-
-                        {results.length > shown && (
-                            <div className='flex justify-center pt-2 pb-1'>
-                                <Button variant='ghost' size='sm' onClick={() => ui.set({ shown: shown + PAGE })}>
-                                    Show {Math.min(PAGE, results.length - shown)} more
-                                </Button>
-                            </div>
-                        )}
-                    </Scroll>
-                </Dropdown>
-            )}
+            {inline ? <div className='mt-4'>{listing}</div> : open && <Dropdown>{listing}</Dropdown>}
         </div>
     )
 }
 
-function ProfileMenu() {
+export function ProfileMenu() {
     const [open, set_open] = useState(false)
     const username = useStore(library, (s) => s.username)
     const pic = useStore(library, (s) => s.profile_pic)

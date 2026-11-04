@@ -8,7 +8,7 @@ import { useStore } from '../../lib/store'
 import { useQueue } from '../../state/derive'
 import { artist_of, library, title_of } from '../../state/library'
 import { add_to_drift, clear_drift, clear_queue, keep_drift, move_in_queue, play_music, player, remove_from_drift, remove_from_queue } from '../../state/player'
-import { context, set_pref, ui } from '../../state/ui'
+import { context, open_lyrics, set_pref, ui } from '../../state/ui'
 import { Button, IconButton } from '../ui/Button'
 import { Empty, Segmented } from '../ui/Controls'
 import { Cover } from '../ui/Cover'
@@ -176,7 +176,7 @@ function Drift() {
 
 // a hand-built queue repeats until it is stopped; anything else is the listing
 // or the section the track came from
-function Queue() {
+export function Queue() {
     const current = useStore(player, (s) => s.current)
     const crossing = useStore(player, (s) => s.crossing)
     const back = useStore(player, (s) => s.drift_return)
@@ -255,7 +255,7 @@ export function NowPanel({ open }: { open: boolean }) {
                 />
                 {tab === 'lyrics' && sheet && !timed && <span className='text-[0.75rem] text-muted'>Not synced</span>}
                 {tab === 'lyrics' && current && (
-                    <IconButton size='sm' {...tip('Full screen lyrics')} onClick={() => ui.set({ lyrics_open: true })} className='ml-auto'>
+                    <IconButton size='sm' {...tip('Full screen lyrics')} onClick={() => open_lyrics()} className='ml-auto'>
                         <Expand size={16} />
                     </IconButton>
                 )}
