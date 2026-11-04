@@ -32,15 +32,22 @@ function paint(now?: number) {
     for (const painter of painters) painter(at)
 }
 
+// out of sight (the window hidden) nothing is drawn, so nothing is counted
+// up either: the page's timers are kept whole while hidden, so the music can
+// go on to the next track, and this would otherwise go on at the display's rate
+const due = () => clock.running && painters.size > 0 && !document.hidden
+
 function loop(now: number) {
     paint(now)
-    frame = clock.running && painters.size ? next_frame(loop) : 0
+    frame = due() ? next_frame(loop) : 0
 }
 
 function wake() {
-    if (!frame && clock.running && painters.size) frame = next_frame(loop)
+    if (!frame && due()) frame = next_frame(loop)
     if (!clock.running) paint()
 }
+
+document.addEventListener('visibilitychange', wake)
 
 export function set_position(seconds: number) {
     clock = { ...clock, at: seconds, from: performance.now() }
@@ -63,7 +70,7 @@ export function hold_position(seconds: number | null) {
 }
 
 // a painter writes the figure into the dom itself. nothing here is a render,
-// and nothing is scheduled at all unless something is playing and on screen
+// and nothing is scheduled at all unless something is playing and in sight
 export function useClock(painter: (seconds: number) => void) {
     const current = useRef(painter)
 

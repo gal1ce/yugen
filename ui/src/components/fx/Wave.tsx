@@ -189,6 +189,9 @@ export function Wave({ className, gain = 1, overlay = false }: Props) {
                     ctx.clearRect(0, 0, canvas.width, canvas.height)
                     blank = true
                 }
+                // flat and silent: off the clock until something plays, rather
+                // than woken every frame of the display to find it still flat
+                sleep()
                 return
             }
 
@@ -240,10 +243,22 @@ export function Wave({ className, gain = 1, overlay = false }: Props) {
         }
 
         // ninety a second: smooth on a fast screen, and half the work of every frame at 165 Hz
-        const stop = add_painter(90, draw, { page: !overlay })
+        let stop: (() => void) | null = add_painter(90, draw, { page: !overlay })
+
+        function sleep() {
+            stop?.()
+            stop = null
+        }
+
+        const wake = () => {
+            const { current, paused } = player.get()
+            if (!stop && current && !paused) stop = add_painter(90, draw, { page: !overlay })
+        }
+        const off = player.subscribe(wake)
 
         return () => {
-            stop()
+            off()
+            sleep()
             sized.disconnect()
         }
     }, [motion, palette, gain, overlay])
