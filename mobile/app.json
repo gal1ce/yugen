@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "yugen",
+    "slug": "yugen",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#100f0e",
+    "android": {
+      "package": "dev.gal1ce.yugen",
+      "adaptiveIcon": {
+        "backgroundColor": "#100f0e",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      [
+        "expo-audio",
+        {
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": true
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "granularPermissions": [
+            "audio"
+          ]
+        }
+      ],
+      "expo-build-properties",
+      "./plugins/with-ui-assets",
+      "expo-asset"
+    ]
+  }
+}
