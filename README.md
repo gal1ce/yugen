@@ -40,21 +40,24 @@ executable, so the binary is all there is to run.
 
 ## Install
 
+This branch is the alternative interface — floating panels over the cover's
+light, liquid glass, five palettes, titles and covers of your own on Discord —
+built on Qt (QtWebEngine). The installer on `master` (`install.sh`) installs
+`master`'s own release, the original interface — not this one — so this branch
+has builds of its own:
+
+| | |
+|---|---|
+| **Linux x64** | [`yugen-linux-x86_64.zip`](https://github.com/gal1ce/yugen/releases/download/alternative-ui-2026.11.04/yugen-linux-x86_64.zip) — unzip it anywhere and run `yugen-linux-x86_64/yugen`. Qt, QtWebEngine, `yt-dlp` and `ffmpeg` are inside; nothing needs installing. Needs glibc 2.38 or newer (Ubuntu 24.04+, Debian 13+, Fedora 39+, Arch) and NSS from the system, which any desktop with Firefox or Chromium has. |
+| **Windows x64** | [`Yugen-windows-x64.zip`](https://github.com/gal1ce/yugen/releases/download/alternative-ui-windows-2026.11.04/Yugen-windows-x64.zip) — extract it and run `bin/yugen.exe`. Built from `codex/windows-support`, which carries this same interface with the Windows port. A preview: it builds, but has not been run on native Windows yet. |
+
+Or build it yourself from this branch:
+
 ```sh
-curl -sL https://raw.githubusercontent.com/gal1ce/yugen/master/install.sh | bash
+git clone -b claude/alternative-ui https://github.com/gal1ce/yugen.git
 ```
 
-It offers two options. `--appimage` and `--source` skip the prompt.
-
-**AppImage** downloads the bundle into `~/.local/bin` and writes a launcher
-entry. Nothing is installed system-wide and root is never asked for: WebKitGTK,
-`yt-dlp` and `ffmpeg` all travel inside the bundle. The two things it cannot
-carry are glibc, so the host has to be at least as new as the machine that built
-the release, and the kernel's unprivileged user namespaces, which the bundled
-WebKit needs to reach its own helper processes.
-
-**From source** installs the toolchain and the dependencies for your distro,
-puts `yt-dlp` on the nightly channel, builds, and installs into `/usr/local`.
+and follow [Building](#building) below.
 
 ### The last.fm key
 
@@ -64,17 +67,7 @@ needs an api key — a free one from
 [last.fm/api/account/create](https://www.last.fm/api/account/create). Everything
 else works without it; skipping it only costs that shelf.
 
-The installer asks for the key and writes it to `~/.config/yugen/lastfm_key`. If
-`LASTFM_API_KEY` is already exported when you run it, that one is used and
-nothing is asked:
-
-```sh
-export LASTFM_API_KEY="your-key"
-curl -sL https://raw.githubusercontent.com/gal1ce/yugen/master/install.sh | bash
-```
-
-If you skipped it, or you built yugen yourself, there are two ways in. Write the
-file directly:
+There are two ways to give it to yugen. Write the file directly:
 
 ```sh
 mkdir -p ~/.config/yugen && echo "your-key" > ~/.config/yugen/lastfm_key
@@ -95,10 +88,10 @@ would come up without a key. The file is what carries it across runs, and it is
 read first thing at startup, so a key added while yugen is running takes effect
 the next time it starts.
 
-The AppImage can also be built locally with
-[`packaging/appimage/build.sh`](packaging/appimage/build.sh). Build it inside an
-old base image if you mean to hand it to anyone else — the glibc of the build
-host is the floor for every machine that runs it.
+The Linux zip is built with
+[`packaging/linux/build-in-container.sh`](packaging/linux/build-in-container.sh),
+inside an Ubuntu 24.04 image so the glibc floor stays at 2.38; the Windows zip
+by the `Windows x64` workflow on `codex/windows-support`.
 
 ## Building
 
