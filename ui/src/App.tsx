@@ -30,7 +30,7 @@ import { usePalette } from './hooks/dark'
 import { set_pace, spring } from './lib/motion'
 import { Nebula } from './components/fx/Nebula'
 import { CropDialog } from './components/dialogs/Crop'
-import { PlaylistDialog, ProfileDialog } from './components/dialogs/Edit'
+import { PlaylistDialog, ProfileDialog, TitleDialog } from './components/dialogs/Edit'
 import { TrackInfo } from './components/dialogs/TrackInfo'
 import { GroupsPage } from './components/pages/Groups'
 import { HomePage } from './components/pages/Home'
@@ -409,6 +409,7 @@ function Room() {
 
 function Overlays() {
     const editing = useStore(ui, (s) => s.editing)
+    const retitling = useStore(ui, (s) => s.retitling)
     const profile_edit = useStore(ui, (s) => s.profile_edit)
     const crop = useStore(ui, (s) => !!s.crop)
     const info_open = useStore(ui, (s) => s.info_open)
@@ -427,6 +428,7 @@ function Overlays() {
         <>
             <AnimatePresence>{lyrics_open && <LyricsPage key='lyrics' />}</AnimatePresence>
             {editing && <PlaylistDialog key={editing} name={editing} />}
+            {retitling && <TitleDialog key={retitling} name={retitling} />}
             {profile_edit && <ProfileDialog />}
             {info_open && <TrackInfo />}
             {/* over the dialog that asked for it */}

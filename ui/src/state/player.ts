@@ -13,6 +13,7 @@ import {
     next_playlist_name,
     sync_liked,
     sync_playlists,
+    tag_title_of,
     title_of,
 } from './library'
 import { saved_playback, ui } from './ui'
@@ -432,7 +433,8 @@ async function push_track(name: string | null) {
 // asked for every track that comes up: the backend keeps lyrics.json and
 // answers off disk, which is the copy that outlives the window
 function fetch_lyrics(song: string) {
-    const ask = asked(title_of(song), artist_of(song))
+    // by the title in the tags: one of the listener's own is not what lrclib knows it by
+    const ask = asked(tag_title_of(song), artist_of(song))
 
     bridge()
         .get_lyrics(ask.track, ask.artist)
@@ -443,7 +445,7 @@ function fetch_lyrics(song: string) {
 // only while the card is up - nothing else reads it, and info.json on the far
 // side is what makes the second look free
 function fetch_info(song: string) {
-    const ask = asked(title_of(song), artist_of(song))
+    const ask = asked(tag_title_of(song), artist_of(song))
 
     bridge()
         .get_info(ask.artist, ask.track)

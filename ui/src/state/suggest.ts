@@ -22,7 +22,7 @@ import { fold, library_mark } from '../lib/names'
 import type { View } from '../lib/prefs'
 import { create_store, memo_last } from '../lib/store'
 import { listed_now } from './derive'
-import { add_to_playlist, artist_of, fetch_songs, library, sync_liked, title_of } from './library'
+import { add_to_playlist, artist_of, fetch_songs, library, sync_liked, tag_title_of } from './library'
 import { fetch_source, owns } from './search'
 import { ui } from './ui'
 
@@ -121,7 +121,7 @@ const library_keys_of = memo_last((songs: string[], meta: Record<string, string[
     const keys = new Set<string>()
 
     for (const name of songs) {
-        keys.add(fold(artist_of(name) + title_of(name)))
+        keys.add(fold(artist_of(name) + tag_title_of(name)))
         keys.add(fold(library_mark(name).title))
     }
 

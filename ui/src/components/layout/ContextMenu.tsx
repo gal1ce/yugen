@@ -85,6 +85,9 @@ function SongMenu({ song, within }: { song: string; within?: string[] }) {
             </Submenu>
 
             <MenuSep />
+            <MenuItem icon={<Pencil size={16} />} onClick={() => ui.set({ retitling: song })}>
+                Rename
+            </MenuItem>
             <MenuItem icon={<ImagePlus size={16} />} onClick={() => choose_track_cover(song)}>
                 Change cover
             </MenuItem>

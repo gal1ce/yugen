@@ -12,6 +12,10 @@ export type Bridge = {
     // with it once it is set - so nothing that draws a cover has to know which
     // of the two it is looking at
     update_track_cover(path: string, base64_img: string): Promise<boolean>
+    // a title of the listener's own for a track, by full path (custom_titles.json);
+    // empty takes it away. get_track_titles is all of them as json text
+    set_track_title(path: string, title: string): Promise<boolean>
+    get_track_titles(): Promise<string>
     get_lyrics(title: string, artist: string): Promise<string>
     set_activity(state: boolean): Promise<void>
     get_activity(): Promise<boolean>

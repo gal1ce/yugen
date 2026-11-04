@@ -192,6 +192,13 @@ namespace yugen
                // json text, read on the ui side; answers are kept in info.json
                static std::string get_info(const std::string& artist, const std::string& track_name);
                static bool update_track_cover(const std::string& file_path, const std::string& base64_img);
+
+               // a title of the listener's own for a track (custom_titles.json),
+               // shown in place of its tags in the ui and on discord. empty
+               // takes it away again. the file is not written
+               static bool set_track_title(const std::string& file_path, const std::string& title);
+               // every one of them, as json text: full path -> title
+               static std::string get_track_titles();
           private:
                static bool save_playlists(const json& data);
                static json load_playlists();

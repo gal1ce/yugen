@@ -137,6 +137,8 @@ export type UiState = {
     menu: Menu | null
     // the playlist whose details are being edited
     editing: string | null
+    // the track being given a title of its own
+    retitling: string | null
     profile_edit: boolean
     crop: { src: string; for: CropFor } | null
     crop_busy: boolean
@@ -225,6 +227,7 @@ export const ui = create_store<UiState>({
 
     menu: null,
     editing: null,
+    retitling: null,
     profile_edit: false,
     crop: null,
     crop_busy: false,
