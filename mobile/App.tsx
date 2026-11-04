@@ -2,14 +2,15 @@ import { useEffect, useRef, type ComponentType, type Ref } from 'react'
 import { BackHandler, StatusBar, StyleSheet, View } from 'react-native'
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { WebView as Bare, type WebViewMessageEvent, type WebViewProps } from 'react-native-webview'
+import { answer, type Call } from './src/bridge/host'
+import { INJECTED } from './src/bridge/inject'
+import { listen_remote } from './src/native/player'
+import { keep_current } from './src/native/ytdlp'
 
 // what the page is held by. the package types its WebView as a function
 // component without a ref, though it forwards one to the native view
 type Handle = { injectJavaScript(script: string): void }
 const WebView = Bare as unknown as ComponentType<WebViewProps & { ref?: Ref<Handle> }>
-import { answer, type Call } from './src/bridge/host'
-import { INJECTED } from './src/bridge/inject'
-import { listen_remote } from './src/native/player'
 
 /*
  * The whole app is the desktop's interface (../ui), opened from the apk's
@@ -29,6 +30,9 @@ function Window() {
     const send = (script: string) => view.current?.injectJavaScript(`${script};true;`)
 
     useEffect(() => {
+        // youtube moves faster than the bundled yt-dlp does
+        void keep_current()
+
         // the lock screen and the notification, told to the page the way
         // mpris tells it on the desktop
         listen_remote((cmd, arg) => send(`window.__yugen_mpris && window.__yugen_mpris(${JSON.stringify(cmd)}, ${arg})`))

@@ -1,6 +1,7 @@
 import * as library from '../native/library'
 import * as player from '../native/player'
 import * as services from '../native/services'
+import * as ytdlp from '../native/ytdlp'
 
 /*
  * The app's side of window.saucer.exposed: every function main.cpp exposes on
@@ -82,11 +83,13 @@ export const HANDLERS: Record<string, Handler> = {
     set_activity: nothing,
     get_activity: async () => false,
 
-    // not on the phone yet: yt-dlp (a native module of its own) and last.fm
-    search_yt: async () => [],
-    search_sc: async () => [],
-    download_yt: async () => '',
-    download_sc: async () => '',
+    // yt-dlp, through modules/yt-dlp
+    search_yt: (query: string, count: number) => ytdlp.search_youtube(query, count),
+    search_sc: (query: string, count: number) => ytdlp.search_soundcloud(query, count),
+    download_yt: (id: string) => ytdlp.download(`https://youtube.com/watch?v=${id}`),
+    download_sc: (url: string) => ytdlp.download(url),
+
+    // not on the phone yet: last.fm
     get_similar: async () => '',
     get_info: async () => '',
 }

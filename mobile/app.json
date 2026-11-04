@@ -33,7 +33,14 @@
           ]
         }
       ],
-      "expo-build-properties",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "useLegacyPackaging": true
+          }
+        }
+      ],
       "./plugins/with-ui-assets",
       "expo-asset"
     ]

@@ -1,0 +1,6 @@
+{
+  "platforms": ["android"],
+  "android": {
+    "modules": ["dev.gal1ce.ytdlp.YtDlpModule"]
+  }
+}

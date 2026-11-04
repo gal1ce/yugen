@@ -1,0 +1,22 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'dev.gal1ce.ytdlp'
+version = '1.0.0'
+
+android {
+  namespace "dev.gal1ce.ytdlp"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+  }
+}
+
+dependencies {
+  implementation 'com.facebook.react:react-android'
+  // python, yt-dlp and ffmpeg, unpacked into the app's own files on first use
+  implementation 'io.github.junkfood02.youtubedl-android:library:0.18.1'
+  implementation 'io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1'
+}
