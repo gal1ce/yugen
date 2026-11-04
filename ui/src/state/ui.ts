@@ -1,26 +1,52 @@
 import { default_keybinds, type Bind } from '../lib/keys'
 import type { Suggestion } from '../lib/lastfm'
 import {
-    AURA_RANGE,
+    DENSITIES,
+    LIGHT_RANGE,
+    FEELS,
+    DEFAULT_PLACES,
+    PACES,
+    PLACES,
+    SEARCH_MODES,
     LAYOUT_PREFS,
+    LYRICS_SIZES,
+    SCALES,
+    SWATCHES,
     LAYOUTS,
     LIBRARY_VIEWS,
     SHELVES,
     SORTS,
     SUGGESTION_VIEWS,
-    THEMES,
     save_pref,
+    stored_radii,
     stored_flag,
     stored_list,
     stored_number,
     stored_playback,
     stored_pref,
+    stored_scrolling,
+    stored_backdrop,
+    stored_theme,
     type Layout,
     type LayoutKey,
     type LibraryView,
     type Shelf,
     type Sort,
     type SuggestionView,
+    type Corners,
+    type Radius,
+    type Region,
+    type PrefValue,
+    type Density,
+    type Feel,
+    type Backdrop,
+    type Pace,
+    type Place,
+    type Scrolling,
+    type SearchMode,
+    type LyricsSize,
+    type Scale,
+    type Swatch,
     type Theme,
     type View,
 } from '../lib/prefs'
@@ -54,10 +80,42 @@ export type UiState = {
     page: Page
 
     theme: Theme
-    // the cover of what is playing colours the app, and this much of it reaches
-    // the glow at the top of the window
+    // the cover of what is playing gives the app its accent; without one, or
+    // with this off, the swatch picked in settings does
+    cover_accent: boolean
+    // the cover's light behind the panels (fx/Ambient), and how strong it is.
+    // the keys are the ones master wrote for its cover tint, so a choice made
+    // there carries over
     aura_on: boolean
     aura: number
+    // how round each part of the window is (settings > appearance)
+    radii: Record<Region, Radius>
+    swatch: Swatch
+    // liquid glass (index.css, [data-glass]; components/ui/Glass)
+    glass: boolean
+    scale: Scale
+    density: Density
+    // where the nebula is drawn behind the pages (fx/Nebula)
+    nebula: Backdrop
+    lyrics_size: LyricsSize
+    // what the wheel does (lib/smooth), and how a glide settles
+    scrolling: Scrolling
+    feel: Feel
+    // backdrop blur on what floats over the page: the bar, the dock, menus, dialogs
+    blur: boolean
+    // the cover's light drifting slowly rather than standing still
+    light_motion: boolean
+    // how fast transitions run, or none at all
+    pace: Pace
+    search_mode: SearchMode
+    // last.fm's suggestions: at all, and where
+    suggest_on: boolean
+    places: Place[]
+    // the full-screen lyrics page: its words and its wave, each on its own
+    lp_lyrics: boolean
+    lp_wave: boolean
+    // the wave behind what is playing on the home page
+    home_wave: boolean
     share_dc: boolean
     sort: Sort
     layouts: Record<LayoutKey, Layout>
@@ -87,8 +145,9 @@ export type UiState = {
     query: string
     search_open: boolean
     source: Source
-    results: SearchResult[]
-    searching: boolean
+    // what each source has answered for the last search, and which are still out
+    found: Record<Source, SearchResult[]>
+    busy: Source[]
     // how much of the answer is on screen; 'load more' walks it up a page at a time
     shown: number
     // the refs being downloaded, several at once
@@ -118,9 +177,28 @@ export const ui = create_store<UiState>({
     selection: saved_playback?.selection ?? null,
     page: null,
 
-    theme: stored_pref('theme', THEMES, 'system'),
+    theme: stored_theme(),
+    cover_accent: stored_flag('cover_accent', true),
     aura_on: stored_flag('aura_on', true),
-    aura: stored_number('aura', 50, AURA_RANGE),
+    aura: stored_number('aura', 50, LIGHT_RANGE),
+    radii: stored_radii(),
+    swatch: stored_pref('swatch', ['theme', ...SWATCHES.map((o) => o.id)] as Swatch[], 'theme'),
+    glass: stored_flag('glass', false),
+    scale: stored_pref('scale', SCALES.map((o) => o.id), 'medium'),
+    density: stored_pref('density', DENSITIES.map((o) => o.id), 'comfortable'),
+    nebula: stored_backdrop(),
+    lyrics_size: stored_pref('lyrics_size', LYRICS_SIZES.map((o) => o.id), 'medium'),
+    scrolling: stored_scrolling(),
+    feel: stored_pref('feel', FEELS.map((o) => o.id), 'gentle'),
+    blur: stored_flag('blur', true),
+    light_motion: stored_flag('light_motion', true),
+    pace: stored_pref('pace', PACES.map((o) => o.id), 'normal'),
+    search_mode: stored_pref('search_mode', SEARCH_MODES.map((o) => o.id), 'parallel'),
+    suggest_on: stored_flag('suggest_on', true),
+    places: stored_list('places', PLACES.map((o) => o.id), DEFAULT_PLACES),
+    lp_lyrics: stored_flag('lp_lyrics', true),
+    lp_wave: stored_flag('lp_wave', true),
+    home_wave: stored_flag('home_wave', true),
     share_dc: stored_flag('share_dc', true),
     sort: stored_pref('sort', SORTS.map((s) => s.id), 'title'),
     layouts: {
@@ -153,8 +231,8 @@ export const ui = create_store<UiState>({
     query: '',
     search_open: false,
     source: 'yt',
-    results: [],
-    searching: false,
+    found: { yt: [], sc: [] },
+    busy: [],
     shown: 10,
     downloading: [],
 })
@@ -186,7 +264,22 @@ export function open_page(page: Page) {
 // without the other
 export function set_pref<K extends keyof UiState>(key: K, value: UiState[K], stored: string = key) {
     ui.set({ [key]: value } as Partial<UiState>)
-    save_pref(stored, value as string | string[] | boolean | number)
+    save_pref(stored, value as PrefValue)
+}
+
+// one part's corners, or every part's at once (a pill only where a pill fits)
+export function set_radius(region: Region, radius: Radius) {
+    set_pref('radii', { ...ui.get().radii, [region]: radius })
+}
+
+export function set_all_radii(radius: Corners) {
+    set_pref('radii', Object.fromEntries(Object.keys(ui.get().radii).map((region) => [region, radius])) as Record<Region, Radius>)
+}
+
+// the one choice every part shares, if they share one
+export const common_radius = (radii: Record<Region, Radius>) => {
+    const values = new Set(Object.values(radii))
+    return values.size === 1 ? [...values][0] : null
 }
 
 export function set_layout(key: LayoutKey, layout: Layout) {
@@ -207,17 +300,10 @@ export function move_pin(name: string, renamed: string | null) {
     set_pref('pins', renamed ? pins.map((pin) => (pin === name ? renamed : pin)) : pins.filter((pin) => pin !== name))
 }
 
-// the native webkit menu is off; this one replaces it, kept inside the window
+// the native webkit menu is off; this one replaces it. it opens where it was
+// asked for, and the menu itself measures what it drew and keeps inside the window
 export function open_menu(target: MenuTarget, x: number, y: number) {
-    const height = target.kind === 'song' ? 360 : target.kind === 'playlist' ? 160 : 110
-
-    ui.set({
-        menu: {
-            ...target,
-            x: Math.min(x, window.innerWidth - 232),
-            y: Math.min(y, Math.max(window.innerHeight - height, 8)),
-        },
-    })
+    ui.set({ menu: { ...target, x, y } })
 }
 
 export const context = (target: MenuTarget) => (e: React.MouseEvent) => {

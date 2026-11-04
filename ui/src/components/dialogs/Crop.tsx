@@ -74,9 +74,9 @@ export function CropDialog() {
     }
 
     return (
-        <Dialog title={round ? 'Crop photo' : 'Crop cover'} sub='Drag the photo to move it, scroll or use the slider to zoom.' busy={busy} on_close={close} className='max-w-sm'>
+        <Dialog title={round ? 'Crop photo' : 'Crop cover'} sub='Drag to move it, scroll or use the slider to zoom' busy={busy} on_close={close} className='max-w-sm'>
             <div
-                className='relative mx-auto cursor-grab touch-none overflow-hidden rounded-2xl bg-surface-3 active:cursor-grabbing'
+                className='relative mx-auto cursor-grab touch-none overflow-hidden rounded-xl bg-surface-3 active:cursor-grabbing'
                 style={{ width: VIEW, height: VIEW }}
                 onPointerDown={(e) => {
                     if (!natural || busy) return
@@ -110,7 +110,7 @@ export function CropDialog() {
                 {/* only a guide: painted over the picture, taking no clicks. a
                     circle dims what the avatar will not show */}
                 {round && <div className='pointer-events-none absolute inset-0 bg-[radial-gradient(circle_closest-side,transparent_99%,rgb(0_0_0/0.55)_100%)]' />}
-                <div className={`pointer-events-none absolute inset-0 border-2 border-white/80 ${round ? 'rounded-full' : 'rounded-2xl'}`} />
+                <div className={`pointer-events-none absolute inset-0 border-2 border-white/80 ${round ? 'rounded-full' : 'rounded-xl'}`} />
             </div>
 
             <Range value={zoom} min={ZOOM[0]} max={ZOOM[1]} step={0.01} disabled={!natural || busy} aria-label='Zoom' on_change={rezoom} className='mt-5 w-full' />

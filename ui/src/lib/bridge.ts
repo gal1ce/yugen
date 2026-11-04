@@ -97,6 +97,10 @@ export type Bridge = {
     // engine mixed, folded to mono, as floats in -1..1. not exposed yet - see
     // lib/audio.ts for what the ui does with it and why it is optional here
     get_audio_frames?(count: number): Promise<number[]>
+    // the same moment as `bands` numbers, already through the fft: each the mean
+    // level of its band in dB, bands in equal steps of log frequency from 40 Hz
+    // to 14 kHz, tilted 3 dB an octave. preferred over the frames when there
+    get_spectrum?(bands: number): Promise<number[]>
     // the rate those frames were mixed at, asked for once
     get_sample_rate?(): Promise<number>
     // the display's refresh rate, on the Qt build only: see lib/frames.ts

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
-import { glide_to, useGlideScroll, useScrollQuiet } from './hooks/glide'
+import { AnimatePresence, MotionConfig, motion } from 'motion/react'
+import { glide_to, useSmoothPrefs } from './hooks/glide'
 import { art_accent } from './lib/accent'
 import { init_frames } from './lib/frames'
 import { fx } from './lib/fx'
+import { watch_modality } from './lib/modality'
 import { palette_of } from './lib/palette'
 import { group_key, album_tag, artist_tag } from './lib/names'
 import { useStore } from './lib/store'
@@ -13,16 +14,21 @@ import { fetch_songs, library, load_favorites, sync_liked, sync_playlists, sync_
 import { mpris_command, player, restore, start_player } from './state/player'
 import { cover_input_ref, pick_image, track_cover_target } from './state/images'
 import { column_css, COLUMNS, saved_playback, ui, type Column } from './state/ui'
-import { save_pref } from './lib/prefs'
+import { CORNERS, PACES, REGIONS, SCALES, SWATCHES, radius_css, save_pref } from './lib/prefs'
 import { cn } from './lib/cn'
+import { Scroll } from './components/ui/Scroll'
 import { TipLayer } from './components/ui/Tip'
 import { ContextMenu } from './components/layout/ContextMenu'
 import { Keys } from './components/layout/Keys'
 import { NowPanel } from './components/layout/NowPanel'
 import { PlayerBar } from './components/layout/PlayerBar'
 import { Sidebar } from './components/layout/Sidebar'
-import { TopBar } from './components/layout/TopBar'
-import { Glyphs } from './components/fx/Glyphs'
+import { PageBar } from './components/layout/TopBar'
+import { set_scroll } from './state/bar'
+import { Ambient } from './components/fx/Ambient'
+import { usePalette } from './hooks/dark'
+import { set_pace, spring } from './lib/motion'
+import { Nebula } from './components/fx/Nebula'
 import { CropDialog } from './components/dialogs/Crop'
 import { PlaylistDialog, ProfileDialog } from './components/dialogs/Edit'
 import { TrackInfo } from './components/dialogs/TrackInfo'
@@ -33,39 +39,91 @@ import { LyricsPage } from './components/pages/LyricsPage'
 import { ProfilePage } from './components/pages/Profile'
 import { SettingsPage } from './components/pages/Settings'
 
-// with no attribute the stylesheet falls back to prefers-color-scheme
-function useTheme() {
-    const theme = useStore(ui, (s) => s.theme)
+// everything settings > appearance changes lands on the root, so a change
+// shows at once: the palette (system resolved to one), glass, density, size,
+// motion, and the swatch when one replaces the palette's own accent
+function useAppearance() {
+    const palette = usePalette()
+    const glass = useStore(ui, (s) => s.glass)
+    const blur = useStore(ui, (s) => s.blur)
+    const scale = useStore(ui, (s) => s.scale)
+    const density = useStore(ui, (s) => s.density)
+    const swatch = useStore(ui, (s) => s.swatch)
+    const radii = useStore(ui, (s) => s.radii)
+    const light_on = useStore(ui, (s) => s.aura_on)
+    const light = useStore(ui, (s) => s.aura)
+    const pace = useStore(ui, (s) => s.pace)
+    const motion = useStore(fx, (s) => s.motion)
+
+    // the cover's light: how strong, and so how much the panels let it through.
+    // off is 0, which leaves every panel its palette's solid surface
+    useEffect(() => {
+        const root = document.documentElement
+
+        if (light_on) root.dataset.light = ''
+        else delete root.dataset.light
+        root.style.setProperty('--light', light_on ? `${light / 100}` : '0')
+    }, [light_on, light])
+
+    // each part of the window's corners, and the panels' choice as the scale
+    // for the small things inside them
+    useEffect(() => {
+        const root = document.documentElement
+        for (const region of REGIONS) root.style.setProperty(region.css, radius_css(region, radii[region.id]))
+        root.style.setProperty('--corner', `${CORNERS.find((o) => o.id === radii.panels)?.factor ?? 0.6}`)
+    }, [radii])
+
+    // one tempo for the window: css transitions and motion's springs alike
+    useEffect(() => {
+        document.documentElement.dataset.pace = pace
+        set_pace(PACES.find((o) => o.id === pace)?.factor ?? 1)
+    }, [pace])
 
     useEffect(() => {
-        if (theme === 'system') delete document.documentElement.dataset.theme
-        else document.documentElement.dataset.theme = theme
-    }, [theme])
+        const root = document.documentElement
+
+        root.dataset.theme = palette
+        root.dataset.density = density
+        root.dataset.motion = motion
+        root.style.setProperty('--ui-scale', `${SCALES.find((o) => o.id === scale)?.factor ?? 1}`)
+
+        if (glass) root.dataset.glass = ''
+        else delete root.dataset.glass
+
+        if (blur) root.dataset.blur = ''
+        else delete root.dataset.blur
+
+        const fixed = SWATCHES.find((o) => o.id === swatch)
+        if (fixed) {
+            root.style.setProperty('--fixed-accent', fixed.dark)
+            root.style.setProperty('--fixed-accent-light', fixed.light)
+        } else {
+            root.style.removeProperty('--fixed-accent')
+            root.style.removeProperty('--fixed-accent-light')
+        }
+    }, [palette, glass, blur, scale, density, swatch, motion])
+
+    // walking the window with tab draws the focus ring; nothing else does
+    useEffect(() => watch_modality(), [])
 }
 
 /*
  * The cover of what is playing colours the app: one small canvas read of its
  * shrunk copy gives a hue and a saturation, and the accent in both themes is
- * mixed from them. No cover, or the setting off, and it is yugen's own pink.
+ * mixed from them. No cover, or the setting off, and it is the fixed accent.
  */
 function useAccent() {
     const current = useStore(player, (s) => s.current)
     const cover = useStore(library, (s) => (current ? s.covers[current] : undefined))
-    const aura_on = useStore(ui, (s) => s.aura_on)
-    const aura = useStore(ui, (s) => s.aura)
-
-    useEffect(() => {
-        document.documentElement.style.setProperty('--aura', aura_on ? `${aura / 100}` : '0')
-    }, [aura_on, aura])
+    const cover_accent = useStore(ui, (s) => s.cover_accent)
 
     useEffect(() => {
         const root = document.documentElement
         const clear = () => {
-            root.style.removeProperty('--art-accent')
-            root.style.removeProperty('--art-accent-light')
+            for (const name of ['--art-accent', '--art-accent-light', '--art-tint-dark', '--art-tint-light']) root.style.removeProperty(name)
         }
 
-        if (!cover || !aura_on) return clear()
+        if (!cover) return clear()
 
         let live = true
 
@@ -75,20 +133,34 @@ function useAccent() {
                 if (!live) return
                 if (!accent) return clear()
 
+                // held to a band where text on it stays legible and it never
+                // turns neon: a grey cover gives a quiet accent, not a loud one
                 const [h, s] = accent
-                root.style.setProperty('--art-accent', `hsl(${h} ${Math.max(s, 45)}% 72%)`)
-                root.style.setProperty('--art-accent-light', `hsl(${h} ${Math.max(s, 45)}% 40%)`)
+                const sat = Math.min(Math.max(s, 35), 68)
+
+                // the panels take the cover's hue whatever the accent setting
+                // says: it is part of the light, not of the accent
+                root.style.setProperty('--art-tint-dark', `hsl(${h} ${Math.round(sat * 0.75)}% 22%)`)
+                root.style.setProperty('--art-tint-light', `hsl(${h} ${sat}% 86%)`)
+
+                if (cover_accent) {
+                    root.style.setProperty('--art-accent', `hsl(${h} ${sat}% 68%)`)
+                    root.style.setProperty('--art-accent-light', `hsl(${h} ${sat}% 36%)`)
+                } else {
+                    root.style.removeProperty('--art-accent')
+                    root.style.removeProperty('--art-accent-light')
+                }
             })
 
         return () => {
             live = false
         }
-    }, [cover, aura_on])
+    }, [cover, cover_accent])
 }
 
 // the handful of colours the moving light is made of - wanted whatever the
 // accent setting says, since the lyrics page is painted with them either way
-function usePalette() {
+function useCoverPalette() {
     const current = useStore(player, (s) => s.current)
     const cover = useStore(library, (s) => (current ? s.covers[current] : undefined))
 
@@ -171,7 +243,7 @@ function Resizer({ column }: { column: Column }) {
             role='separator'
             aria-orientation='vertical'
             aria-label={column === 'sidebar' ? 'Resize the sidebar' : 'Resize the panel'}
-            className={cn('group absolute inset-y-0 z-20 w-3 cursor-col-resize touch-none', column === 'sidebar' ? '-right-3' : '-left-3')}
+            className={cn('group absolute inset-y-0 z-20 w-2.5 cursor-col-resize touch-none', column === 'sidebar' ? '-right-2.5' : '-left-2.5')}
             onPointerDown={(e) => {
                 const box = e.currentTarget.parentElement
                 const grid = box?.parentElement
@@ -217,7 +289,7 @@ function Resizer({ column }: { column: Column }) {
                 save_pref(COLUMNS[column].key, COLUMNS[column].share)
             }}
         >
-            <span className='absolute inset-y-10 left-1/2 w-0.5 -translate-x-1/2 scale-y-40 rounded-full bg-muted opacity-0 transition-[opacity,scale] duration-300 ease-soft group-hover:scale-y-100 group-hover:opacity-60 group-data-[active]:scale-y-100 group-data-[active]:opacity-80' />
+            <span className='absolute inset-y-12 left-1/2 w-0.5 -translate-x-1/2 rounded-full bg-line-strong opacity-0 transition-opacity group-hover:opacity-100 group-data-[active]:bg-fg-2 group-data-[active]:opacity-100' />
         </div>
     )
 }
@@ -243,20 +315,43 @@ function Page() {
     const page = useStore(ui, (s) => s.page)
     const view = useStore(ui, (s) => s.view)
     const selection = useStore(ui, (s) => s.selection)
-    const scroller = useRef<HTMLElement>(null)
+    const nebula = useStore(ui, (s) => s.nebula)
+    const scroller = useRef<HTMLDivElement>(null)
+    const frame = useRef<HTMLDivElement>(null)
 
-    // a new page starts at its top
+    // a new page starts at its top, and a glide still under way on the last
+    // one does not carry over
     useEffect(() => {
-        // and a glide still under way on the last one does not carry over
         if (scroller.current) glide_to(scroller.current, 0, { instant: true })
     }, [page, view, selection])
+
+    // the bar fills in once anything has gone under it: a mark on the frame,
+    // written straight into the dom, so a scroll is never a render
+    useEffect(() => {
+        const box = scroller.current
+        const node = frame.current
+        if (!box || !node) return
+
+        const on_scroll = () => {
+            const under = box.scrollTop > 4
+            if (under) node.dataset.scrolled = ''
+            else delete node.dataset.scrolled
+            set_scroll(box.scrollTop)
+        }
+
+        on_scroll()
+        box.addEventListener('scroll', on_scroll, { passive: true })
+        return () => box.removeEventListener('scroll', on_scroll)
+    }, [])
+
+    const home = !page && view === 'library' && !selection
 
     const body =
         page === 'settings' ? (
             <SettingsPage />
         ) : page === 'profile' ? (
             <ProfilePage />
-        ) : view === 'library' && !selection ? (
+        ) : home ? (
             <HomePage />
         ) : (view === 'albums' || view === 'artists') && !selection ? (
             <GroupsPage />
@@ -264,26 +359,46 @@ function Page() {
             <ListingPage />
         )
 
-    // the field is behind the library's own pages, not behind settings: a page
-    // of switches is read, not looked at
-    const field = !page
+    // the nebula is behind the library's own pages, never behind settings: a
+    // page of switches is read, not looked at. where it is drawn is a setting
+    const drawn = !page && (nebula === 'everywhere' || (nebula === 'home' && home))
 
     return (
-        <div className='relative min-h-0 min-w-0'>
-            {/* only as tall as it shows: it fades out by two thirds of the way down,
-                and every pixel of the canvas is uploaded on every frame */}
-            {field && <Glyphs strength={0.75} fade className='bottom-auto h-[65%]' />}
-            <main ref={scroller} className='relative h-full overflow-y-auto overscroll-contain rounded-2xl'>
+        <div ref={frame} className='panel relative min-h-0 min-w-0 overflow-hidden rounded-(--r-panel)'>
+            {/* behind the page's own content and inside its panel, under the
+                cover's light rather than over it: the room stays the cover's,
+                and the cloud is the page's. it fades out down the page, so the
+                lists below are read on the panel alone */}
+            {drawn && <Nebula strength={home ? 0.9 : 0.55} className='[mask-image:linear-gradient(#000,#000_25%,transparent_80%)]' />}
+            <Scroll box={scroller} className='relative h-full'>
                 <motion.div
                     key={`${page}:${view}:${selection}`}
-                    initial={{ opacity: 0, y: 14 }}
+                    initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.45, ease: [0.25, 1, 0.5, 1] }}
-                    className='mx-auto max-w-[1480px] px-2 pt-2 pb-14'
+                    transition={spring.smooth}
+                    className='mx-auto max-w-[1480px] px-8 pt-20 pb-16'
                 >
                     {body}
                 </motion.div>
-            </main>
+            </Scroll>
+            <PageBar />
+        </div>
+    )
+}
+
+/*
+ * The room the panels stand in: the palette's ground, the cover's light over
+ * it, and a falloff towards the edges so the light gathers in the middle of
+ * the window, the way light does in a room, and the panels' edges read
+ * against the dark around them.
+ */
+function Room() {
+    const light_on = useStore(ui, (s) => s.aura_on)
+
+    return (
+        <div aria-hidden className='pointer-events-none fixed inset-0 bg-bg'>
+            {light_on && <Ambient className='absolute inset-0' />}
+            <div className='absolute inset-0 bg-[radial-gradient(130%_110%_at_50%_40%,transparent_35%,color-mix(in_oklab,var(--bg)_65%,transparent))]' />
         </div>
     )
 }
@@ -326,39 +441,45 @@ export default function App() {
     const narrow = useNarrow()
     const panel_open = !panel_hidden && !narrow
 
-    useTheme()
+    useAppearance()
     useAccent()
-    usePalette()
+    useCoverPalette()
     useStartup()
     // every panel in the app scrolls, and all of them the same way
-    useGlideScroll()
-    // and nothing in one catches the hover while it moves
-    useScrollQuiet()
+    useSmoothPrefs()
 
     return (
-        <div className='relative flex h-full flex-col' onContextMenu={(e) => e.preventDefault()}>
-            <div className='aura' aria-hidden />
+        <MotionConfig reducedMotion='user'>
+        <div className='relative flex h-full flex-col gap-2.5 p-2.5' onContextMenu={(e) => e.preventDefault()}>
+            <Room />
 
-            <TopBar />
-
+            {/* the gutters are columns of their own, so a hidden side column takes
+                its gutter with it and the page meets the window's edge cleanly */}
             <div
-                className='relative grid min-h-0 flex-1 gap-3 px-3 pb-3 transition-[grid-template-columns] duration-500 ease-soft data-[resizing]:transition-none'
+                className='relative grid min-h-0 flex-1 transition-[grid-template-columns] duration-300 ease-out data-[resizing]:transition-none'
                 style={{
-                    gridTemplateColumns: [sidebar_hidden ? '0rem' : column_css('sidebar', sidebar_w), 'minmax(0, 1fr)', panel_open ? column_css('panel', panel_w) : '0rem'].join(' '),
+                    gridTemplateColumns: [
+                        sidebar_hidden ? '0rem' : column_css('sidebar', sidebar_w),
+                        sidebar_hidden ? '0rem' : '0.625rem',
+                        'minmax(0, 1fr)',
+                        panel_open ? '0.625rem' : '0rem',
+                        panel_open ? column_css('panel', panel_w) : '0rem',
+                    ].join(' '),
                 }}
             >
                 {/* each side column in a cell of its own, so its handle can stand
-                    in the gutter beside it; the panel inside fills it as before */}
-                <div className='relative grid min-h-0 min-w-0'>
+                    in the gutter beside it */}
+                <div className='relative col-start-1 grid min-h-0 min-w-0'>
                     <Sidebar />
                     {!sidebar_hidden && <Resizer column='sidebar' />}
                 </div>
-                <Page />
-                <div className='relative grid min-h-0 min-w-0'>
+                <div className='col-start-3 grid min-h-0 min-w-0'>
+                    <Page />
+                </div>
+                <div className='relative col-start-5 grid min-h-0 min-w-0'>
                     <NowPanel open={panel_open} />
                     {panel_open && <Resizer column='panel' />}
                 </div>
-
             </div>
 
             <PlayerBar />
@@ -378,5 +499,6 @@ export default function App() {
                 onChange={(e) => void pick_image(e, { kind: 'track', name: track_cover_target() })}
             />
         </div>
+        </MotionConfig>
     )
 }

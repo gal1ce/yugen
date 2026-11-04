@@ -3,7 +3,7 @@ import { save_pref, stored_pref } from './prefs'
 import { create_store } from './store'
 
 /*
- * Everything that moves on its own - the field behind the pages, the colours
+ * Everything that moves on its own - the nebula behind the pages, the colours
  * behind the lyrics, the wave of the sound - runs off this one clock. Each
  * painter says how often it wants a frame, and nothing is scheduled at all
  * while there is no painter, the window is hidden, or motion is off.
@@ -11,9 +11,9 @@ import { create_store } from './store'
 export type Motion = 'full' | 'calm' | 'off'
 
 export const MOTIONS: { id: Motion; label: string; hint: string }[] = [
-    { id: 'full', label: 'Full', hint: 'The field drifts, the light moves, the wave follows the sound' },
-    { id: 'calm', label: 'Calm', hint: 'Slower light, a still field' },
-    { id: 'off', label: 'Off', hint: 'Nothing moves on its own' },
+    { id: 'full', label: 'Full', hint: 'What moves on its own - the light, the wave, the nebula - moves' },
+    { id: 'calm', label: 'Calm', hint: 'Slower light and a slower nebula' },
+    { id: 'off', label: 'Still', hint: 'Nothing moves on its own: the light is a still picture, the wave is gone' },
 ]
 
 export const fx = create_store<{ motion: Motion; palette: string[]; covered: boolean }>({

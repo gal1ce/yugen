@@ -1,148 +1,210 @@
-@import '@fontsource-variable/rubik';
-@import '@fontsource-variable/bricolage-grotesque/standard.css';
+@import '@fontsource-variable/instrument-sans/wdth.css';
+@import '@fontsource-variable/newsreader/opsz.css';
+@import '@fontsource-variable/jetbrains-mono/wght.css';
+/* neither face above has cyrillic, and the library does: these two only
+   load for the characters the first ones lack */
+@import '@fontsource-variable/inter/wght.css';
+@import '@fontsource-variable/literata/opsz.css';
 @import 'tailwindcss';
 
-/* ---------- design tokens ----------
-   every colour in the app comes from here, so both themes stay in step. in
-   tailwind they read as bg-surface, text-muted, border-line, bg-accent/15 ...
+/* ---------- palettes ----------
+   five of them, each a full set of tokens, picked in settings and set on the
+   root as data-theme (App, useAppearance). the surfaces are neutrals that
+   never read as a colour of their own, the text is three steps of one ramp,
+   and colour comes from one place: the cover of what is playing
+   (--art-accent / --art-accent-light, set from the artwork), else a swatch
+   picked in settings (--fixed-accent*), else the palette's own accent.
 
-   the surfaces are flat. the old ui was glass - a blur over a blur over a
-   moving picture - and webkitgtk paid for every pane of it on every frame.
-   here depth is a step in lightness and a hairline edge, which costs nothing.
-
-   the accent is the cover of what is playing (--art-h / --art-s, set from the
-   artwork) and falls back to yugen's own pink when there is no cover. */
+   depth is a step in lightness and a hairline. with liquid glass on, the
+   panels turn translucent over the blurred cover behind the window, and what
+   floats over the page is real glass (see the glass section below) */
 :root,
-:root[data-theme='dark'] {
+:root[data-theme='lamplight'] {
     color-scheme: dark;
 
-    --bg: #09090a;
-    --surface: #111113;
-    --surface-2: #18181b;
-    --surface-3: #212125;
-
-    --line: rgb(255 255 255 / 0.07);
-    --line-strong: rgb(255 255 255 / 0.15);
-
-    --fg: #f4f4f5;
-    --muted: #8b8b93;
-
-    --accent: var(--art-accent, #ff6bb5);
-    --accent-fg: #160910;
-
-    --danger: #ff5d4a;
-
-    --shadow: 0 24px 60px -24px rgb(0 0 0 / 0.85);
-    --edge: linear-gradient(
-        160deg,
-        rgb(255 255 255 / 0.08),
-        rgb(255 255 255 / 0.025) 30%,
-        rgb(255 255 255 / 0.012) 62%,
-        rgb(255 255 255 / 0.045)
-    );
-    --glow: 0 14px 34px -16px color-mix(in oklab, var(--accent) 60%, transparent);
-    --scrim: rgb(0 0 0 / 0.62);
+    --bg: #100f0e;
+    --surface: #161514;
+    --surface-2: #1e1d1b;
+    --surface-3: #282624;
+    --line: rgb(239 233 222 / 0.08);
+    --line-strong: rgb(239 233 222 / 0.15);
+    --fg: #ece7df;
+    --fg-2: #aaa398;
+    --muted: #8a847a;
+    --theme-accent: #e5654a;
+    --accent-fg: #170f0b;
+    --danger: #e5484d;
+    --wall: #1a1512;
 }
 
-:root[data-theme='light'] {
+:root[data-theme='ink'] {
+    color-scheme: dark;
+
+    --bg: #050505;
+    --surface: #0b0b0b;
+    --surface-2: #141414;
+    --surface-3: #1e1e1e;
+    --line: rgb(255 255 255 / 0.075);
+    --line-strong: rgb(255 255 255 / 0.14);
+    --fg: #ededed;
+    --fg-2: #a3a3a3;
+    --muted: #7c7c7c;
+    --theme-accent: #e9e9e9;
+    --accent-fg: #0a0a0a;
+    --danger: #ef5350;
+    --wall: #0c0c0c;
+}
+
+:root[data-theme='gruvbox'] {
+    color-scheme: dark;
+
+    --bg: #1d2021;
+    --surface: #282828;
+    --surface-2: #32302f;
+    --surface-3: #3c3836;
+    --line: rgb(235 219 178 / 0.09);
+    --line-strong: rgb(235 219 178 / 0.17);
+    --fg: #ebdbb2;
+    --fg-2: #bdae93;
+    --muted: #928374;
+    --theme-accent: #fe8019;
+    --accent-fg: #1d2021;
+    --danger: #fb4934;
+    --wall: #2a2520;
+}
+
+:root[data-theme='midnight'] {
+    color-scheme: dark;
+
+    --bg: #080b14;
+    --surface: #0e1320;
+    --surface-2: #161c2e;
+    --surface-3: #1f2740;
+    --line: rgb(200 212 255 / 0.09);
+    --line-strong: rgb(200 212 255 / 0.17);
+    --fg: #e4e8f4;
+    --fg-2: #9ea7c2;
+    --muted: #737d9a;
+    --theme-accent: #7aa2f7;
+    --accent-fg: #0a0e1a;
+    --danger: #f7768e;
+    --wall: #0d1428;
+}
+
+:root[data-theme='paper'] {
     color-scheme: light;
 
-    --bg: #f5f5f6;
-    --surface: #ffffff;
-    --surface-2: #efeff1;
-    --surface-3: #e5e5e8;
-
-    --line: rgb(0 0 0 / 0.08);
-    --line-strong: rgb(0 0 0 / 0.16);
-
-    --fg: #0c0c0e;
-    --muted: #66666f;
-
-    --accent: var(--art-accent-light, #d02f7a);
+    --bg: #ecebe8;
+    --surface: #fafaf9;
+    --surface-2: #eeeeec;
+    --surface-3: #e3e3e0;
+    --line: rgb(0 0 0 / 0.09);
+    --line-strong: rgb(0 0 0 / 0.17);
+    --fg: #151515;
+    --fg-2: #525252;
+    --muted: #707070;
+    --theme-accent: #151515;
     --accent-fg: #ffffff;
-
-    --danger: #d93a28;
-
-    --shadow: 0 24px 60px -28px rgb(0 0 0 / 0.25);
-    --edge: linear-gradient(
-        160deg,
-        rgb(0 0 0 / 0.08),
-        rgb(0 0 0 / 0.035) 30%,
-        rgb(0 0 0 / 0.022) 62%,
-        rgb(0 0 0 / 0.06)
-    );
-    --glow: 0 14px 34px -16px color-mix(in oklab, var(--accent) 45%, transparent);
-    --scrim: rgb(20 20 30 / 0.4);
+    --danger: #dc2626;
+    --wall: #d9d7d2;
 }
 
-/* no attribute is 'system': the desktop decides */
-@media (prefers-color-scheme: light) {
-    :root:not([data-theme]) {
-        color-scheme: light;
+/* the accent, wherever it comes from: a dark palette takes the light cut of
+   a cover or a swatch, a light one the dark cut */
+:root {
+    --accent: var(--art-accent, var(--fixed-accent, var(--theme-accent)));
+    /* the cover's hue at a depth the panels can take it in (App, useAccent) */
+    --art-tint: var(--art-tint-dark);
+    --mode-shadow: rgb(0 0 0 / 0.6);
 
-        --bg: #f5f5f6;
-        --surface: #ffffff;
-        --surface-2: #efeff1;
-        --surface-3: #e5e5e8;
-        --line: rgb(0 0 0 / 0.08);
-        --line-strong: rgb(0 0 0 / 0.16);
-        --fg: #0c0c0e;
-        --muted: #66666f;
-        --accent: var(--art-accent-light, #d02f7a);
-        --accent-fg: #ffffff;
-        --danger: #d93a28;
-        --shadow: 0 24px 60px -28px rgb(0 0 0 / 0.25);
-        --edge: linear-gradient(
-            160deg,
-            rgb(0 0 0 / 0.08),
-            rgb(0 0 0 / 0.035) 30%,
-            rgb(0 0 0 / 0.022) 62%,
-            rgb(0 0 0 / 0.06)
-        );
-        --glow: 0 14px 34px -16px color-mix(in oklab, var(--accent) 45%, transparent);
-        --scrim: rgb(20 20 30 / 0.4);
-    }
+    /* what the panels are made of; glass swaps these for translucent ones */
+    --panel: var(--surface);
+    --float: var(--surface-2);
+    --rim: inset 0 0 0 1px var(--line);
+    --rim-float: inset 0 0 0 1px var(--line-strong);
+    --shadow-pop: 0 16px 40px -16px var(--mode-shadow);
+    --scrim: rgb(0 0 0 / 0.55);
+}
+
+:root[data-theme='paper'] {
+    --accent: var(--art-accent-light, var(--fixed-accent-light, var(--theme-accent)));
+    --art-tint: var(--art-tint-light);
+    --mode-shadow: rgb(30 30 30 / 0.22);
+    --scrim: rgb(20 20 20 / 0.3);
 }
 
 @theme inline {
     --color-bg: var(--bg);
     --color-surface: var(--surface);
-    --color-surface-2: var(--surface-2);
-    --color-surface-3: var(--surface-3);
+    /* fills inside a panel - a hover, the active row, a chip - are a tint of
+       the text colour rather than an opaque grey, so on a translucent panel
+       they lighten what is under them instead of punching a dark hole in it.
+       var(--surface-2) itself stays solid, for what floats (--float-fill) */
+    --color-surface-2: color-mix(in oklab, var(--fg) 7%, transparent);
+    --color-surface-3: color-mix(in oklab, var(--fg) 11%, transparent);
     --color-line: var(--line);
     --color-line-strong: var(--line-strong);
     --color-fg: var(--fg);
+    --color-fg-2: var(--fg-2);
     --color-muted: var(--muted);
     --color-accent: var(--accent);
     --color-accent-fg: var(--accent-fg);
     --color-danger: var(--danger);
 
-    --shadow-soft: var(--shadow);
-    --shadow-glow: var(--glow);
+    --shadow-pop: var(--shadow-pop);
+    --color-panel: var(--panel);
+    --color-float: var(--float);
 
-    --font-sans: 'Rubik Variable', ui-sans-serif, system-ui, sans-serif;
-    /* for the big type only: titles, the greeting, the lyrics */
-    --font-display: 'Bricolage Grotesque Variable', 'Rubik Variable', ui-sans-serif, sans-serif;
+    --font-sans: 'Instrument Sans Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+    /* the liner notes: page titles and the words of a song, nothing smaller */
+    --font-serif: 'Newsreader Variable', 'Literata Variable', ui-serif, Georgia, serif;
+    /* times, counts, track numbers */
+    --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+}
+
+/* ---------- corners ----------
+   every radius in the app is a share of its full size, picked in settings
+   (--corner, from App): square, subtle or round. pills stay pills */
+@theme {
+    --radius-xs: calc(0.125rem * var(--corner, 0.6));
+    --radius-sm: calc(0.25rem * var(--corner, 0.6));
+    --radius-md: calc(0.375rem * var(--corner, 0.6));
+    --radius-lg: calc(0.5rem * var(--corner, 0.6));
+    --radius-xl: calc(0.75rem * var(--corner, 0.6));
+    --radius-2xl: calc(1rem * var(--corner, 0.6));
+    --radius-3xl: calc(1.5rem * var(--corner, 0.6));
+}
+
+:root {
+    /* each part's corners (App sets them from settings; these are the defaults) */
+    --r-panel: 0.875rem;
+    --r-button: 9999px;
+    --r-control: 9999px;
+    --r-search: 9999px;
+    --r-menu: 0.75rem;
+    --r-cover: 0.375rem;
 }
 
 /* ---------- motion ----------
-   one feel for the whole app: a colour, a border or a shadow eases over about a
-   third of a second. ease-soft is for things that move, ease-spring for things
-   that lift or press */
+   one curve for everything. short for feedback, a little longer for what
+   enters. nothing bounces */
 @theme {
-    --default-transition-duration: 320ms;
-    --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-    --ease-soft: cubic-bezier(0.25, 1, 0.5, 1);
-    --ease-spring: cubic-bezier(0.34, 1.32, 0.64, 1);
+    --default-transition-duration: 160ms;
+    --default-transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    /* a critically damped spring, as css: what ios uses for things that move
+       and settle. motion's springs are the same curve for what js animates */
+    --ease-spring: linear(0, 0.009, 0.035 2.1%, 0.141, 0.281 6.7%, 0.723 12.9%, 0.938 16.7%, 1.017, 1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%, 1.129 32.8%, 1.051 39.6%, 1.017 43.1%, 0.991, 0.977 51%, 0.974 53.8%, 0.975 57.1%, 0.997 69.8%, 1.003 76.9%, 1.004 83.8%, 1);
+    --ease-settle: linear(0, 0.0718, 0.2223, 0.3964, 0.5617, 0.7, 0.8061, 0.8818, 0.9327, 0.9644, 0.9827, 0.9926, 0.9976, 1);
 
-    --animate-pop-in: pop-in 160ms cubic-bezier(0.22, 1, 0.36, 1);
-    --animate-fade-in: fade-in 200ms ease-out;
-    --animate-rise: rise 420ms cubic-bezier(0.25, 1, 0.5, 1) backwards;
+    --animate-pop-in: pop-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
+    --animate-fade-in: fade-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
+    --animate-rise: rise 360ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 
     @keyframes pop-in {
         from {
             opacity: 0;
-            transform: scale(0.97);
+            translate: 0 4px;
         }
     }
 
@@ -155,7 +217,7 @@
     @keyframes rise {
         from {
             opacity: 0;
-            translate: 0 10px;
+            translate: 0 8px;
         }
     }
 }
@@ -176,9 +238,21 @@
         overflow: hidden;
     }
 
-    /* every measurement is in rem, so this scales the ui with the window */
+    /* every measurement is in rem, so this scales the ui with the window -
+       and with the size picked in settings (--ui-scale) */
     html {
-        font-size: clamp(14px, 0.22vw + 12.6px, 18px);
+        font-size: calc(clamp(14px, 0.22vw + 12.6px, 18px) * var(--ui-scale, 1));
+
+        /* the row heights a listing is drawn at (settings, density) */
+        --row: 3.5rem;
+        --row-line: 2.75rem;
+        --row-nav: 2.25rem;
+    }
+
+    html[data-density='compact'] {
+        --row: 2.75rem;
+        --row-line: 2.25rem;
+        --row-nav: 2rem;
     }
 
     body {
@@ -187,6 +261,7 @@
         color: var(--fg);
         font-family: var(--font-sans);
         font-size: 0.875rem;
+        font-variation-settings: 'wdth' 100;
         -webkit-font-smoothing: antialiased;
         /* an app, not a document: a stray drag should not paint the whole ui */
         user-select: none;
@@ -212,7 +287,15 @@
         cursor: pointer;
     }
 
+    /* the focus ring belongs to someone walking the window with tab, and to
+       nobody else. chromium also counts a shortcut key as keyboard use and
+       would ring whatever was last clicked, so the ring is gated on the
+       window's own record of how it is being driven (lib/modality) */
     :focus-visible {
+        outline: none;
+    }
+
+    [data-input='keys'] :focus-visible {
         outline: 2px solid var(--accent);
         outline-offset: 2px;
     }
@@ -222,126 +305,22 @@
     }
 }
 
-/* ---------- edges ----------
-   a gradient border drawn by a masked layer over the element - a css border
-   cannot be a gradient and keep the radius. `edge-hover` fades in a light that
-   runs around it on hover; inside a card, group-hover does it for the whole
-   card. the light only turns while it shows, and a paused one costs nothing */
-@property --edge-angle {
-    syntax: '<angle>';
-    inherits: false;
-    initial-value: 135deg;
-}
-
-@keyframes edge-run {
-    to {
-        --edge-angle: 495deg;
-    }
-}
-
-@utility edge {
-    &:not(.absolute):not(.fixed):not(.sticky) {
-        position: relative;
-    }
-
-    &::before,
-    &::after {
+/* ---------- the needle ----------
+   the one mark for what is live right now: the open page in the sidebar, the
+   track that is playing, the line being sung. a short upright stroke of the
+   accent on the left edge of whatever it marks */
+@utility needle {
+    &::before {
         content: '';
         position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        padding: 1px;
-        pointer-events: none;
-        -webkit-mask:
-            linear-gradient(#000 0 0) content-box,
-            linear-gradient(#000 0 0);
-        -webkit-mask-composite: xor;
-        mask:
-            linear-gradient(#000 0 0) content-box exclude,
-            linear-gradient(#000 0 0);
+        left: 0;
+        top: 50%;
+        width: 2px;
+        height: 1rem;
+        border-radius: 2px;
+        background: var(--accent);
+        translate: 0 -50%;
     }
-
-    &::before {
-        background: var(--edge);
-    }
-
-    /* two lights on opposite sides over a faint ring of the accent */
-    &::after {
-        background:
-            conic-gradient(
-                from var(--edge-angle),
-                transparent 0deg,
-                color-mix(in oklab, var(--accent) 85%, transparent) 50deg,
-                transparent 100deg,
-                transparent 180deg,
-                color-mix(in oklab, var(--accent) 40%, transparent) 225deg,
-                transparent 270deg
-            ),
-            color-mix(in oklab, var(--accent) 14%, transparent);
-        opacity: 0;
-        transition: opacity 550ms cubic-bezier(0.4, 0, 0.2, 1);
-        animation: edge-run 3.6s linear infinite paused;
-    }
-
-    &:hover::after,
-    &:focus-visible::after,
-    :where(.group):hover &::after {
-        animation-play-state: running;
-    }
-}
-
-@utility edge-hover {
-    &:hover::after,
-    &:focus-visible::after {
-        opacity: 1;
-    }
-}
-
-@utility shadow-primary {
-    box-shadow:
-        inset 0 1px 0 rgb(255 255 255 / 0.22),
-        0 14px 34px -16px transparent;
-
-    &:hover {
-        box-shadow:
-            inset 0 1px 0 rgb(255 255 255 / 0.22),
-            var(--glow);
-    }
-}
-
-/* a soft accent light that follows the pointer over a big surface and fades
-   out when it leaves (lib/spotlight.ts sets --spot-x / --spot-y / --spot-a) */
-@property --spot-a {
-    syntax: '<percentage>';
-    inherits: false;
-    initial-value: 0%;
-}
-
-@utility spotlight {
-    background-image: radial-gradient(
-        520px circle at var(--spot-x, 50%) var(--spot-y, 50%),
-        color-mix(in oklab, var(--accent) var(--spot-a), transparent),
-        transparent 70%
-    );
-    transition:
-        --spot-a 600ms var(--ease-soft),
-        background-color 320ms var(--ease-soft);
-}
-
-@keyframes shimmer {
-    from {
-        background-position: 150% 0;
-    }
-
-    to {
-        background-position: -50% 0;
-    }
-}
-
-@utility skeleton {
-    background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.4s ease-in-out infinite;
 }
 
 /* a native range input, drawn in the app's own colours. --fill is set from
@@ -353,28 +332,29 @@
     cursor: pointer;
 
     &::-webkit-slider-runnable-track {
-        height: 4px;
-        border-radius: 999px;
-        background: linear-gradient(
-            to right,
-            var(--accent) var(--fill, 0%),
-            var(--surface-3) var(--fill, 0%)
-        );
+        height: 3px;
+        border-radius: 2px;
+        background: linear-gradient(to right, var(--fg-2) var(--fill, 0%), color-mix(in oklab, var(--fg) 14%, transparent) var(--fill, 0%));
+    }
+
+    &:hover::-webkit-slider-runnable-track {
+        background: linear-gradient(to right, var(--accent) var(--fill, 0%), color-mix(in oklab, var(--fg) 14%, transparent) var(--fill, 0%));
     }
 
     &::-webkit-slider-thumb {
         appearance: none;
         width: 12px;
         height: 12px;
-        margin-top: -4px;
+        margin-top: -4.5px;
         border-radius: 50%;
         background: var(--fg);
-        box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
-        transition: scale 160ms var(--ease-spring);
+        opacity: 0;
+        transition: opacity 160ms var(--ease-out);
     }
 
-    &:hover::-webkit-slider-thumb {
-        scale: 1.2;
+    &:hover::-webkit-slider-thumb,
+    &:active::-webkit-slider-thumb {
+        opacity: 1;
     }
 
     &:disabled {
@@ -383,20 +363,18 @@
     }
 }
 
-/* the glow at the top of the window: the accent, faded out, and as strong as
-   the cover tint setting says. it is one static gradient - nothing behind the
-   panels moves, so nothing in front of them has to be painted again */
-.aura {
-    position: fixed;
-    inset: 0 0 auto;
-    height: 60vh;
-    pointer-events: none;
-    background: radial-gradient(
-        ellipse 70% 100% at 50% 0%,
-        color-mix(in oklab, var(--accent) calc(var(--aura, 0.5) * 22%), transparent),
-        transparent 70%
-    );
-    transition: background 900ms ease;
+/* a range that is the one thing in its pane: always in the accent */
+.range-accent::-webkit-slider-runnable-track {
+    background: linear-gradient(to right, var(--accent) var(--fill, 0%), color-mix(in oklab, var(--fg) 14%, transparent) var(--fill, 0%)) !important;
+}
+
+.range-accent::-webkit-slider-thumb {
+    opacity: 1 !important;
+}
+
+/* a placeholder that holds a place, still */
+@utility placeholder-block {
+    background: var(--surface-2);
 }
 
 /* the bars beside the track that is playing. paused, they hold where they are */
@@ -404,11 +382,15 @@
     display: inline-flex;
     align-items: flex-end;
     gap: 2px;
-    height: 0.8rem;
+    height: 0.75rem;
 }
 
 .eq i {
-    width: 3px;
+    /* a layer of its own: the bars move every frame, and on a layer that is
+       the compositor moving them rather than the page painting them again -
+       measured, a quarter of a core while a track played on the home page */
+    will-change: transform;
+    width: 2px;
     height: 100%;
     border-radius: 1px;
     background: var(--accent);
@@ -443,26 +425,40 @@
     }
 }
 
-/* the tooltip, delegated off [data-tip] (components/ui/Tip.tsx). webkit draws
-   the native title tooltip itself and no stylesheet can reach it */
+/* the tooltip, delegated off [data-tip] (components/ui/Tip.tsx) */
 .tip {
     position: fixed;
     z-index: 80;
     translate: -50% -100%;
-    padding: 0.3rem 0.55rem;
+    padding: 4px 8px;
     border: 1px solid var(--line);
-    border-radius: 0.5rem;
+    border-radius: 6px;
     background: var(--surface-3);
     color: var(--fg);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     white-space: nowrap;
     pointer-events: none;
-    box-shadow: var(--shadow);
-    animation: fade-in 140ms ease-out;
+    box-shadow: var(--shadow-pop);
+    animation: fade-in 140ms var(--ease-out);
 }
 
 .tip.below {
     translate: -50% 0;
+}
+
+/* keycaps: shortcuts wherever they are shown */
+.keycap {
+    display: inline-flex;
+    align-items: center;
+    height: 1.25rem;
+    padding: 0 6px;
+    border: 1px solid var(--line-strong);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--fg-2);
+    white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -473,11 +469,11 @@
         transition-duration: 0.01ms !important;
     }
 
-    .edge::after,
     .eq i {
         animation: none;
     }
 }
+
 
 /* over the moving cover light (the lyrics page) the page is always dark,
    whatever the theme: the tokens are put back to the dark set inside it */
@@ -486,102 +482,502 @@
 
     --surface: rgb(255 255 255 / 0.06);
     --surface-2: rgb(255 255 255 / 0.1);
-    --surface-3: rgb(255 255 255 / 0.18);
-    --line: rgb(255 255 255 / 0.12);
-    --line-strong: rgb(255 255 255 / 0.24);
-    --fg: #ffffff;
-    --muted: rgb(255 255 255 / 0.62);
-    --accent: var(--art-accent, #ff6bb5);
-    --accent-fg: #160910;
-    --bg: #0a0a0c;
+    --surface-3: rgb(255 255 255 / 0.16);
+    --line: rgb(255 255 255 / 0.1);
+    --line-strong: rgb(255 255 255 / 0.2);
+    --fg: #f4efe7;
+    --fg-2: rgb(244 239 231 / 0.72);
+    --muted: rgb(244 239 231 / 0.56);
+    --accent: var(--art-accent, var(--fixed-accent, #e5654a));
+    --accent-fg: #170f0b;
+    --bg: #0c0b0a;
 
     color: var(--fg);
 }
 
-/* a line of the sheet on the lyrics page. what is sung now is whole; what is
-   coming is there to be read ahead, what has gone fades back. only opacity
-   and a transform change, so a line turning over repaints nothing else */
-.lyric-line {
+.lyric-words {
+    color: var(--fg);
+}
+
+.flow-line[data-at='now'] .lyric-words {
+    background: linear-gradient(
+        90deg,
+        var(--fg) calc(var(--ink, 0%) - 3%),
+        color-mix(in oklab, var(--fg) 38%, transparent) calc(var(--ink, 0%) + 3%)
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+/* the lyrics page's column (media/LyricFlow): every line placed on its own,
+   moved by a spring from js. what it looks like is here - the line being sung
+   whole and full size, the two after it half lit, the rest further back,
+   smaller and, with blur on, out of focus by how far away they are, like a
+   page under a lens. a hover brings any line forward to be clicked */
+.flow-line {
+    position: absolute;
+    inset: 0 0 auto 0;
+    padding: 0.18em 0.5em 0.18em 0;
+    line-height: 1.16;
     transform-origin: left center;
+    will-change: translate;
+    opacity: 0.28;
+    scale: 0.965;
     transition:
-        opacity 600ms var(--ease-soft),
-        transform 700ms var(--ease-spring),
-        color 600ms var(--ease-soft);
+        opacity 650ms var(--ease-out),
+        scale 650ms var(--ease-out),
+        filter 650ms var(--ease-out);
 }
 
-.lyric-line[data-at='now'] {
-    opacity: 1;
-    transform: scale(1);
-}
-
-.lyric-line[data-at='next'] {
+.flow-line[data-at='near'] {
     opacity: 0.5;
-    transform: scale(0.94);
 }
 
-.lyric-line[data-at='later'] {
-    opacity: 0.3;
-    transform: scale(0.94);
+.flow-line[data-at='now'] {
+    opacity: 1;
+    scale: 1;
 }
 
-.lyric-line[data-at='gone'] {
-    opacity: 0.16;
-    transform: scale(0.94);
+[data-soft] .flow-line[data-focus='soft'] {
+    filter: blur(calc(var(--d, 0) * 0.5px));
 }
 
-.lyric-line:hover {
+.flow-line:hover {
     opacity: 0.85;
+    filter: none !important;
 }
 
-/* the gap between two lines, where the music carries on without words */
-.lyric-dots span {
-    display: inline-block;
-    width: 0.55rem;
-    height: 0.55rem;
-    margin-right: 0.45rem;
-    border-radius: 50%;
-    background: currentColor;
-    animation: lyric-dot 1.4s ease-in-out infinite;
-}
-
-.lyric-dots span:nth-child(2) {
-    animation-delay: 0.2s;
-}
-
-.lyric-dots span:nth-child(3) {
-    animation-delay: 0.4s;
-}
-
-@keyframes lyric-dot {
-    0%,
-    100% {
-        opacity: 0.35;
-        transform: scale(0.8);
-    }
-
-    50% {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-/* a panel that is scrolling does not hover what slides under the pointer
-   (hooks/glide, useScrollQuiet). the panel itself still takes the wheel */
-[data-scrolling] > * {
-    pointer-events: none;
+.flow-line[data-at='now']:hover {
+    opacity: 1;
 }
 
 /* the qt build keeps its own beat (lib/frames): chromium's frame limit is off
    there, so a css animation that never ends would be drawn thousands of times
-   a second. the ones that loop forever stand down - the equaliser bars are
-   moved from the page's beat instead, the rest hold still */
-.paced .edge::after,
-.paced .skeleton,
-.paced .lyric-dots span,
+   a second. the equaliser bars are moved from the page's beat instead */
 .paced .eq i {
     animation: none;
 }
 
-.paced .skeleton {
-    background: var(--surface-2);
+/* ---------- the room and what stands in it ----------
+   one material for the whole window, so no page reads as pasted on another.
+
+   the room (App, Room) is the palette's ground with the cover's light in it
+   (fx/Ambient): the artwork of what is playing, blurred into light and turning
+   slowly. --light is how much of it there is, 0 to 1, and 0 when it is off.
+
+   `panel` is a sheet standing in that room: the sidebar, the page, the side
+   column, the player. it is the palette's surface with a share of the cover's
+   own hue mixed in (--tint), let a little translucent as the light gets
+   stronger - only the light is behind it, already blurred. a hairline, a lit
+   top edge and a long soft shadow set it on the floor.
+
+   `float` is what sits over a page: menus, dialogs, the search results, the
+   bar once the page is under it. without liquid glass it is solid - a menu
+   is read, and nothing should show through it. with liquid glass on, the
+   whole window turns to glass (below). */
+:root {
+    --light: 0;
+    --tint: var(--art-tint, var(--surface));
+    --sheet: color-mix(in oklab, var(--surface) calc(100% - var(--light) * 22%), var(--tint));
+    --panel: color-mix(in oklab, var(--sheet) calc(98% - var(--light) * 22%), transparent);
+    --float-fill: color-mix(in oklab, var(--surface-2) calc(100% - var(--light) * 14%), var(--tint));
+    --float: var(--float-fill);
+    --rim: inset 0 1px 0 0 rgb(255 255 255 / 0.045), inset 0 0 0 1px var(--line);
+    --rim-float: inset 0 1px 0 0 rgb(255 255 255 / 0.07), inset 0 0 0 1px var(--line-strong);
+    --shadow-panel: 0 28px 60px -34px rgb(0 0 0 / 0.75);
+    --glass-blur: 24px;
+}
+
+:root[data-theme='paper'] {
+    --rim: inset 0 1px 0 0 rgb(255 255 255 / 0.7), inset 0 0 0 1px var(--line);
+    --rim-float: inset 0 1px 0 0 rgb(255 255 255 / 0.9), inset 0 0 0 1px var(--line-strong);
+    --shadow-panel: 0 24px 50px -30px rgb(40 40 40 / 0.3);
+}
+
+/* ink is the black one, and stays black without glass: its solid panels take
+   only a little of the cover's light and hue, or a grey sleeve behind them
+   turns the whole window charcoal */
+:root[data-theme='ink']:not([data-glass]) {
+    --sheet: color-mix(in oklab, var(--surface) calc(100% - var(--light) * 8%), var(--tint));
+    --panel: color-mix(in oklab, var(--sheet) calc(99% - var(--light) * 10%), transparent);
+}
+
+@utility panel {
+    background-color: var(--panel);
+    box-shadow: var(--rim), var(--shadow-panel);
+}
+
+@utility float {
+    background-color: var(--float);
+    box-shadow: var(--rim-float), var(--shadow-pop);
+}
+
+/* ---------- liquid glass ----------
+   the material of the GlassButton the user supplied, carried over the whole
+   window: on, every panel, the dock, the bar over the page, the search
+   field, menus, dialogs and buttons are pieces of that one glass. off,
+   nothing here applies and everything is solid.
+
+   what is taken from it, and how it is adapted:
+   - the fill: a gradient across the piece at -75deg, thin at both ends and
+     thicker in the middle, made of the palette's ground (--bg, its
+     --background) so dark glass is smoked rather than grey;
+   - the rim: a ring one hairline wide, cut out of a conic gradient with two
+     bright arcs facing each other on the diagonal (a mask that keeps only the
+     border box minus the content box). its angle, --angle-1, is registered
+     with @property so it can be transitioned: under the pointer the
+     highlights swing round, pressed they swing back;
+   - the depth: the component's inset shadows - light caught under the top
+     edge, ground under the bottom one - and a short shadow beneath;
+   - the sheen on a button: a soft band of light (--angle-2) that slides
+     across under the pointer and tips when pressed;
+   - the press: the piece tilts back, as the demo's wrap does.
+   its relative oklch(from ...) colours become color-mix() over this app's
+   tokens (--fg, --bg). the demo's extra shadow element is a box-shadow here,
+   and its <style> tag per instance is this one sheet.
+
+   how thick each piece is follows what it is for: panels let the room's
+   light through, what floats is read on and is thicker, and blur (settings)
+   says how frosted all of it is. */
+@property --angle-1 {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: -75deg;
+}
+
+@property --angle-2 {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: -45deg;
+}
+
+:root[data-glass] {
+    --glass-blur: 22px;
+    --glass-ease: cubic-bezier(0.25, 1, 0.5, 1);
+    --rim-width: 1px;
+    /* the ground, at a strength */
+    --g: var(--bg);
+    --edge: var(--fg);
+    --sheen: color-mix(in oklab, var(--fg) 14%, transparent);
+    /* how thick a piece is at its thin ends and its thick middle */
+    --thin: 46%;
+    --thick: 62%;
+    --rim-strength: 34%;
+}
+
+:root[data-glass]:not([data-blur]) {
+    --glass-blur: 5px;
+}
+
+:root[data-glass][data-theme='paper'] {
+    --sheen: rgb(255 255 255 / 0.55);
+}
+
+/* the material */
+:root[data-glass] .panel,
+:root[data-glass] .float,
+:root[data-glass] .search-field {
+    background: linear-gradient(
+        -75deg,
+        color-mix(in oklab, var(--g) var(--thin), transparent),
+        color-mix(in oklab, var(--g) var(--thick), transparent),
+        color-mix(in oklab, var(--g) var(--thin), transparent)
+    );
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.6);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.6);
+    box-shadow:
+        inset 0 0.125rem 0.125rem color-mix(in oklab, var(--edge) 5%, transparent),
+        inset 0 -0.125rem 0.125rem color-mix(in oklab, var(--g) 50%, transparent),
+        inset 0 0 0.1rem 0.25rem color-mix(in oklab, var(--g) 12%, transparent),
+        0 0.25rem 0.125rem -0.125rem color-mix(in oklab, var(--edge) 12%, transparent),
+        var(--shadow-panel);
+}
+
+/* the panels let the room's light through; what floats is read on */
+:root[data-glass] .float {
+    --thin: 74%;
+    --thick: 86%;
+    --rim-strength: 44%;
+}
+
+:root[data-glass] .float.thin,
+:root[data-glass] .search-field {
+    --thin: 38%;
+    --thick: 56%;
+}
+
+/* the rim: the ring of the conic gradient, the content box masked out */
+:root[data-glass] .panel::after,
+:root[data-glass] .float::after,
+:root[data-glass] .search-field::after,
+:root[data-glass] .btn-fill::after,
+:root[data-glass] .btn:not(.btn-fill):hover::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    padding: var(--rim-width);
+    border-radius: inherit;
+    pointer-events: none;
+    background:
+        conic-gradient(
+            from var(--angle-1) at 50% 50%,
+            color-mix(in oklab, var(--edge) var(--rim-strength), transparent) 0%,
+            transparent 5% 40%,
+            color-mix(in oklab, var(--edge) var(--rim-strength), transparent) 50%,
+            transparent 60% 95%,
+            color-mix(in oklab, var(--edge) var(--rim-strength), transparent) 100%
+        ),
+        linear-gradient(color-mix(in oklab, var(--edge) 8%, transparent), color-mix(in oklab, var(--edge) 8%, transparent));
+    mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    transition: --angle-1 0.5s ease;
+}
+
+/* the search field is long and low: a rim that turns, on a pill that shape,
+   sends its highlights skidding along the long edges. it keeps a still rim,
+   lit from above and fading towards the bottom, and does not move */
+:root[data-glass] .search-field::after {
+    background: linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--edge) 30%, transparent),
+        color-mix(in oklab, var(--edge) 10%, transparent) 55%,
+        color-mix(in oklab, var(--edge) 6%, transparent)
+    );
+    transition: none;
+}
+
+/* a segmented control: a shallow channel the choices sit in, and the chosen
+   one raised out of it. solid, the channel is a tint and the raised one a
+   lighter tint lit along its top; with liquid glass the raised one is a
+   piece of glass (it carries btn-fill) in a frosted groove */
+.seg {
+    background: color-mix(in oklab, var(--fg) 6%, transparent);
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.22), inset 0 0 0 1px color-mix(in oklab, var(--fg) 5%, transparent);
+}
+
+.seg-thumb {
+    background: color-mix(in oklab, var(--fg) 13%, transparent);
+    box-shadow:
+        inset 0 1px 0 0 color-mix(in oklab, var(--fg) 14%, transparent),
+        0 1px 3px rgb(0 0 0 / 0.25);
+}
+
+:root[data-theme='paper'] .seg-thumb {
+    background: var(--surface);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.14), inset 0 0 0 1px rgb(0 0 0 / 0.04);
+}
+
+:root[data-glass] .seg {
+    background: color-mix(in oklab, var(--bg) 34%, transparent);
+    box-shadow:
+        inset 0 1px 3px color-mix(in oklab, var(--bg) 60%, transparent),
+        inset 0 -1px 0 color-mix(in oklab, var(--fg) 6%, transparent);
+}
+
+/* a panel is a positioned box for its rim; the ones that float already are */
+:root[data-glass] aside.panel {
+    position: relative;
+}
+
+/* ---------- glass buttons ----------
+   a filled button (primary, secondary, soft) is a piece of glass at rest; a
+   bare one (plain, ghost) becomes one under the pointer */
+:root[data-glass] .btn {
+    --rim-strength: 50%;
+    isolation: isolate;
+    transition:
+        transform 0.4s var(--glass-ease),
+        box-shadow 0.4s var(--glass-ease),
+        background 0.4s var(--glass-ease),
+        color 160ms var(--ease-out),
+        opacity 160ms var(--ease-out),
+        scale 160ms var(--ease-out),
+        --angle-1 0.5s ease;
+}
+
+:root[data-glass] .btn:not(.absolute) {
+    position: relative;
+}
+
+:root[data-glass] .btn-fill,
+:root[data-glass] .btn:not(.btn-fill):hover {
+    background: linear-gradient(
+        -75deg,
+        color-mix(in oklab, var(--edge) 4%, color-mix(in oklab, var(--g) 5%, transparent)),
+        color-mix(in oklab, var(--edge) 9%, color-mix(in oklab, var(--g) 20%, transparent)),
+        color-mix(in oklab, var(--edge) 4%, color-mix(in oklab, var(--g) 5%, transparent))
+    );
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+    box-shadow:
+        inset 0 0.125em 0.125em color-mix(in oklab, var(--edge) 5%, transparent),
+        inset 0 -0.125em 0.125em color-mix(in oklab, var(--g) 50%, transparent),
+        0 0.25em 0.125em -0.125em color-mix(in oklab, var(--edge) 20%, transparent),
+        inset 0 0 0.1em 0.25em color-mix(in oklab, var(--g) 20%, transparent);
+}
+
+/* the accent button is the one solid thing on the glass: coloured through,
+   lit along its top edge, with no rim and no sheen - on the accent those
+   read as a glow round the button rather than as glass */
+:root[data-glass] .btn-accent,
+:root[data-glass] .btn-accent:hover {
+    background: linear-gradient(
+        -75deg,
+        color-mix(in oklab, var(--accent) 86%, var(--bg)),
+        var(--accent),
+        color-mix(in oklab, var(--accent) 86%, var(--bg))
+    );
+    box-shadow:
+        inset 0 1px 0 0 rgb(255 255 255 / 0.28),
+        inset 0 -1px 0 0 rgb(0 0 0 / 0.12),
+        0 6px 14px -8px color-mix(in oklab, var(--accent) 60%, transparent);
+}
+
+:root[data-glass] .btn-accent::after,
+:root[data-glass] .btn-accent::before {
+    content: none;
+}
+
+/* the sheen: a band of light that slides across under the pointer */
+:root[data-glass] .btn-fill::before,
+:root[data-glass] .btn:not(.btn-fill):hover::before {
+    content: '';
+    position: absolute;
+    inset: var(--rim-width);
+    z-index: 2;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(var(--angle-2), transparent 0%, var(--sheen) 40% 50%, transparent 55%) 0% / 200% 200%;
+    mix-blend-mode: screen;
+    /* at rest the button is clean glass: the band only comes up under the
+       pointer, sliding in as it does */
+    opacity: 0;
+    transition:
+        opacity 0.3s var(--glass-ease),
+        background-position 0.5s var(--glass-ease),
+        --angle-2 0.5s var(--glass-ease);
+}
+
+:root[data-glass] .btn:hover::before {
+    opacity: 1;
+    background-position: 25%;
+}
+
+:root[data-glass] .btn:active::before {
+    --angle-2: -15deg;
+    background-position: 50% 15%;
+}
+
+:root[data-glass] .btn:hover {
+    box-shadow:
+        inset 0 0.125em 0.125em color-mix(in oklab, var(--edge) 5%, transparent),
+        inset 0 -0.125em 0.125em color-mix(in oklab, var(--g) 50%, transparent),
+        0 0.15em 0.05em -0.1em color-mix(in oklab, var(--edge) 25%, transparent),
+        inset 0 0 0.05em 0.1em color-mix(in oklab, var(--g) 50%, transparent);
+}
+
+:root[data-glass] .btn:hover::after {
+    --angle-1: -125deg;
+}
+
+:root[data-glass] .btn:active::after {
+    --angle-1: -75deg;
+}
+
+/* pressed, the piece tips back */
+:root[data-glass] .btn:active {
+    transform: perspective(24em) rotateX(25deg);
+}
+
+/* the search field stands on the page, not in it: frosted over whatever
+   passes behind it - the field of characters, a cover, the page scrolling -
+   with or without liquid glass, so it never reads as part of the page */
+.search-field {
+    background: color-mix(in oklab, var(--float-fill) 66%, transparent);
+    box-shadow: inset 0 0 0 1px var(--line);
+    transition: background-color 200ms var(--ease-out);
+    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+    backdrop-filter: blur(14px) saturate(1.4);
+}
+
+.search-field[data-open] {
+    background: color-mix(in oklab, var(--float-fill) 84%, transparent);
+}
+
+/* ---------- the bar over the page ----------
+   at the top of a page the bar has no body: the controls stand on the page.
+   once the page is under it, one body comes up behind all of them and tears
+   off the top edge to float (layout/GlassBar), shaped by a mask the component
+   draws, with its shadow in a layer of its own under it. solid, the body is
+   the floating fill; with liquid glass, clear glass that bends and lights
+   what is behind it (#bar-lens). on the bare page the search field stands on
+   its own - a well with a hairline round it, or with liquid glass a piece of
+   glass; as the bar comes up around it (--lift, 0 to 1, set by the bar) that
+   goes into the bar, so in the bar it is a field of the bar rather than a
+   piece laid on it */
+.bar-glass {
+    background: var(--float-fill);
+}
+
+:root[data-glass] .bar-glass {
+    background: color-mix(in oklab, var(--bg) 16%, transparent);
+    -webkit-backdrop-filter: url(#bar-lens) blur(1px) saturate(1.5);
+    backdrop-filter: url(#bar-lens) blur(1px) saturate(1.5);
+}
+
+.bar-shade {
+    background: var(--mode-shadow);
+}
+
+:root:not([data-glass]) .page-bar .search-field {
+    background: color-mix(in oklab, var(--fg) calc(8% - var(--lift, 0) * 3%), transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--line-strong) calc(100% - var(--lift, 0) * 100%), transparent);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+
+:root:not([data-glass]) .page-bar .search-field:hover,
+:root:not([data-glass]) .page-bar .search-field[data-open] {
+    background: color-mix(in oklab, var(--fg) calc(11% - var(--lift, 0) * 3%), transparent);
+}
+
+/* with liquid glass the field is a piece of glass of its own on the bare
+   page - frosted, lit along its top, a short shadow under it. as the bar
+   comes up around it, its frost, light and shadow go into the bar, and what
+   is left is a shallow well pressed into the bar's glass */
+:root[data-glass] .page-bar .search-field {
+    --thin: calc(38% - var(--lift, 0) * 30%);
+    --thick: calc(56% - var(--lift, 0) * 44%);
+    -webkit-backdrop-filter: blur(calc(var(--glass-blur) * (1 - var(--lift, 0)))) saturate(calc(1.6 - var(--lift, 0) * 0.6));
+    backdrop-filter: blur(calc(var(--glass-blur) * (1 - var(--lift, 0)))) saturate(calc(1.6 - var(--lift, 0) * 0.6));
+    box-shadow:
+        inset 0 0.125rem 0.125rem color-mix(in oklab, var(--edge) calc(5% - var(--lift, 0) * 5%), transparent),
+        inset 0 -0.125rem 0.125rem color-mix(in oklab, var(--g) calc(50% - var(--lift, 0) * 50%), transparent),
+        inset 0 1px 3px color-mix(in oklab, var(--g) calc(var(--lift, 0) * 45%), transparent),
+        0 0.25rem 0.125rem -0.125rem color-mix(in oklab, var(--edge) calc(12% - var(--lift, 0) * 12%), transparent),
+        0 10px 24px -14px color-mix(in oklab, var(--mode-shadow) calc(100% - var(--lift, 0) * 100%), transparent);
+}
+
+:root[data-glass] .page-bar .search-field[data-open] {
+    --thin: calc(50% - var(--lift, 0) * 36%);
+    --thick: calc(66% - var(--lift, 0) * 48%);
+}
+
+:root[data-glass] .page-bar .search-field::after {
+    opacity: calc(1 - var(--lift, 0) * 0.7);
+}
+
+/* ---------- motion, scaled ----------
+   settings > animations: every css transition and keyframe in the app runs at
+   --pace times its own length (App sets it; 0 is none at all). motion's
+   springs read the same factor (lib/motion). */
+:root[data-pace='off'] *,
+:root[data-pace='off'] *::before,
+:root[data-pace='off'] *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
 }

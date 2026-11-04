@@ -30,16 +30,12 @@ export const GroupCard = memo(function GroupCard({
             onClick={on_open}
             className='group min-w-0 text-left'
         >
-            <div
-                className={cn(
-                    'edge relative aspect-square overflow-hidden bg-surface-2 transition-[translate,box-shadow] duration-500 ease-spring group-hover:-translate-y-1.5 group-hover:shadow-glow group-hover:after:opacity-100',
-                    round ? 'rounded-full' : 'rounded-xl',
-                )}
-            >
-                <Cover data={art} size='md' icon={28} round={round} className={cn('size-full transition-transform duration-700 ease-soft group-hover:scale-[1.05]', !round && 'rounded-none')} />
+            <div className={cn('relative aspect-square overflow-hidden bg-surface-2 shadow-[0_8px_20px_-12px_rgb(0_0_0/0.55)]', round ? 'rounded-full' : 'rounded-(--r-cover)')}>
+                <Cover data={art} size='md' icon={28} round={round} className={cn('size-full', !round && 'rounded-none')} />
+                <div className='absolute inset-0 bg-black/20 opacity-0 transition-opacity group-hover:opacity-100' />
             </div>
-            <p className={cn('mt-2.5 truncate text-[0.82rem] font-medium', round && 'text-center')}>{name}</p>
-            <p className={cn('truncate text-xs text-muted', round && 'text-center')}>
+            <p className={cn('mt-2 truncate text-[0.875rem] font-medium', round && 'text-center')}>{name}</p>
+            <p className={cn('truncate text-[0.8125rem] text-muted', round && 'text-center')}>
                 {tracks.length} {tracks.length === 1 ? 'track' : 'tracks'}
             </p>
         </button>
@@ -56,20 +52,20 @@ export const GroupRow = memo(function GroupRow({ name, tracks, index, on_open }:
         <button
             type='button'
             onClick={on_open}
-            className='grid h-14 w-full grid-cols-[2rem_minmax(0,1fr)_6rem_4rem] items-center gap-3 rounded-xl px-3 text-left transition-colors hover:bg-surface-2'
+            className='grid h-(--row) w-full grid-cols-[2rem_minmax(0,1fr)_6rem_4rem] items-center gap-3 rounded-lg px-3 text-left transition-colors hover:bg-surface-2'
         >
-            <span className='text-center text-xs text-muted tabular-nums'>{index + 1}</span>
+            <span className='text-center font-mono text-[0.75rem] text-muted tabular-nums'>{index + 1}</span>
             <div className='flex min-w-0 items-center gap-3'>
-                <Cover data={art} size='sm' className='size-10' icon={15} />
+                <Cover data={art} size='sm' className='size-9' icon={14} />
                 <div className='min-w-0'>
-                    <p className='truncate text-[0.82rem] font-medium'>{name}</p>
-                    <p className='truncate text-xs text-muted'>{artist_of(tracks[0])}</p>
+                    <p className='truncate text-[0.875rem]'>{name}</p>
+                    <p className='truncate text-[0.8125rem] text-muted'>{artist_of(tracks[0])}</p>
                 </div>
             </div>
-            <span className='text-xs text-muted'>
+            <span className='text-[0.8125rem] text-muted'>
                 {tracks.length} {tracks.length === 1 ? 'track' : 'tracks'}
             </span>
-            <span className='text-right text-xs text-muted tabular-nums'>{format_span(span_of(tracks))}</span>
+            <span className='text-right font-mono text-[0.75rem] text-muted tabular-nums'>{format_span(span_of(tracks))}</span>
         </button>
     )
 })

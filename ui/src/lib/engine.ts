@@ -6,5 +6,12 @@
  */
 export const chromium = typeof navigator !== 'undefined' && /Chrome\//.test(navigator.userAgent)
 
-// canvases may be handed to workers and drawn there
-export const workers_draw = chromium
+/*
+ * Canvases may be handed to workers and drawn there. Nowhere, now: WebKitGTK
+ * crashes on it, and on the Qt build a canvas drawn from a worker is a second
+ * surface the compositor has to put together with the page on every frame -
+ * measured 2026-11-04 with the glyph field up and a track playing, that took
+ * VizCompositorThread from 5% of a core to 98%. The same WebGL shader drawn on
+ * the page goes out in the page's own frame.
+ */
+export const workers_draw: boolean = false

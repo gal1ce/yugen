@@ -1,4 +1,4 @@
-import { ArrowLeft, Camera, Heart, ListMusic, Pencil, Star } from '../ui/icons'
+import { ArrowLeft, Camera, Pencil, Star } from '../ui/icons'
 import { useStore } from '../../lib/store'
 import { playlist_names_of, useFavoriteSongs, useLikedSongs } from '../../state/derive'
 import { pick_image } from '../../state/images'
@@ -21,52 +21,53 @@ export function ProfilePage() {
     const liked = useLikedSongs()
     const lists = playlist_names_of(playlists, pins).length
 
-    const stat = (icon: React.ReactNode, count: number, label: string, go?: () => void) => (
-        <button type='button' disabled={!go} onClick={go} className='flex items-center gap-2 rounded-xl bg-surface-2 px-3.5 py-2 text-xs text-muted transition-colors enabled:hover:bg-surface-3 enabled:hover:text-fg'>
-            <span className='text-accent'>{icon}</span>
-            <b className='text-sm font-semibold text-fg'>{count}</b> {label}
-        </button>
-    )
+    const stat = (count: number, label: string, go?: () => void) =>
+        go ? (
+            <button type='button' onClick={go} className='transition-colors hover:text-fg'>
+                <span className='font-mono text-fg-2 tabular-nums'>{count}</span> {label}
+            </button>
+        ) : (
+            <span>
+                <span className='font-mono text-fg-2 tabular-nums'>{count}</span> {label}
+            </span>
+        )
 
     return (
         <>
-            <button type='button' onClick={leave_page} className='mb-4 flex items-center gap-1.5 text-xs text-muted transition-colors hover:text-fg'>
-                <ArrowLeft size={13} /> Back
+            <button type='button' onClick={leave_page} className='mb-6 flex h-8 items-center gap-1.5 rounded-md text-[0.8125rem] text-muted transition-colors hover:text-fg'>
+                <ArrowLeft size={16} /> Back
             </button>
 
-            <section className='edge relative mb-10 overflow-hidden rounded-3xl bg-surface p-7'>
-                <div className='pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,color-mix(in_oklab,var(--accent)_16%,transparent),transparent_60%)]' />
+            <section className='mb-12 flex items-center gap-8'>
+                {/* the picker has to be what the click lands on: some webviews
+                    refuse to open the native dialog for a click proxied
+                    through a button, so it lies over the picture */}
+                <label className='group relative shrink-0 cursor-pointer' {...tip('Change photo')}>
+                    <Cover data={pic} size='md' round icon={40} className='size-36 shadow-[0_20px_40px_-22px_rgb(0_0_0/0.75)]' />
+                    <span className='absolute inset-0 grid place-items-center rounded-full bg-black/55 text-white opacity-0 transition-opacity group-hover:opacity-100'>
+                        <Camera size={20} />
+                    </span>
+                    <input type='file' accept='image/png,image/jpeg' disabled={busy} className='hidden' onChange={(e) => void pick_image(e, { kind: 'avatar' })} />
+                </label>
 
-                <div className='relative flex items-center gap-7'>
-                    {/* the picker has to be what the click lands on: some webviews
-                        refuse to open the native dialog for a click proxied
-                        through a button, so it lies over the picture */}
-                    <label className='group relative shrink-0 cursor-pointer' {...tip('Change photo')}>
-                        <Cover data={pic} size='md' round icon={40} className='size-32 shadow-soft' />
-                        <span className='absolute inset-0 grid place-items-center rounded-full bg-black/55 text-white opacity-0 transition-opacity group-hover:opacity-100'>
-                            <Camera size={22} />
-                        </span>
-                        <input type='file' accept='image/png,image/jpeg' disabled={busy} className='hidden' onChange={(e) => void pick_image(e, { kind: 'avatar' })} />
-                    </label>
+                <div className='min-w-0 flex-1'>
+                    <p className='text-[0.8125rem] text-muted'>Profile</p>
+                    <h1 className='mt-1 truncate font-serif text-[2.75rem] leading-[1.08] font-medium'>{username || 'Unnamed'}</h1>
+                    <p className={`mt-2 max-w-xl text-[0.9375rem] whitespace-pre-line ${bio ? 'text-fg-2' : 'text-muted'}`}>{bio || 'No bio yet'}</p>
 
-                    <div className='min-w-0 flex-1'>
-                        <p className='text-[0.68rem] font-medium tracking-wider text-accent uppercase'>Profile</p>
-                        <h1 className='mt-1 truncate font-display text-[2.6rem] leading-tight font-bold tracking-tight'>{username || 'Unnamed'}</h1>
-                        <p className={`mt-1 max-w-xl text-sm whitespace-pre-line ${bio ? 'text-fg/80' : 'text-muted'}`}>{bio || 'No bio yet.'}</p>
-
-                        <div className='mt-5 flex flex-wrap items-center gap-2'>
-                            {stat(<Star size={14} />, favorites.length, 'favorites')}
-                            {stat(<Heart size={14} />, liked.length, 'liked', () => open_view('liked'))}
-                            {stat(<ListMusic size={14} />, lists, 'playlists')}
-                            <Button variant='secondary' size='sm' icon={<Pencil size={13} />} onClick={() => ui.set({ profile_edit: true })} className='ml-1'>
-                                Edit profile
-                            </Button>
-                        </div>
+                    <div className='mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.8125rem] text-muted'>
+                        {stat(favorites.length, 'favorites')}
+                        {stat(liked.length, 'liked', () => open_view('liked'))}
+                        {stat(lists, 'playlists')}
                     </div>
+
+                    <Button variant='secondary' icon={<Pencil size={16} />} onClick={() => ui.set({ profile_edit: true })} className='mt-6'>
+                        Edit profile
+                    </Button>
                 </div>
             </section>
 
-            <h2 className='mb-4 text-[1.05rem] font-semibold tracking-tight'>Favorite songs</h2>
+            <h2 className='mb-4 text-[1.125rem] font-medium'>Favorite songs</h2>
             {favorites.length ? (
                 <div className={card_grid}>
                     {favorites.map((name, i) => (
@@ -74,7 +75,7 @@ export function ProfilePage() {
                     ))}
                 </div>
             ) : (
-                <Empty icon={<Star size={20} />} title='No favorite songs yet.'>
+                <Empty icon={<Star size={20} />} title='No favorite songs yet'>
                     Right-click a track and pick Add to favorites.
                 </Empty>
             )}

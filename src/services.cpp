@@ -343,8 +343,11 @@ namespace yugen
                "--skip-download", "--encoding", "utf-8", "--print", "title", "--print", "id"});
      }
 
-     // Three lines per hit: title, page url, thumbnail url. Soundcloud has no id
-     // to rebuild a url from the way youtube does, so the url is carried along.
+     // Four lines per hit: title, page url, thumbnail url, track id. Soundcloud
+     // has no id to rebuild a url from the way youtube does, so the url is
+     // carried along - and the id as well, since a download is named after it
+     // (`<title> [<id>].mp3`), which is how the ui knows a hit is already in the
+     // library without going by a title that two different tracks can share.
      std::vector<std::string> Core::search_sound_cloud(const std::string& query, int count)
      {
           if(count < MIN_COUNT) count = MIN_COUNT; 
@@ -352,7 +355,7 @@ namespace yugen
 
           return run_command_lines({"yt-dlp", target, "--flat-playlist", "--no-warnings",
                "--skip-download", "--encoding", "utf-8", "--print", "title", "--print", "webpage_url",
-               "--print", "%(thumbnails.0.url)s"});
+               "--print", "%(thumbnails.0.url)s", "--print", "id"});
      }
 
      // Shared body of the two download calls: extract the audio, transcode to mp3

@@ -1,140 +1,183 @@
-import { useEffect, useRef, useState } from 'react'
-import { motion } from 'motion/react'
+import { useCallback, useEffect, useState } from 'react'
+import { useDismiss } from '../../hooks/dismiss'
+import { AnimatePresence, LayoutGroup, motion, useDragControls } from 'motion/react'
+import { spring } from '../../lib/motion'
 import { useSheet } from '../../hooks/sheet'
-import { spectrum } from '../../lib/audio'
-import { useClock } from '../../lib/clock'
-import { add_painter, fx } from '../../lib/fx'
+import { cn } from '../../lib/cn'
+import type { LyricsSize } from '../../lib/prefs'
 import { useStore } from '../../lib/store'
 import { tip } from '../../lib/tip'
 import { album_of, artist_of, library, title_of, toggle_like } from '../../state/library'
-import { player, seek_to } from '../../state/player'
-import { ui } from '../../state/ui'
-import { grain_url } from '../../lib/grain'
-import { Aurora } from '../fx/Aurora'
+import { change_volume, player, toggle_mute } from '../../state/player'
+import { set_pref, ui } from '../../state/ui'
+import { Ambient } from '../fx/Ambient'
 import { Wave } from '../fx/Wave'
 import { Controls, Progress } from '../layout/PlayerBar'
+import { LyricFlow } from '../media/LyricFlow'
 import { IconButton } from '../ui/Button'
-import { Heart } from '../ui/Controls'
+import { Heart, Range } from '../ui/Controls'
 import { Cover } from '../ui/Cover'
-import { CaretDoubleDown, Info, MicVocal, Quotes } from '../ui/icons'
-import { glide_to } from '../../hooks/glide'
+import { CaretDoubleDown, Info, MicVocal, Volume1, Volume2, VolumeX, Waveform } from '../ui/icons'
+import { Scroll } from '../ui/Scroll'
 
 const close = () => ui.set({ lyrics_open: false })
 
-// the sleeve, nudged by the low end: a beat is a small push outwards that
-// settles back. written straight onto the element, never a render
-function Sleeve({ data }: { data?: string }) {
-    const box = useRef<HTMLDivElement>(null)
-    const motion_pref = useStore(fx, (s) => s.motion)
-
-    useEffect(() => {
-        if (motion_pref !== 'full') return
-
-        let push = 0
-
-        return add_painter(0, (_, dt) => {
-            if (spectrum.beat) push = 1
-            push *= Math.exp(-dt * 6)
-
-            const scale = 1 + push * 0.018 + (spectrum.live ? spectrum.level * 0.02 : 0)
-            if (box.current) box.current.style.transform = `scale(${scale})`
-        })
-    }, [motion_pref])
-
-    return (
-        <div ref={box} className='will-change-transform'>
-            <Cover data={data} icon={64} className='aspect-square w-full rounded-[1.75rem] shadow-[0_40px_90px_-30px_rgb(0_0_0/0.85)]' />
-        </div>
-    )
+// the words are set at one of three sizes (settings, lyrics); each scales with
+// the window between a floor and a ceiling
+const SIZES: Record<LyricsSize, string> = {
+    small: 'text-[clamp(1.5rem,2vw,2rem)]',
+    medium: 'text-[clamp(1.875rem,2.6vw,2.75rem)]',
+    large: 'text-[clamp(2.25rem,3.3vw,3.5rem)]',
 }
 
 /*
- * The sheet, large. A timed one follows along: the line being sung is whole,
- * the next ones are there to be read ahead, the ones gone fade back - and the
- * box glides so the line in force sits a third of the way down, where the eye
- * already is. A click on any line goes there.
+ * The words. Timed ones flow (media/LyricFlow); plain ones are a sheet to
+ * read and scroll; none is said plainly, in the place the words would be.
  */
-function Sheet() {
+function Words() {
     const { sheet, timed, waiting } = useSheet()
-    const [line, set_line] = useState(-1)
-    const box = useRef<HTMLDivElement>(null)
-
-    useClock((seconds) => {
-        let index = -1
-        if (timed) while (index + 1 < timed.length && timed[index + 1].at <= seconds + 0.25) index++
-
-        if (index !== line) set_line(index)
-    })
-
-    useEffect(() => {
-        const node = box.current
-        const row = node?.children[Math.max(line, 0)] as HTMLElement | undefined
-        if (!node || !row) return
-
-        // through the glide, so a wheel turned while it follows is the same movement
-        glide_to(node, row.offsetTop - node.clientHeight * 0.34)
-    }, [line, timed])
+    const size = useStore(ui, (s) => s.lyrics_size)
+    const soft = useStore(ui, (s) => s.blur)
 
     if (timed) {
-        return (
-            <div
-                ref={box}
-                className='h-full overflow-y-auto pt-[30vh] pb-[55vh] [mask-image:linear-gradient(transparent,#000_14%,#000_70%,transparent)]'
-            >
-                {timed.map((row, i) => {
-                    const at = i === line ? 'now' : i < line ? 'gone' : i <= line + 2 ? 'next' : 'later'
-
-                    return (
-                        <button
-                            key={`${row.at}-${i}`}
-                            type='button'
-                            data-at={at}
-                            onClick={() => void seek_to(row.at)}
-                            className='lyric-line block w-full py-2.5 text-left font-display text-[clamp(1.6rem,2.6vw,2.6rem)] leading-[1.15] font-bold tracking-tight text-white'
-                        >
-                            {row.text ? (
-                                row.text
-                            ) : (
-                                <span className='lyric-dots inline-flex py-3' aria-label='Instrumental'>
-                                    <span />
-                                    <span />
-                                    <span />
-                                </span>
-                            )}
-                        </button>
-                    )
-                })}
-            </div>
-        )
+        return <LyricFlow lines={timed} size={SIZES[size]} soft={soft} className='h-full [mask-image:linear-gradient(transparent,#000_16%,#000_78%,transparent)]' />
     }
 
     if (sheet) {
         return (
-            <div className='h-full overflow-y-auto py-[12vh] [mask-image:linear-gradient(transparent,#000_10%,#000_85%,transparent)]'>
-                <p className='mb-6 flex items-center gap-2 text-xs font-medium tracking-wider text-white/50 uppercase'>
-                    <Quotes size={14} /> Not synced
-                </p>
-                <p className='font-display text-[clamp(1.2rem,1.7vw,1.7rem)] leading-relaxed font-semibold whitespace-pre-line text-white/85 select-text'>{sheet}</p>
-            </div>
+            <Scroll className='h-full [mask-image:linear-gradient(transparent,#000_10%,#000_86%,transparent)]' inner='py-[14vh] pr-6'>
+                <p className='mb-6 text-[0.8125rem] text-muted'>Not synced to the track</p>
+                <p className={cn('font-serif leading-[1.3] font-medium whitespace-pre-line text-fg-2 select-text', SIZES[size === 'large' ? 'medium' : 'small'])}>{sheet}</p>
+            </Scroll>
         )
     }
 
     return (
         <div className='grid h-full place-items-center'>
             <div className='text-center'>
-                <MicVocal size={40} weight='duotone' className='mx-auto text-white/40' />
-                <p className='mt-4 font-display text-2xl font-semibold text-white/80'>{waiting ? 'Looking for the words…' : 'No lyrics for this one'}</p>
-                <p className='mt-1 text-sm text-white/45'>{waiting ? 'Asking lrclib.' : 'Let the music talk.'}</p>
+                <MicVocal size={24} className='mx-auto text-muted' />
+                <p className='mt-4 font-serif text-[1.75rem] text-fg'>{waiting ? 'Looking for the words' : 'No lyrics for this one'}</p>
+                <p className='mt-1 text-[0.875rem] text-muted'>{waiting ? 'Asking lrclib' : 'lrclib had nothing for it'}</p>
             </div>
         </div>
     )
 }
 
-export function LyricsPage() {
+// the volume, out of the way: a button in the corner, and the slider in a
+// small pane under it when it is wanted
+function Volume() {
+    const volume = useStore(player, (s) => s.volume)
+    const [open, set_open] = useState(false)
+    const close = useCallback(() => set_open(false), [])
+    const Icon = volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2
+
+    useDismiss(open, close)
+
+    return (
+        <div className='relative' onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+            <IconButton {...tip('Volume')} aria-expanded={open} variant={open ? 'soft' : 'plain'} onClick={() => set_open(!open)} className={open ? 'text-fg' : 'text-fg-2'}>
+                <Icon size={18} />
+            </IconButton>
+            <AnimatePresence>
+                {open && (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.94, y: -4 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.96, y: -4, transition: { duration: 0.14 } }}
+                        transition={spring.smooth}
+                        className='float absolute top-full right-0 z-10 mt-2 flex w-64 origin-top-right items-center gap-3 rounded-(--r-menu) py-2 pr-4 pl-2'
+                    >
+                        <IconButton size='sm' {...tip(volume === 0 ? 'Unmute' : 'Mute')} onClick={toggle_mute}>
+                            <Icon size={16} />
+                        </IconButton>
+                        <Range value={volume} min={0} max={1} step={0.01} aria-label='Volume' on_change={change_volume} className='range-accent flex-1' />
+                        <span className='w-8 text-right font-mono text-[0.6875rem] text-muted tabular-nums'>{Math.round(volume * 100)}</span>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    )
+}
+
+/*
+ * The record: the sleeve as large as the column allows, its name and maker
+ * under it, and everything that plays it. A new track's sleeve fades over the
+ * old one rather than cutting to it.
+ */
+function Record({ alone }: { alone: boolean }) {
     const current = useStore(player, (s) => s.current)
     const cover = useStore(library, (s) => (current ? s.covers[current] : undefined))
     const liked = useStore(library, (s) => (current ? s.liked.has(current) : false))
     useStore(library, (s) => (current ? s.meta[current] : undefined))
+
+    if (!current) return null
+
+    return (
+        <motion.div layout='position' transition={spring.sheet} className={cn('flex w-full flex-col', alone ? 'max-w-[26rem] items-center text-center' : 'max-w-[24rem]')}>
+            <div className='relative aspect-square w-full'>
+                <AnimatePresence initial={false}>
+                    <motion.div
+                        key={current}
+                        initial={{ opacity: 0, scale: 0.97 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={spring.smooth}
+                        className='absolute inset-0'
+                    >
+                        <Cover data={cover} size='lg' icon={56} className='size-full rounded-[calc(var(--r-cover)*2)] shadow-[0_40px_80px_-30px_rgb(0_0_0/0.8),0_4px_12px_rgb(0_0_0/0.3)]' />
+                    </motion.div>
+                </AnimatePresence>
+            </div>
+
+            <div className={cn('mt-7 flex w-full items-start gap-3', alone && 'justify-center')}>
+                {/* the heart's width on the other side, so a centred title is centred */}
+                {alone && <span aria-hidden className='size-10 shrink-0' />}
+                <div className='min-w-0 flex-1'>
+                    <p className='truncate font-serif text-[1.75rem] leading-tight font-medium'>{title_of(current)}</p>
+                    <p className='mt-1 truncate text-[0.9375rem] text-fg-2'>
+                        {artist_of(current)} · {album_of(current)}
+                    </p>
+                </div>
+                <Heart liked={liked} on_toggle={() => void toggle_like(current)} size={22} className='mt-1 size-10 rounded-full hover:bg-surface-2' />
+            </div>
+
+            <div className='mt-5 w-full'>
+                <Progress />
+            </div>
+            <div className='mt-3 flex w-full justify-center'>
+                <Controls />
+            </div>
+        </motion.div>
+    )
+}
+
+function Toggle({ on, label, icon, on_toggle }: { on: boolean; label: string; icon: React.ReactNode; on_toggle: () => void }) {
+    return (
+        <IconButton {...tip(on ? `Hide ${label}` : `Show ${label}`)} aria-pressed={on} variant={on ? 'soft' : 'plain'} onPointerDown={(e) => e.stopPropagation()} onClick={on_toggle} className={on ? 'text-fg' : ''}>
+            {icon}
+        </IconButton>
+    )
+}
+
+/*
+ * The whole window given to what is playing.
+ *
+ * Its room is the cover's own light, turned up (fx/Ambient), with the wave of
+ * the sound rising along the floor of the window. The record stands on the
+ * left and the words flow on the right; with the words put away the record
+ * moves to the middle on a spring, and the two toggles in the corner put
+ * either the words or the wave away on their own (settings keeps them).
+ *
+ * It comes up the way a sheet does on a phone: the room fades in, the
+ * contents rise into it on a spring, and it can be pulled back down by its
+ * top edge - past a fifth of the window or flicked, it goes.
+ */
+export function LyricsPage() {
+    const current = useStore(player, (s) => s.current)
+    const words = useStore(ui, (s) => s.lp_lyrics)
+    const wave = useStore(ui, (s) => s.lp_wave)
+    const light_on = useStore(ui, (s) => s.aura_on)
+    const pull = useDragControls()
 
     useEffect(() => {
         const on_key = (e: KeyboardEvent) => e.key === 'Escape' && close()
@@ -143,81 +186,82 @@ export function LyricsPage() {
         return () => window.removeEventListener('keydown', on_key)
     }, [])
 
-    // a panel of its own, standing off the window's edges by the same gutter as
-    // the rest of the app: full bleed, its corners were the vignette's ellipse
-    // against a square window, which read as a radius that did not fit
     return (
         <motion.div
-            className='fixed inset-0 z-55 bg-bg p-3'
+            className='on-art fixed inset-0 z-55 overflow-hidden bg-bg'
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0, transition: { duration: 0.3, delay: 0.12 } }}
-            transition={{ duration: 0.22 }}
+            exit={{ opacity: 0, transition: { duration: 0.28 } }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
             onContextMenu={(e) => e.preventDefault()}
         >
+            {/* the cover's light, stronger than behind the panels: here it is the
+                whole room. on even with the setting off, softer then */}
+            <Ambient page={false} boost={light_on ? 1.7 : 1.1} className='absolute inset-0 [--light:0.55]' />
+            <div className='absolute inset-0 bg-[radial-gradient(110%_90%_at_30%_45%,rgb(10_9_8/0.35),rgb(10_9_8/0.78))]' />
+
+            <AnimatePresence>
+                {wave && current && (
+                    <motion.div key='wave' initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }} className='absolute inset-x-0 bottom-0 h-[26vh]'>
+                        <Wave overlay gain={0.9} className='size-full [mask-image:linear-gradient(90deg,transparent,#000_8%,#000_92%,transparent)] opacity-70' />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             <motion.div
-                className='on-art edge relative h-full overflow-hidden rounded-2xl bg-[#09090b]'
-                initial={{ y: '100%' }}
-                animate={{ y: 0 }}
-                exit={{ y: '105%' }}
-                transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.9 }}
+                className='relative flex h-full flex-col'
+                initial={{ y: 48, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 64, opacity: 0, transition: { duration: 0.25, ease: [0.4, 0, 1, 1] } }}
+                transition={spring.sheet}
+                drag='y'
+                dragControls={pull}
+                dragListener={false}
+                dragConstraints={{ top: 0, bottom: 0 }}
+                dragElastic={{ top: 0, bottom: 0.7 }}
+                onDragEnd={(_, info) => {
+                    if (info.offset.y > window.innerHeight * 0.2 || info.velocity.y > 700) close()
+                }}
             >
-                <Aurora overlay className='scale-110 opacity-90' />
-                {/* the light is for colour, not for reading on: a scrim keeps the
-                words above it legible whatever the cover is */}
-                <div className='absolute inset-0 bg-[radial-gradient(ellipse_at_70%_40%,rgb(0_0_0/0.25),rgb(0_0_0/0.62))]' />
-                <div className='absolute inset-0 opacity-60' style={{ backgroundImage: `url(${grain_url()})` }} />
-
-                <Wave overlay className='absolute inset-x-0 bottom-0 h-[18vh] w-full opacity-60' gain={0.75} />
-
-                <div className='relative flex h-full flex-col'>
-                    <header className='flex h-16 shrink-0 items-center justify-between px-6'>
-                        <IconButton {...tip('Close')} onClick={close} className='text-white/80 hover:bg-white/10 hover:text-white'>
-                            <CaretDoubleDown size={18} />
-                        </IconButton>
-                        <span className='text-[0.68rem] font-medium tracking-[0.2em] text-white/50 uppercase'>Now playing</span>
-                        <IconButton {...tip('Track info')} onClick={() => ui.set({ info_open: true, info_face: 'about' })} className='text-white/80 hover:bg-white/10 hover:text-white'>
+                <header className='relative flex h-16 shrink-0 cursor-grab touch-none items-center justify-between px-5 active:cursor-grabbing' onPointerDown={(e) => pull.start(e)}>
+                    {/* the handle: where the sheet is pulled down from */}
+                    <span className='absolute top-2.5 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full bg-line-strong' />
+                    <IconButton {...tip('Close')} onPointerDown={(e) => e.stopPropagation()} onClick={close} className='text-fg-2'>
+                        <CaretDoubleDown size={18} />
+                    </IconButton>
+                    <div className='flex items-center gap-1'>
+                        <Volume />
+                        <Toggle on={words} label='lyrics' icon={<MicVocal size={18} />} on_toggle={() => set_pref('lp_lyrics', !words)} />
+                        <Toggle on={wave} label='the wave' icon={<Waveform size={18} />} on_toggle={() => set_pref('lp_wave', !wave)} />
+                        <IconButton {...tip('Track info')} onPointerDown={(e) => e.stopPropagation()} onClick={() => ui.set({ info_open: true, info_face: 'about' })} className='text-fg-2'>
                             <Info size={18} />
                         </IconButton>
-                    </header>
+                    </div>
+                </header>
 
-                    {current ? (
-                        <div className='mx-auto grid min-h-0 w-full max-w-[1500px] flex-1 grid-cols-[minmax(0,26rem)_minmax(0,1fr)] gap-[6vw] px-[6vw] pb-[16vh]'>
-                            <div className='flex min-w-0 flex-col justify-center gap-7'>
-                                <motion.div
-                                    initial={{ opacity: 0, y: 30, scale: 0.94 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    transition={{ delay: 0.12, type: 'spring', stiffness: 200, damping: 24 }}
-                                >
-                                    <Sleeve data={cover} />
-                                </motion.div>
-
-                                <div className='flex items-start gap-3'>
-                                    <div className='min-w-0 flex-1'>
-                                        <h1 className='truncate font-display text-[2rem] leading-tight font-bold tracking-tight'>{title_of(current)}</h1>
-                                        <p className='mt-1 truncate text-base text-white/60'>
-                                            {artist_of(current)} · {album_of(current)}
-                                        </p>
-                                    </div>
-                                    <Heart liked={liked} on_toggle={() => void toggle_like(current)} size={22} className='mt-1.5 size-10 rounded-full hover:bg-white/10' />
-                                </div>
-
-                                <div className='space-y-3'>
-                                    <Progress />
-                                    <div className='flex justify-center'>
-                                        <Controls />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className='min-h-0 min-w-0'>
-                                <Sheet />
-                            </div>
+                {current ? (
+                    <LayoutGroup>
+                        <div className={cn('mx-auto flex min-h-0 w-full max-w-[90rem] flex-1 items-center gap-[6vw] px-[6vw] pb-[8vh]', !words && 'justify-center')}>
+                            <Record alone={!words} />
+                            <AnimatePresence>
+                                {words && (
+                                    <motion.div
+                                        key='words'
+                                        initial={{ opacity: 0, x: 24 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: 24 }}
+                                        transition={spring.smooth}
+                                        className='h-full min-w-0 flex-1'
+                                    >
+                                        <Words />
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
-                    ) : (
-                        <div className='grid flex-1 place-items-center text-white/60'>Nothing is playing.</div>
-                    )}
-                </div>
+                    </LayoutGroup>
+                ) : (
+                    <div className='grid flex-1 place-items-center text-fg-2'>Nothing is playing</div>
+                )}
             </motion.div>
         </motion.div>
     )

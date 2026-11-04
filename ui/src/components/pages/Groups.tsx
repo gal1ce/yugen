@@ -17,11 +17,10 @@ export function GroupsPage() {
 
     return (
         <>
-            <div className='mb-7'>
-                <p className='text-[0.68rem] font-medium tracking-wider text-accent uppercase'>Browse</p>
-                <h1 className='mt-1 font-display text-[2.4rem] leading-tight font-bold tracking-tight'>{view === 'albums' ? 'Albums' : 'Artists'}</h1>
-                <p className='mt-1 text-sm text-muted'>
-                    {groups.size} {view}
+            <div className='mb-8'>
+                <h1 className='font-serif text-[2.25rem] leading-tight font-medium'>{view === 'albums' ? 'Albums' : 'Artists'}</h1>
+                <p className='mt-2 text-[0.8125rem] text-muted'>
+                    <span className='font-mono text-fg-2 tabular-nums'>{groups.size}</span> {view}, by name
                 </p>
             </div>
 
@@ -32,7 +31,7 @@ export function GroupsPage() {
                     ))}
                 </div>
             ) : (
-                <Empty icon={view === 'albums' ? <Disc3 size={20} /> : <Mic2 size={20} />} title='Nothing to group yet.' />
+                <Empty icon={view === 'albums' ? <Disc3 size={20} /> : <Mic2 size={20} />} title='Nothing to group yet' />
             )}
         </>
     )

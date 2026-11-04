@@ -10,6 +10,7 @@ import {
     artist_of,
     fetch_songs,
     library,
+    next_playlist_name,
     sync_liked,
     sync_playlists,
     title_of,
@@ -38,6 +39,11 @@ export type PlayerState = {
     // answer that lands after the song changed is not read as this one's
     sheet_for: { song: string; text: string } | null
     info_for: { song: string; info: TrackInfo | null } | null
+    // drift: a fenced stretch in front of the queue - see the drift block below
+    drift: string[]
+    crossing: string | null
+    drift_return: string | null
+    drifted: string[]
 }
 
 export const player = create_store<PlayerState>({
@@ -53,6 +59,10 @@ export const player = create_store<PlayerState>({
     manual_queue: null,
     sheet_for: null,
     info_for: null,
+    drift: [],
+    crossing: null,
+    drift_return: null,
+    drifted: [],
 })
 
 // two runs that hold the same names in the same order. sections are rebuilt
@@ -76,6 +86,11 @@ async function sync_loop(want: boolean) {
 }
 
 export async function play_music(name: string) {
+    // something else picked while a drifting track plays: it has crossed, and
+    // whatever is still in the drift waits for the next skip
+    const { crossing, drifted } = player.get()
+    if (crossing && name !== crossing) player.set({ crossing: null, drift_return: null, drifted: [...drifted, crossing] })
+
     // the tags travel with the call: the backend needs them for the discord
     // status and this side has already read them
     const meta = library.get().meta[name] ?? []
@@ -151,13 +166,92 @@ async function replay() {
 }
 
 export function skip(offset: number) {
+    const { current, drift, crossing, drift_return } = player.get()
+
+    // forward, with something in the drift: that is what plays next
+    if (offset > 0 && drift.length) return void enter_drift()
+
+    // back from a drifting track is back to where the queue was left
+    if (offset < 0 && crossing && drift_return) return void play_music(drift_return)
+
     const queue = queue_now()
     if (!queue.length) return
 
-    const { current } = player.get()
-    const index = current ? queue.indexOf(current) : -1
+    // out of the drift, the queue carries on from where it was left
+    const anchor = crossing ? (drift_return ?? current) : current
+    const index = anchor ? queue.indexOf(anchor) : -1
 
     void play_music(queue[(index + offset + queue.length) % queue.length])
+}
+
+/*
+ * Drift: a temporary playlist with a fence round it.
+ *
+ * Tracks are put into the drift (the track menu, or dragged onto it in the
+ * queue panel). When the track playing ends, or next is pressed, the first
+ * one in the drift plays - it is crossing - and once it is over it has left:
+ * it is gone from the drift, not repeated, not kept. When the drift runs dry
+ * the queue picks up exactly where it was left. Nothing in it is written to
+ * disk; it lasts as long as the window. What has drifted through is
+ * remembered for the session, so the whole run can be kept as a real
+ * playlist after all (keep_drift).
+ */
+async function enter_drift() {
+    const { drift, crossing, current, drift_return, drifted } = player.get()
+    const [next, ...rest] = drift
+    if (!next) return
+
+    player.set({
+        drift: rest,
+        crossing: next,
+        // the first one in remembers where the queue was left; the rest keep that
+        drift_return: crossing ? drift_return : current,
+        drifted: crossing ? [...drifted, crossing] : drifted,
+    })
+
+    await play_music(next)
+}
+
+export function add_to_drift(name: string) {
+    const { current, drift, crossing } = player.get()
+    if (drift.includes(name) || crossing === name) return
+
+    player.set({ drift: [...drift, name] })
+
+    // nothing playing: the drift starts at once
+    if (!current) void enter_drift()
+}
+
+export function remove_from_drift(index: number) {
+    player.set(({ drift }) => ({ drift: drift.filter((_, at) => at !== index) }))
+}
+
+export function move_in_drift(from: number, to: number) {
+    const drift = [...player.get().drift]
+    if (from === to || from < 0 || to < 0 || from >= drift.length || to >= drift.length) return
+
+    const [moved] = drift.splice(from, 1)
+    drift.splice(to, 0, moved)
+    player.set({ drift })
+}
+
+export const clear_drift = () => player.set({ drift: [] })
+
+// everything that went through the drift this session, what is crossing and
+// what is still waiting, in the order it played, as a playlist of its own
+export async function keep_drift() {
+    const { drifted, crossing, drift } = player.get()
+    const tracks = [...new Set([...drifted, ...(crossing ? [crossing] : []), ...drift])]
+    if (!tracks.length) return
+
+    const name = await next_playlist_name()
+    await bridge().create_playlist(name)
+    for (const track of tracks) await bridge().add_to_playlist(name, track)
+
+    await sync_playlists()
+    player.set({ drifted: [] })
+
+    return name
 }
 
 export async function seek_to(seconds: number) {
@@ -317,7 +411,7 @@ function persist() {
 // and the backend only puts a signal on the bus when something else moved
 function push_state() {
     const { current, paused, length, volume, looped, shuffle_mode } = player.get()
-    const queued = queue_now().length > 1
+    const queued = queue_now().length > 1 || player.get().drift.length > 0
 
     mpris(() =>
         bridge().mpris_state(!!current && !paused, position(), length, volume, queued, queued, looped, shuffle_mode !== 'off'),
@@ -387,7 +481,8 @@ export function start_player() {
             now.volume !== last.volume ||
             now.looped !== last.looped ||
             now.shuffle_mode !== last.shuffle_mode ||
-            now.manual_queue !== last.manual_queue
+            now.manual_queue !== last.manual_queue ||
+            now.drift !== last.drift
         ) {
             push_state()
         }

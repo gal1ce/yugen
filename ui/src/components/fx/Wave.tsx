@@ -5,71 +5,74 @@ import { useStore } from '../../lib/store'
 import { player } from '../../state/player'
 
 /*
- * The sound as a wave rather than as cava's row of bars, after serpantinum's
- * continuous visualiser: one solid shape, the low end in the middle and
- * mirrored out to both edges, standing on the floor of its box.
+ * The sound as a wave: three soft hills of light standing on the floor of
+ * whatever holds them, the low end on the left and the highs on the right.
  *
- * What makes it read as one surface rather than a jittery line is all in the
- * levels, not the drawing: a quiet band is gated to nothing, each point rises
- * quickly and settles slowly, neighbours are blended into each other, and the
- * ends are eased down to the floor so the shape comes in from nothing.
+ * What made the old one look sharp was that it drew the bands nearly as they
+ * came - 64 numbers that each jump on their own every 30 ms - so the outline
+ * was a row of spikes eased a little. Here the sound goes through three steps
+ * before anything is drawn:
  *
- * Without the backend's samples the bands only breathe (lib/audio), and the
- * wave is drawn at half height so it never pretends to be listening.
+ * - across: the 64 bands are gathered into a couple of dozen points, each a
+ *   gaussian-weighted mean of the bands around it, so neighbours move
+ *   together and the outline is a landscape rather than a comb;
+ * - in time: every point hangs on a critically damped spring (the same one
+ *   the scrolling uses), so it has a speed - it swells into a kick and sinks
+ *   out of it instead of stepping to each new answer;
+ * - alive: a slow swell travels along the line on top of the sound, so even a
+ *   held chord moves the way water does.
+ *
+ * The outline is a Catmull-Rom spline through the points, so it has no
+ * corners anywhere. Three layers on springs of different stiffness give it
+ * depth: the back ones are slower and lag the front one, the way a wave's
+ * crest runs ahead of the water behind it. Each is filled with a gradient
+ * that fades to nothing at the floor, and the front one has a fine line of
+ * light along its top. All of it is drawn at the display's pixel density.
  */
 type Props = {
     className?: string
     // how much of the box a full-scale band may take
     gain?: number
-    // grow both ways from the middle of the box instead of up from the floor
-    mirror?: boolean
-    fps?: number
     // drawn on the lyrics page, so it keeps going while that covers the rest
     overlay?: boolean
 }
 
-const POINTS = 64
-// how the points read the bands: past 1 the low end gets more of the width
-const CURVE = 1.25
-// below this a band is silence; above it, lifted a touch so the quiet parts stay low
-const THRESHOLD = 0.03
-const GAMMA = 1.15
-// how far a point moves towards its band per 16 ms, up and down
-const RISE = 0.25
-const FALL = 0.12
+const POINTS = 26
+const SIGMA = 2.6
 
-// where every point reads the bands, mirrored about the middle
-const SOURCE = Array.from({ length: POINTS }, (_, i) => {
-    const half = (POINTS - 1) / 2
-    const at = (Math.abs(i - half) / half) ** CURVE * (BANDS - 1)
-    const low = Math.floor(at)
+// each point's weights over the bands, worked out once
+const WEIGHTS = Array.from({ length: POINTS }, (_, i) => {
+    const at = (i / (POINTS - 1)) * (BANDS - 1)
+    const w = new Float32Array(BANDS)
+    let sum = 0
 
-    return { low, high: Math.min(BANDS - 1, low + 1), t: at - low }
+    for (let b = 0; b < BANDS; b++) {
+        w[b] = Math.exp(-((b - at) ** 2) / (2 * SIGMA * SIGMA))
+        sum += w[b]
+    }
+    for (let b = 0; b < BANDS; b++) w[b] /= sum
+
+    return w
 })
 
-// the ends ease down to the floor
-const EDGE = Float32Array.from({ length: POINTS }, (_, i) => {
-    const e = Math.min(1, Math.sin((i / (POINTS - 1)) * Math.PI) * 2)
-    return e * e * (3 - 2 * e)
+// the ends ease down to the floor, so the shape rises out of it rather than
+// being cut off at the edge of the box
+const TAPER = Float32Array.from({ length: POINTS }, (_, i) => {
+    const e = Math.min(1, Math.min(i, POINTS - 1 - i) / 3.5)
+    return Math.sin((e * Math.PI) / 2)
 })
 
-function sample(bands: Float32Array, raw: Float32Array, out: Float32Array) {
-    for (let i = 0; i < POINTS; i++) {
-        const { low, high, t } = SOURCE[i]
-        const value = bands[low] + (bands[high] - bands[low]) * t
+// back to front: how stiff each layer's springs are (rad/s), how tall it
+// stands, and how much light it holds
+const LAYERS = [
+    { omega: 6.5, height: 1.06, fill: 0.16, phase: 1.7 },
+    { omega: 10, height: 0.94, fill: 0.22, phase: 0.6 },
+    { omega: 16, height: 0.82, fill: 0.4, phase: 0 },
+]
 
-        raw[i] = value < THRESHOLD ? 0 : Math.min(1, ((value - THRESHOLD) / (1 - THRESHOLD)) ** GAMMA)
-    }
+type Spring = { pos: Float32Array; vel: Float32Array }
 
-    // a light blur between neighbours, then the ends
-    for (let i = 0; i < POINTS; i++) {
-        const prev = raw[i > 0 ? i - 1 : i]
-        const next = raw[i < POINTS - 1 ? i + 1 : i]
-        out[i] = (prev * 0.25 + raw[i] * 0.5 + next * 0.25) * EDGE[i]
-    }
-}
-
-export function Wave({ className, gain = 1, mirror = false, fps = 0, overlay = false }: Props) {
+export function Wave({ className, gain = 1, overlay = false }: Props) {
     const ref = useRef<HTMLCanvasElement>(null)
     const motion = useStore(fx, (s) => s.motion)
     const palette = useStore(fx, (s) => s.palette)
@@ -82,78 +85,108 @@ export function Wave({ className, gain = 1, mirror = false, fps = 0, overlay = f
         const dpr = Math.min(window.devicePixelRatio || 1, 2)
         let width = 0
         let height = 0
-        let accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff6bb5'
+        let accent: [number, number, number] = [229, 101, 74]
+        let frames = 0
+
+        const read_accent = () => {
+            accent = rgb_of(getComputedStyle(canvas).getPropertyValue('--accent').trim()) ?? accent
+        }
 
         const resize = () => {
             const box = canvas.getBoundingClientRect()
             width = box.width
             height = box.height
-            canvas.width = Math.round(width * dpr)
-            canvas.height = Math.round(height * dpr)
+            canvas.width = Math.max(1, Math.round(width * dpr))
+            canvas.height = Math.max(1, Math.round(height * dpr))
         }
 
         resize()
+        read_accent()
 
         const sized = new ResizeObserver(resize)
         sized.observe(canvas)
 
-        // the accent follows the cover, a beat after the palette changes
-        const recolour = setTimeout(() => {
-            accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || accent
-        }, 120)
-
-        const raw = new Float32Array(POINTS)
         const target = new Float32Array(POINTS)
-        const shown = new Float32Array(POINTS)
+        const springs: Spring[] = LAYERS.map(() => ({ pos: new Float32Array(POINTS), vel: new Float32Array(POINTS) }))
+        const xs = new Float32Array(POINTS)
+        const ys = new Float32Array(POINTS)
+        let clock = 0
         // an empty canvas is left alone: clearing it again is still a change,
         // and a change is a frame
         let blank = false
 
-        // half of the shape, as a path: up from the floor (or the middle), through
-        // the midpoints between points so it has no corners, straight at the ends
-        const trace = (scale: number, base: number, dir: 1 | -1) => {
-            const step = width / (POINTS - 1)
-            const y = (i: number) => base - dir * shown[i] * scale
+        // through every point, with no corners: each span of the spline as a cubic
+        const trace = (base: number) => {
+            ctx.moveTo(xs[0], base)
+            ctx.lineTo(xs[0], ys[0])
 
-            ctx.moveTo(0, base)
-            ctx.lineTo(0, y(0))
+            for (let i = 0; i < POINTS - 1; i++) {
+                const p0 = Math.max(i - 1, 0)
+                const p3 = Math.min(i + 2, POINTS - 1)
 
-            for (let i = 1; i < POINTS; i++) {
-                ctx.quadraticCurveTo((i - 1) * step, y(i - 1), (i - 0.5) * step, (y(i - 1) + y(i)) / 2)
+                ctx.bezierCurveTo(
+                    xs[i] + (xs[i + 1] - xs[p0]) / 6,
+                    ys[i] + (ys[i + 1] - ys[p0]) / 6,
+                    xs[i + 1] - (xs[p3] - xs[i]) / 6,
+                    ys[i + 1] - (ys[p3] - ys[i]) / 6,
+                    xs[i + 1],
+                    ys[i + 1],
+                )
             }
-
-            ctx.lineTo(width, y(POINTS - 1))
-            ctx.lineTo(width, base)
         }
 
         const draw = (now: number, dt: number) => {
             step_audio(now, dt)
 
+            // the accent follows the cover; asked again now and then, not every frame
+            if (++frames % 45 === 0) read_accent()
+
             const { current, paused } = player.get()
             const quiet = !current || paused
+            const live = spectrum.live
 
-            if (quiet) target.fill(0)
-            else sample(spectrum.bands, raw, target)
+            clock += dt
 
-            // up quickly, down slowly, the same at any frame rate
-            const frames = dt / 0.016
-            const rise = 1 - (1 - RISE) ** frames
-            const fall = 1 - (1 - FALL) ** frames
-            let moving = false
-
+            // the sound, gathered across
             for (let i = 0; i < POINTS; i++) {
-                const gap = target[i] - shown[i]
-                if (Math.abs(gap) < 0.001) shown[i] = target[i]
-                else {
-                    shown[i] += gap * (gap > 0 ? rise : fall)
-                    moving = true
+                if (quiet) {
+                    target[i] = 0
+                    continue
+                }
+
+                const w = WEIGHTS[i]
+                let v = 0
+                for (let b = 0; b < BANDS; b++) v += spectrum.bands[b] * w[b]
+
+                target[i] = v * (live ? 1 : 0.5)
+            }
+
+            // and the springs, sub-stepped so a long frame cannot shake them
+            let moving = false
+            for (let k = 0; k < LAYERS.length; k++) {
+                const { omega } = LAYERS[k]
+                const { pos, vel } = springs[k]
+                let left = dt * 1000
+
+                while (left > 0) {
+                    const h = Math.min(left, 8) / 1000
+                    left -= 8
+
+                    for (let i = 0; i < POINTS; i++) {
+                        vel[i] += (omega * omega * (target[i] - pos[i]) - 2 * omega * vel[i]) * h
+                        pos[i] += vel[i] * h
+                    }
+                }
+
+                for (let i = 0; i < POINTS; i++) {
+                    if (Math.abs(target[i] - pos[i]) > 0.002 || Math.abs(vel[i]) > 0.01) moving = true
                 }
             }
 
             if (!moving && quiet) {
                 if (!blank) {
-                    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-                    ctx.clearRect(0, 0, width, height)
+                    ctx.setTransform(1, 0, 0, 1, 0, 0)
+                    ctx.clearRect(0, 0, canvas.width, canvas.height)
                     blank = true
                 }
                 return
@@ -163,24 +196,76 @@ export function Wave({ className, gain = 1, mirror = false, fps = 0, overlay = f
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
             ctx.clearRect(0, 0, width, height)
 
-            const room = (mirror ? height / 2 : height) * 0.92
-            const scale = room * gain * (spectrum.live ? 1 : 0.5)
+            const scale = height * gain * 0.92
+            const step = width / (POINTS - 1)
+            // the swell along the line, as strong as the music is loud
+            const swell = quiet ? 0 : 0.035 + spectrum.level * 0.08
 
-            ctx.fillStyle = accent
-            ctx.beginPath()
-            trace(scale, mirror ? height / 2 : height, 1)
-            if (mirror) trace(scale, height / 2, -1)
-            ctx.fill()
+            for (let k = 0; k < LAYERS.length; k++) {
+                const layer = LAYERS[k]
+                const { pos } = springs[k]
+                let top = height
+
+                for (let i = 0; i < POINTS; i++) {
+                    const ripple = swell * (Math.sin(clock * 1.1 + i * 0.42 + layer.phase) * 0.6 + Math.sin(clock * 0.53 - i * 0.23 + layer.phase * 2) * 0.4 + 0.5)
+                    const v = Math.max(0, pos[i] * layer.height + ripple) * TAPER[i]
+
+                    xs[i] = i * step
+                    ys[i] = height - Math.min(v, 1) * scale
+                    if (ys[i] < top) top = ys[i]
+                }
+
+                // light at the crest, nothing at the floor
+                const fill = ctx.createLinearGradient(0, top, 0, height)
+                fill.addColorStop(0, color_at(accent, layer.fill))
+                fill.addColorStop(1, color_at(accent, 0))
+
+                ctx.beginPath()
+                trace(height)
+                ctx.lineTo(xs[POINTS - 1], height)
+                ctx.closePath()
+                ctx.fillStyle = fill
+                ctx.fill()
+
+                // the front one's edge: a fine line of light along the top
+                if (k === LAYERS.length - 1) {
+                    ctx.beginPath()
+                    trace(height)
+                    ctx.lineWidth = 1.5
+                    ctx.lineJoin = 'round'
+                    ctx.strokeStyle = color_at(accent, 0.75)
+                    ctx.stroke()
+                }
+            }
         }
 
-        const stop = add_painter(fps, draw, { page: !overlay })
+        // ninety a second: smooth on a fast screen, and half the work of every frame at 165 Hz
+        const stop = add_painter(90, draw, { page: !overlay })
 
         return () => {
             stop()
             sized.disconnect()
-            clearTimeout(recolour)
         }
-    }, [motion, palette, gain, mirror, fps, overlay])
+    }, [motion, palette, gain, overlay])
 
     return <canvas ref={ref} aria-hidden className={`pointer-events-none ${className ?? ''}`} />
 }
+
+// a css colour of any syntax as rgb: the canvas reads it and writes it back as hex
+let scratch: CanvasRenderingContext2D | null = null
+
+function rgb_of(color: string): [number, number, number] | null {
+    if (!color) return null
+
+    scratch ??= document.createElement('canvas').getContext('2d')
+    if (!scratch) return null
+
+    scratch.fillStyle = '#000'
+    scratch.fillStyle = color
+    const hex = String(scratch.fillStyle)
+    if (!hex.startsWith('#')) return null
+
+    return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)]
+}
+
+const color_at = ([r, g, b]: [number, number, number], alpha: number) => `rgb(${r} ${g} ${b} / ${alpha})`
