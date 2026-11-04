@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { add_painter, fx, reduced } from '../../lib/fx'
 import { useStore } from '../../lib/store'
+import { player } from '../../state/player'
 
 /*
  * The nebula behind the pages: a ray-marched cloud of light, slowly turning,
@@ -32,8 +33,8 @@ import { useStore } from '../../lib/store'
  * It is drawn at a third of the css resolution and stretched by the
  * compositor: the cloud has no edges to lose, and a frame costs a ninth of
  * the pixels. Sixty frames a second (thirty when motion is calm); none while
- * the window is hidden, the lyrics page covers it, or motion is off - then it
- * is drawn once and holds. Never from a worker (lib/engine).
+ * the window is hidden, the lyrics page covers it, nothing is playing, or
+ * motion is off - then it is drawn once and holds. Never from a worker (lib/engine).
  */
 const VERTEX = `#version 300 es
 in vec2 a_pos;
@@ -125,6 +126,11 @@ export function Nebula({ className, strength = 1, dimmed = true }: { className?:
     const ref = useRef<HTMLCanvasElement>(null)
     const motion = useStore(fx, (s) => s.motion)
     const palette = useStore(fx, (s) => s.palette)
+    // paused, the cloud holds where it is, as the cover's light does: a still
+    // window then draws nothing at all, where it drew the cloud sixty times a second
+    const playing = useStore(player, (s) => !!s.current && !s.paused)
+    // starts and stops the drawing without setting the program up again
+    const run = useRef<(moving: boolean) => void>(() => {})
     // the cloud's clock outlives the canvas being set up again, so a change of
     // motion setting carries on from where it was
     const clock = useRef(8)
@@ -212,26 +218,37 @@ export function Nebula({ className, strength = 1, dimmed = true }: { className?:
 
         redraw = () => draw(clock.current)
 
-        const still = motion === 'off' || reduced()
-        const stop = still
-            ? (draw(clock.current), () => {})
-            : add_painter(
-                  motion === 'calm' ? 30 : 60,
-                  (_, dt) => {
-                      clock.current += dt * (motion === 'calm' ? 0.5 : 1)
-                      draw(clock.current)
-                  },
-                  { page: true },
-              )
+        let stop = () => {}
+
+        run.current = (moving: boolean) => {
+            stop()
+            stop = () => {}
+
+            if (!moving) return draw(clock.current)
+
+            const calm = fx.get().motion === 'calm'
+            stop = add_painter(
+                calm ? 30 : 60,
+                (_, dt) => {
+                    clock.current += dt * (calm ? 0.5 : 1)
+                    draw(clock.current)
+                },
+                { page: true },
+            )
+        }
 
         return () => {
             stop()
+            run.current = () => {}
             tint.current = () => {}
             sized.disconnect()
             gl.deleteBuffer(buffer)
             gl.deleteProgram(program)
         }
-    }, [motion, dimmed])
+    }, [dimmed])
+
+    // set after the program above, which it starts and stops
+    useEffect(() => run.current(playing && motion !== 'off' && !reduced()), [playing, motion, dimmed])
 
     // a new track: new colours, the same cloud
     useEffect(() => tint.current(palette), [palette])

@@ -36,6 +36,7 @@
 
 #if !defined(YUGEN_WEBKITGTK)
 #include <QDir>
+#include <QEvent>
 #include <QGuiApplication>
 #include <QLocalServer>
 #include <QLocalSocket>
@@ -44,8 +45,10 @@
 #include <QStandardPaths>
 #include <QSurfaceFormat>
 #include <QThread>
+#include <QWebEnginePage>
 #include <QWebEngineSettings>
 #include <QWebEngineView>
+#include <QWindow>
 #include <saucer/modules/stable/qt.hpp>
 #endif
 
@@ -367,6 +370,54 @@ namespace
 
           return true;
      }
+
+     /*
+      * Out of sight, out of mind. With the frame limit off (see the webview
+      * below) chromium draws as fast as Qt takes frames, and QtWebEngine never
+      * tells it when the window cannot be seen - on another workspace, say -
+      * so a hidden yugen went on drawing every frame of the wave, the light
+      * and the progress at the monitor's rate: about half a core while a track
+      * played, for nobody.
+      *
+      * The compositor does say so: Hyprland suspends a window it is not
+      * showing, and Qt reports that as the window no longer being exposed.
+      * Here that is passed on as the page's own visibility. Hidden, chromium
+      * stops producing frames and the page sees document.hidden, which is what
+      * stops the ui's own painters (lib/fx). Shown again, both come back. The
+      * music, MPRIS and discord are not in the page and carry on regardless.
+      */
+     class exposure : public QObject
+     {
+          public:
+               exposure(QWindow* window, QWebEnginePage* page) : QObject(window), page(page)
+               {
+                    window->installEventFilter(this);
+               }
+
+               bool eventFilter(QObject* watched, QEvent* event) override
+               {
+                    if(event->type() == QEvent::Expose)
+                    {
+                         const bool exposed = static_cast<QWindow*>(watched)->isExposed();
+                         if(page->isVisible() != exposed) page->setVisible(exposed);
+                    }
+
+                    return false;
+               }
+
+          private:
+               QWebEnginePage* page;
+     };
+
+     // called once the window is shown, which is when it has a native window to watch
+     void follow_exposure(QWebEngineView* view)
+     {
+          QWindow* handle = view->window()->windowHandle();
+          if(!handle) return;
+
+          // owned by the window it watches, and gone with it
+          new exposure(handle, view->page());
+     }
 #endif
 }
 
@@ -393,9 +444,17 @@ coco::stray start(saucer::application* app)
       * the last one, and Qt takes them at the monitor's rate - 165 Hz here.
       * (saucer sets QTWEBENGINE_CHROMIUM_FLAGS itself, so this is the only way in.)
       */
+     /*
+      * The other two keep the page's timers whole while the window is out of
+      * sight (see follow_exposure below): a hidden page has its timers cut to
+      * one a second, and after five minutes to one a minute - and the ui's
+      * once-a-second poll is what notices a track has ended and starts the
+      * next. Qt adds the --disable-features it needs to this one, it does not
+      * replace it.
+      */
      auto webview = saucer::smartview::create({
           .window = window,
-          .browser_flags = {"--disable-frame-rate-limit"},
+          .browser_flags = {"--disable-frame-rate-limit", "--disable-background-timer-throttling", "--disable-features=IntensiveWakeUpThrottling"},
      });
 
      ma_engine engine;
@@ -832,6 +891,8 @@ coco::stray start(saucer::application* app)
      window->show();
 
 #if !defined(YUGEN_WEBKITGTK)
+     follow_exposure(webview->native().webview);
+
      raise_window = [&window] {
           window->show();
           window->set_minimized(false);
