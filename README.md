@@ -1,20 +1,28 @@
 # yugen
 
 <p align="center">
-  <img src="screenshots/home.png" width="85%" alt="the home page, with liked albums and new arrivals" />
+  <img src="screenshots/home.png" width="85%" alt="the home page in Ink, a track playing, the queue in the column on the right" />
+  <br />
+  <em>home, with what is playing and the queue after it</em>
 </p>
 
 <p align="center">
-  <img src="screenshots/song-details.png" width="85%" alt="the track modal, open over the home page, with synced lyrics beside it" />
+  <img src="screenshots/lyrics.png" width="85%" alt="the full-screen lyrics page, the record on the left and the sung line lit on the right" />
   <br />
-  <em>the track modal, with lyrics scrolling along</em>
+  <em>the lyrics page, the words timed to the track</em>
 </p>
 
 <p align="center">
-  <img src="screenshots/suggested.png" width="49%" alt="suggested for you, with the up next queue above it" />
-  <img src="screenshots/liked-songs.png" width="49%" alt="liked songs, with more like this underneath" />
+  <img src="screenshots/songs.png" width="49%" alt="all songs as a grid of covers in Lamplight, tinted by the playing cover" />
+  <img src="screenshots/song-details.png" width="49%" alt="a track's card, open over the home page" />
   <br />
-  <em>what last.fm makes of the library, and of the songs you liked</em>
+  <em>the library as covers, and a track's card</em>
+</p>
+
+<p align="center">
+  <img src="screenshots/settings.png" width="85%" alt="settings in the Paper theme, with the palettes and the section index beside them" />
+  <br />
+  <em>settings, in Paper: palettes, glass, corners, motion</em>
 </p>
 
 A desktop music player for Linux. Plays local mp3 files, searches and downloads
@@ -23,12 +31,19 @@ songs, shows synced lyrics from [lrclib](https://lrclib.net), suggests what to
 add next from [last.fm](https://www.last.fm), and tints itself with the cover
 art of whatever is playing.
 
+It comes in five palettes (Lamplight, Ink, Paper, Gruvbox, Midnight, or System
+to follow the desktop), with liquid glass on the panels, menus and dialogs, or
+solid if you would rather. Any track can be given a title and a cover of its own
+without the file being touched, and what is playing can be shared as your
+Discord activity, with that title and cover.
+
 It publishes itself over MPRIS, so the track and the transport show up wherever
 the desktop looks for a player — panels and shell dashboards, the lock screen,
 `playerctl`, and the media keys.
 
-The backend is C++ — [saucer](https://github.com/saucer/saucer) for the webview,
-[miniaudio](https://miniaud.io) for playback, TagLib for metadata. The interface
+The backend is C++ — [saucer](https://github.com/saucer/saucer) for the webview
+(QtWebEngine by default, which keeps to the display's refresh rate; WebKitGTK
+still builds), [miniaudio](https://miniaud.io) for playback, TagLib for metadata. The interface
 is React + TypeScript, built into a bundle that is baked straight into the
 executable, so the binary is all there is to run.
 
@@ -98,8 +113,9 @@ host is the floor for every machine that runs it.
 
 Needs CMake 3.10+, a C++23 compiler, `pkg-config`, Node.js, the dev packages for
 `taglib`, `libcurl` and `glib2` (for GDBus, which serves the MPRIS interface),
-WebKitGTK, and `yt-dlp` + `ffmpeg` on `PATH`. Everything else is fetched by
-CMake.
+Qt 6 with QtWebEngine, and `yt-dlp` + `ffmpeg` on `PATH`. Everything else is
+fetched by CMake. To build on WebKitGTK instead of Qt, configure with
+`-Dsaucer_backend=WebKitGtk` and have WebKitGTK in place of Qt.
 
 The UI has to be built first — CMake embeds `ui/dist` when it configures and
 will not build without it:
@@ -113,7 +129,9 @@ cd ..
 cmake -B build -G Ninja && cmake --build build
 ```
 
-After changing the UI, re-run `npm run build` and then `cmake --build build`.
+After changing the UI, re-run `npm run build` and then `cmake -B build` before
+`cmake --build build`: the bundle is embedded when CMake configures, and a new
+bundle has new file names to link against.
 
 ## Running
 
@@ -128,8 +146,33 @@ sudo cmake --install build
 ```
 
 The music folder comes from the backend's `get_music_dir` binding, which points
-at `~/Music` and creates it if it is not there. Playlists, liked songs and the
-last.fm key live in `~/.config/yugen/`.
+at `~/Music` and creates it if it is not there. Playlists, liked songs, the
+titles and covers you gave tracks, the last.fm key and the Cloudinary account
+live in `~/.config/yugen/`.
+
+## Discord
+
+With sharing on (Settings → Sharing), the track you are playing shows on your
+Discord profile, with its progress. Discord draws the picture by fetching a url,
+so on its own it can only show covers it can find online — a YouTube thumbnail,
+or one from iTunes. A cover you gave a track, or one that only exists inside the
+file, has to be put somewhere public first. yugen puts those on a
+[Cloudinary](https://cloudinary.com) account of your own, if you give it one in
+`~/.config/yugen/cloudinary.json`:
+
+```json
+{
+    "name": "your-cloud-name",
+    "api_key": "your-api-key",
+    "secret_key": "your-api-secret"
+}
+```
+
+The cloud name, key and secret are on the Cloudinary dashboard. Uploads are
+signed on your machine — the secret is never sent — and each picture goes up
+once, named after its own hash; the urls are kept in `cloud_covers.json` beside
+it. Without the file nothing is uploaded, and those tracks fall back to what
+can be found online, or the yugen logo.
 
 ## License
 
