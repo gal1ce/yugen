@@ -1044,11 +1044,35 @@
     transition-duration: 0.01ms !important;
 }
 
-/* a phone's tabs and dock: capsules of glass that bend the page going by
-   under them (hooks/lens names the lens in --lens), over a thin smoke of the
-   ground so what is on them stays read. the rim and the depth are .float's */
+/* a phone's tabs and dock: capsules of glass over the page going by, a smoke
+   of the ground so what is on them stays read. the bend at the rim is drawn
+   rather than computed - light caught along the top edge and in round the
+   sides, the edge darkening at the foot - since the lens (lib/lens) as a
+   backdrop took 30 ms of a phone's GPU a frame, and a frost is 4. the
+   conic rim and the shadow are .float's */
 :root[data-glass] .lens-glass {
-    background: color-mix(in oklab, var(--bg) 46%, transparent);
-    -webkit-backdrop-filter: var(--lens,) blur(4px) saturate(1.6);
-    backdrop-filter: var(--lens,) blur(4px) saturate(1.6);
+    background:
+        radial-gradient(120% 140% at 50% -30%, color-mix(in oklab, var(--edge) 9%, transparent), transparent 55%),
+        color-mix(in oklab, var(--bg) 46%, transparent);
+    -webkit-backdrop-filter: blur(5px) saturate(1.7);
+    backdrop-filter: blur(5px) saturate(1.7);
+    box-shadow:
+        inset 0 1px 0.5px color-mix(in oklab, var(--edge) 30%, transparent),
+        inset 0 0 0 1px color-mix(in oklab, var(--edge) 6%, transparent),
+        inset 6px 0 10px -8px color-mix(in oklab, var(--edge) 22%, transparent),
+        inset -6px 0 10px -8px color-mix(in oklab, var(--edge) 22%, transparent),
+        inset 0 -3px 6px -3px color-mix(in oklab, var(--g) 70%, transparent),
+        var(--shadow-panel);
+}
+
+/* on a phone every backdrop-filter is another pass over the screen each frame
+   the page scrolls, and a button's backdrop is the page right behind it -
+   frosting it shows nothing. the buttons keep their glass, fill, rim and
+   sheen, without the frost; only what floats over the page blurs it */
+@media (max-width: 639.98px) {
+    :root[data-glass] .btn-fill,
+    :root[data-glass] .btn:not(.btn-fill):hover {
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+    }
 }

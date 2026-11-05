@@ -29,9 +29,49 @@ type Painter = { fps: number; last: number; page: boolean; paint: (now: number, 
 const painters = new Set<Painter>()
 let frame = 0
 
+/*
+ * A cap on the whole clock, and the beat everything is drawn on under it (0
+ * is none). Painters asking for different rates each get their own frames,
+ * and out of phase those frames add up: a wave at 90, a nebula at 60 and the
+ * bars at 30 had a 120 Hz phone composite nearly every frame - and every
+ * composite runs the glass's backdrop filters again. Capped, they all draw
+ * together on the same beat, and the window is composited that often only.
+ */
+let cap = 0
+let beat = 0
+
+export function cap_frames(fps: number) {
+    cap = fps
+}
+
+/*
+ * Held while a finger is on the glass and while what it threw is still
+ * scrolling. On a phone every frame anything here draws is the whole window
+ * composited again; under a finger those frames are the scroll's, so what
+ * moves on its own stands still until the page has come to rest, and goes on
+ * from where it stood.
+ */
+let held = false
+
+export function hold_painters(hold: boolean) {
+    if (held === hold) return
+    held = hold
+    if (!hold) {
+        // a still stretch is not a jump forward: nothing catches up on release
+        for (const painter of painters) painter.last = 0
+        wake()
+    }
+}
+
 function tick(now: number) {
     frame = 0
-    if (document.hidden || !painters.size) return
+    if (document.hidden || !painters.size || held) return
+
+    if (cap && now - beat < 1000 / cap - 2) {
+        frame = next_frame(tick)
+        return
+    }
+    beat = now
 
     const covered = fx.get().covered
 
@@ -43,7 +83,9 @@ function tick(now: number) {
 
         // 0 is every frame the display gives: on a 165 Hz screen anything less
         // reads as a stutter, so only the costliest layers ask for fewer
-        if (painter.fps && now - painter.last < 1000 / painter.fps - 2) continue
+        // under a cap, the beat decides: a painter wanting more than it is drawn on every beat
+        const want = cap ? Math.min(painter.fps || cap, cap) : painter.fps
+        if (want && now - painter.last < 1000 / want - 2) continue
 
         const dt = painter.last ? Math.min(now - painter.last, 100) / 1000 : 1 / (painter.fps || 60)
         painter.last = now

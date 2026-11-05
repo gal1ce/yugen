@@ -6,8 +6,8 @@
  * rim - in three passes a little apart, one per colour, so the colours split
  * where the bend is steepest - then lights it from the top left, which draws
  * the bright rim. The map is a data url because chromium's feImage will not
- * render an element of the page. layout/GlassBar and the phone's bars
- * (hooks/lens) are its two users.
+ * render an element of the page. layout/GlassBar uses it; a phone does not -
+ * in Android's WebView this filter, as a backdrop, took 30 ms of GPU a frame.
  */
 export function lens_filter(id: string) {
     return `<filter id="${id}" x="0" y="0" filterUnits="userSpaceOnUse" primitiveUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
@@ -34,9 +34,3 @@ export function lens_filter(id: string) {
     </filter>`
 }
 
-// a rounded rectangle as the height map: the whole box, white on black
-export function capsule_map(width: number, height: number, radius: number) {
-    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}'><rect width='${width}' height='${height}' fill='black'/><rect x='0' y='0' width='${width}' height='${height}' rx='${radius}' fill='white'/></svg>`
-
-    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
-}

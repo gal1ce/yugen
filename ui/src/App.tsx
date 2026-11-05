@@ -3,7 +3,7 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { glide_to, useSmoothPrefs } from './hooks/glide'
 import { art_accent } from './lib/accent'
 import { init_frames } from './lib/frames'
-import { fx } from './lib/fx'
+import { cap_frames, fx, hold_painters } from './lib/fx'
 import { watch_modality } from './lib/modality'
 import { palette_of } from './lib/palette'
 import { group_key, album_tag, artist_tag } from './lib/names'
@@ -463,6 +463,49 @@ export default function App() {
     useStartup()
     // every panel in the app scrolls, and all of them the same way
     useSmoothPrefs()
+
+    // a phone draws everything that moves on its own together, thirty times a
+    // second - a quarter of its 120 Hz, so the beat stays even - and none of
+    // it while a finger is on the page or the page is still scrolling (lib/fx)
+    useEffect(() => {
+        cap_frames(phone ? 30 : 0)
+        if (!phone) return
+
+        let touching = false
+        let rest = 0
+        const settle = (after: number) => {
+            clearTimeout(rest)
+            rest = window.setTimeout(() => !touching && hold_painters(false), after)
+        }
+        const down = () => {
+            touching = true
+            clearTimeout(rest)
+            hold_painters(true)
+        }
+        const up = () => {
+            touching = false
+            settle(400)
+        }
+        // a fling goes on after the finger is gone: each step of it puts the release off
+        const scroll = () => {
+            hold_painters(true)
+            if (!touching) settle(250)
+        }
+
+        window.addEventListener('touchstart', down, { passive: true, capture: true })
+        window.addEventListener('touchend', up, { passive: true, capture: true })
+        window.addEventListener('touchcancel', up, { passive: true, capture: true })
+        document.addEventListener('scroll', scroll, { passive: true, capture: true })
+
+        return () => {
+            clearTimeout(rest)
+            hold_painters(false)
+            window.removeEventListener('touchstart', down, { capture: true })
+            window.removeEventListener('touchend', up, { capture: true })
+            window.removeEventListener('touchcancel', up, { capture: true })
+            document.removeEventListener('scroll', scroll, { capture: true })
+        }
+    }, [phone])
 
     // a phone's own tabs have no place on a desktop: leaving one for the other
     // (a window made wider) puts them away

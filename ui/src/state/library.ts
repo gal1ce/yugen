@@ -58,7 +58,7 @@ export const library = create_store<LibraryState>({
 // the tags, read off the store rather than handed around
 const meta_of = (name: string) => library.get().meta[name]
 
-export const title_of = (name: string) => meta_of(name)?.[0] || name.replace(/\.mp3$/i, '')
+export const title_of = (name: string) => meta_of(name)?.[0] || name.replace(/\.(mp3|m4a)$/i, '')
 // the title in the file's tags, whatever the listener calls it
 export const tag_title_of = (name: string) => library.get().tagged[name] ?? title_of(name)
 export const artist_of = (name: string) => artist_tag(meta_of(name))

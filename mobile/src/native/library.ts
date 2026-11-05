@@ -1,10 +1,16 @@
 import { File, FileMode } from 'expo-file-system'
 import { Asset, AssetField, MediaType, Query, requestPermissionsAsync } from 'expo-media-library'
 import { read_tags, tag_size, type Tags } from './id3'
+import { read_mp4_tags } from './mp4'
 import { load, update } from './store'
 
+// what a phone's music comes as: the desktop's mp3s, and the m4a most other
+// downloaders make. a voice note is audio too, but not music
+const MUSIC = /\.(mp3|m4a)$/i
+const VOICE = /^(AUD|PTT)-\d/
+
 /*
- * The library is every audio file the phone's media store knows about. The
+ * The library is every music file the phone's media store knows about. The
  * interface names a track by its file name under a folder (dir + name, as on
  * the desktop), so the folder here is a made-up root and the name is the
  * file's own - made unique when two folders hold the same one.
@@ -28,15 +34,16 @@ export async function scan(): Promise<string[]> {
 
     tracks.clear()
     for (const info of infos) {
-        if (!info || !/\.mp3$/i.test(info.filename)) continue
+        if (!info || !MUSIC.test(info.filename) || VOICE.test(info.filename)) continue
 
         let name = info.filename
-        for (let n = 2; tracks.has(name); n++) name = info.filename.replace(/(\.mp3)$/i, ` (${n})$1`)
+        for (let n = 2; tracks.has(name); n++) name = info.filename.replace(MUSIC, ` (${n})$&`)
 
         tracks.set(name, {
             id: info.id,
             uri: info.uri,
-            duration: Math.round(info.duration ?? 0),
+            // the media store counts in milliseconds
+            duration: Math.round((info.duration ?? 0) / 1000),
             added: Math.round((info.creationTime ?? info.modificationTime ?? 0) / 1000),
         })
     }
@@ -56,6 +63,12 @@ async function tags_of(name: string): Promise<Tags> {
         try {
             const handle = new File(entry.uri).open(FileMode.ReadOnly)
             try {
+                if (/\.m4a$/i.test(name)) {
+                    read = await read_mp4_tags(handle)
+                    tags.set(name, read)
+                    return read
+                }
+
                 const head = await handle.readBytes(10)
                 const size = tag_size(head)
                 if (size) {

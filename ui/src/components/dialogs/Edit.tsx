@@ -133,7 +133,7 @@ export function ProfileDialog() {
  * own, the tags speak again.
  */
 export function TitleDialog({ name }: { name: string }) {
-    const tag = useStore(library, (s) => s.tagged[name] ?? s.meta[name]?.[0] ?? name.replace(/\.mp3$/i, ''))
+    const tag = useStore(library, (s) => s.tagged[name] ?? s.meta[name]?.[0] ?? name.replace(/\.(mp3|m4a)$/i, ''))
     const own = useStore(library, (s) => s.titles[name])
     const [draft, set_draft] = useState(own ?? tag)
     const close = () => ui.set({ retitling: null })

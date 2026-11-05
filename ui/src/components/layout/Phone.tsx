@@ -1,5 +1,4 @@
 import { useRef } from 'react'
-import { useLens } from '../../hooks/lens'
 import { motion } from 'motion/react'
 import { useClock } from '../../lib/clock'
 import { cn } from '../../lib/cn'
@@ -40,14 +39,20 @@ export function PhoneBar() {
 }
 
 // how far into the track, as a hairline along the dock's floor: written into
-// the dom by the clock, never a render
+// the dom by the clock, never a render - and only when it has moved a whole
+// pixel, since every write is the window composited again, glass and all
 function DockProgress() {
     const length = useStore(player, (s) => s.length)
     const fill = useRef<HTMLSpanElement>(null)
+    const drawn = useRef(-1)
 
     useClock((seconds) => {
-        const share = length ? Math.min(seconds / length, 1) * 100 : 0
-        if (fill.current) fill.current.style.transform = `translateX(${share - 100}%)`
+        const share = length ? Math.min(seconds / length, 1) : 0
+        const step = Math.round(share * (fill.current?.parentElement?.clientWidth ?? 1))
+        if (step === drawn.current) return
+
+        drawn.current = step
+        if (fill.current) fill.current.style.transform = `translateX(${share * 100 - 100}%)`
     })
 
     return (
@@ -66,15 +71,11 @@ export function Dock() {
     const cover = useStore(library, (s) => (current ? s.covers[current] : undefined))
     useStore(library, (s) => (current ? s.meta[current] : undefined))
     const queue = useQueue()
-    const capsule = useRef<HTMLDivElement>(null)
-
-    useLens(capsule, glass && !!current)
 
     if (!current) return null
 
     return (
         <div
-            ref={capsule}
             className={cn(
                 'fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5.125rem)] z-40 flex h-[3.625rem] items-center gap-3 rounded-full pr-1.5 pl-[0.4375rem]',
                 glass ? 'float thin lens-glass' : 'float',
@@ -139,9 +140,6 @@ export function TabBar() {
     const glass = useStore(ui, (s) => s.glass)
     const at = useTab()
     const last = useRef(at)
-    const capsule = useRef<HTMLElement>(null)
-
-    useLens(capsule, glass)
     const towards = at >= 0 && last.current >= 0 ? Math.sign(at - last.current) : 0
     if (at >= 0) last.current = at
 
@@ -151,7 +149,6 @@ export function TabBar() {
 
     return (
         <nav
-            ref={capsule}
             aria-label='Sections'
             className={cn(
                 'fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 h-[3.875rem] rounded-full p-[0.3125rem]',

@@ -77,7 +77,7 @@ function Window() {
                 setSupportMultipleWindows={false}
                 mediaPlaybackRequiresUserAction={false}
                 androidLayerType='hardware'
-                webviewDebuggingEnabled={__DEV__}
+                webviewDebuggingEnabled
                 style={styles.page}
             />
         </View>
