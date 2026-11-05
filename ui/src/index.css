@@ -1079,7 +1079,14 @@
    sheen, without the frost; only what floats over the page blurs it */
 @media (max-width: 639.98px) {
     :root[data-glass] .btn-fill,
-    :root[data-glass] .btn:not(.btn-fill):hover {
+    :root[data-glass] .btn:not(.btn-fill):hover,
+    /* so is glass that stands in the page rather than over it - the tiles,
+       the search field: behind them is only the room, which a frost does
+       not change, and ten of them were ten more passes a frame (a trace of
+       a tab switch had the gpu's raster as most of the time). they keep the
+       fill, the rim and the shadow */
+    :root[data-glass] .float.on-page,
+    .search-field {
         -webkit-backdrop-filter: none;
         backdrop-filter: none;
     }
@@ -1116,4 +1123,51 @@
 
 .btn:not(.btn-fill.pointer-events-none) {
     zoom: var(--z-controls, 1);
+}
+
+/* what is off screen is not laid out, painted or rastered until it comes
+   near: a page of a phone's covers decoded and rastered all at once was
+   the frame of 300-400ms a tab switch stalled on. the sizes held are
+   what each is drawn at, so the scroll does not jump */
+@media (max-width: 639.98px) {
+    .offscreen-skip {
+        content-visibility: auto;
+        contain-intrinsic-size: auto 18rem;
+    }
+
+    .row-skip {
+        content-visibility: auto;
+        contain-intrinsic-size: auto var(--row);
+    }
+}
+
+
+/* a phone's glass, drawn the cheap way. a tab switch there stalled on the
+   gpu, not on script (long frames of 300-400ms with no script in them): the
+   rim's ring was a mask cut out of a conic gradient on every piece of
+   glass, and the shadows were wide blurs, each rastered again for every new
+   page at the phone's pixel density. measured on the device over five tab
+   switches: 2.8-3.2s spent in long frames, worst ~400ms; with these 0.6s,
+   worst ~95ms. the rim is the same light in the same corners, as hard
+   inset lines; the shadows are shorter; the sheen does not blend */
+@media (max-width: 639.98px) {
+    :root, :root[data-theme] { --shadow-panel: 0 12px 22px -14px rgb(0 0 0 / 0.7); }
+    [class*="shadow-[0_"] { box-shadow: 0 10px 16px -12px rgb(0 0 0 / 0.75) !important; }
+    :root[data-glass] .panel::after,
+    :root[data-glass] .float::after,
+    :root[data-glass] .search-field::after,
+    :root[data-glass] .hover-glass::after,
+    :root[data-glass] .btn-fill::after,
+    :root[data-glass] .btn:not(.btn-fill):hover::after {
+      mask: none !important; -webkit-mask: none !important; padding: 0 !important; background: none !important;
+      box-shadow: inset 1px 1px 0 0 color-mix(in oklab, var(--edge) var(--rim-strength, 40%), transparent), inset -1px -1px 0 0 color-mix(in oklab, var(--edge) calc(var(--rim-strength, 40%) * 0.6), transparent), inset 0 0 0 1px color-mix(in oklab, var(--edge) 8%, transparent) !important;
+    }
+    * { mix-blend-mode: normal !important; }
+    :root[data-glass] .panel, :root[data-glass] .float, :root[data-glass] .search-field {
+      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--edge) 6%, transparent), inset 0 -1px 0 color-mix(in oklab, var(--g) 50%, transparent), var(--shadow-panel) !important;
+    }
+    :root[data-glass] .lens-glass {
+      box-shadow: inset 0 1px 0 color-mix(in oklab, var(--edge) 30%, transparent), inset 0 0 0 1px color-mix(in oklab, var(--edge) 6%, transparent), inset 0 -1px 0 color-mix(in oklab, var(--g) 70%, transparent), var(--shadow-panel) !important;
+    }
+    :root[data-glass] .btn-fill { box-shadow: inset 0 1px 0 color-mix(in oklab, var(--edge) 6%, transparent), inset 0 -1px 0 color-mix(in oklab, var(--g) 50%, transparent) !important; }
 }

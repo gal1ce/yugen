@@ -29,7 +29,7 @@ export const Cover = memo(function Cover({
     return (
         <span className={cn('relative block shrink-0 overflow-hidden bg-surface-3', round ? 'rounded-full' : 'rounded-(--r-cover)', className)}>
             {url ? (
-                <img src={url} alt='' decoding='async' className='size-full object-cover' />
+                <img src={url} alt='' loading='lazy' decoding='async' className='size-full object-cover' />
             ) : (
                 !data && (
                     <span className='grid size-full place-items-center text-muted'>

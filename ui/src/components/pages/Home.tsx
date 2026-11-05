@@ -262,7 +262,7 @@ function QuickTiles() {
     return (
         <div className='mb-9 grid grid-cols-2 gap-2'>
             {tiles.slice(0, 8).map((tile) => (
-                <button key={tile.key} type='button' onClick={tile.go} className='float thin flex h-14 min-w-0 items-center gap-2.5 overflow-hidden rounded-xl pr-2 text-left transition-transform active:scale-[0.97]'>
+                <button key={tile.key} type='button' onClick={tile.go} className='float thin on-page flex h-14 min-w-0 items-center gap-2.5 overflow-hidden rounded-xl pr-2 text-left transition-transform active:scale-[0.97]'>
                     {tile.art || !tile.icon ? (
                         <Cover data={tile.art} size='sm' icon={16} className='size-14 shrink-0 rounded-none' />
                     ) : (

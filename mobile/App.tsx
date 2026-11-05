@@ -28,9 +28,19 @@ const GROUND = '#100f0e'
  * insets of its own: without these the page's head sat under the clock.
  */
 const insets = initialWindowMetrics?.insets ?? { top: StatusBar.currentHeight ?? 24, bottom: 0 }
+// run before the page exists, maybe before its root element does: written
+// once there is one, and never in the way of the bridge after it
 const INSETS = `
-document.documentElement.style.setProperty('--inset-top', '${insets.top}px');
-document.documentElement.style.setProperty('--inset-bottom', '${insets.bottom}px');
+(() => {
+    const put = () => {
+        const root = document.documentElement
+        if (!root) return false
+        root.style.setProperty('--inset-top', '${insets.top}px')
+        root.style.setProperty('--inset-bottom', '${insets.bottom}px')
+        return true
+    }
+    if (!put()) document.addEventListener('readystatechange', put, { once: true })
+})();
 true;
 `
 
@@ -81,7 +91,7 @@ function Window() {
                 ref={view}
                 source={{ uri: UI }}
                 originWhitelist={['*']}
-                injectedJavaScriptBeforeContentLoaded={INSETS + INJECTED}
+                injectedJavaScriptBeforeContentLoaded={INJECTED + INSETS}
                 onMessage={on_message}
                 // the bundle's module scripts and fonts are files beside the page
                 allowFileAccess
@@ -96,7 +106,6 @@ function Window() {
                 setDisplayZoomControls={false}
                 setSupportMultipleWindows={false}
                 mediaPlaybackRequiresUserAction={false}
-                androidLayerType='hardware'
                 webviewDebuggingEnabled
                 style={styles.page}
             />

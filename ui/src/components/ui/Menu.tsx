@@ -1,6 +1,6 @@
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type ReactNode, type Ref } from 'react'
 import { createPortal } from 'react-dom'
-import { motion } from 'motion/react'
+import { motion, useDragControls } from 'motion/react'
 import { spring } from '../../lib/motion'
 import { Check, ChevronRight } from './icons'
 import { cn } from '../../lib/cn'
@@ -32,6 +32,7 @@ export function MenuPanel({
 }) {
     const own = useRef<HTMLDivElement>(null)
     const phone = usePhone()
+    const pull = useDragControls()
 
     useImperativeHandle(ref, () => own.current as HTMLDivElement, [])
 
@@ -62,11 +63,25 @@ export function MenuPanel({
                     initial={{ y: '100%' }}
                     animate={{ y: 0 }}
                     transition={spring.sheet}
+                    // pulled down by its head past a quarter of itself, or
+                    // flicked, it goes - the way the queue's sheet does
+                    drag='y'
+                    dragListener={false}
+                    dragControls={pull}
+                    dragConstraints={{ top: 0, bottom: 0 }}
+                    dragElastic={{ top: 0, bottom: 1 }}
+                    onDragEnd={(_, info) => {
+                        const height = own.current?.offsetHeight ?? 400
+                        if (info.offset.y > height / 4 || info.velocity.y > 600) window.dispatchEvent(new Event(DISMISS))
+                    }}
                     onContextMenu={(e) => e.preventDefault()}
-                    className='float sheet-menu absolute inset-x-2 bottom-[calc(var(--safe-bottom)+0.5rem)] max-h-[78vh] overflow-y-auto overscroll-contain rounded-[1.75rem] px-2 pt-2 pb-2'
+                    className='sheet-menu absolute inset-x-0 bottom-0 flex max-h-[85vh] flex-col rounded-t-[1.75rem] bg-surface shadow-[0_-1px_0_var(--line-strong),0_-24px_60px_-20px_rgb(0_0_0/0.7)]'
                 >
-                    <span aria-hidden className='mx-auto mb-1.5 block h-1 w-10 rounded-full bg-line-strong' />
-                    <div className='relative' style={{ zoom: 'var(--z-menus, 1)' }}>
+                    {/* the head: the grabber, and where a pull starts */}
+                    <div className='flex h-7 shrink-0 touch-none items-center justify-center' onPointerDown={(e) => pull.start(e)}>
+                        <span aria-hidden className='h-1 w-10 rounded-full bg-line-strong' />
+                    </div>
+                    <div className='relative min-h-0 overflow-y-auto overscroll-contain px-2 pb-[calc(var(--safe-bottom)+0.75rem)]' style={{ zoom: 'var(--z-menus, 1)' }}>
                         <HoverGlass className='rounded-[max(0.125rem,calc(var(--r-menu)-0.25rem))]' />
                         {children}
                     </div>

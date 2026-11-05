@@ -132,7 +132,7 @@ export const TrackLine = memo(function TrackLine({ name, within, index = 0 }: Tr
             onClick={() => void play_from(name, within ?? null)}
             onKeyDown={(e) => e.key === 'Enter' && void play_from(name, within ?? null)}
             onContextMenu={context({ kind: 'song', song: name, within })}
-            className={cn('[zoom:var(--z-lists,1)] group relative flex h-(--row-line) items-center gap-3 rounded-lg px-3 transition-colors hover:bg-surface-2', playing && 'needle')}
+            className={cn('[zoom:var(--z-lists,1)] row-skip group relative flex h-(--row-line) items-center gap-3 rounded-lg px-3 transition-colors hover:bg-surface-2', playing && 'needle')}
         >
             <span className='grid w-7 shrink-0 place-items-center font-mono text-[0.75rem] text-muted tabular-nums'>{playing ? <Bars still={playing === 'paused'} /> : index + 1}</span>
             <p className={cn('min-w-0 flex-1 truncate text-[0.875rem]', playing ? 'font-medium text-fg' : 'text-fg')}>{title}</p>
@@ -157,7 +157,7 @@ export const TrackRow = memo(function TrackRow({ name, within, index = 0 }: Trac
             onClick={() => void play_from(name, within ?? null)}
             onKeyDown={(e) => e.key === 'Enter' && void play_from(name, within ?? null)}
             onContextMenu={context({ kind: 'song', song: name, within })}
-            className={cn('[zoom:var(--z-lists,1)] group relative grid h-(--row) items-center gap-3 rounded-lg px-3 transition-colors hover:bg-surface-2 max-sm:-mx-2 max-sm:pr-0 max-sm:pl-2', row_grid, playing && 'needle')}
+            className={cn('[zoom:var(--z-lists,1)] row-skip group relative grid h-(--row) items-center gap-3 rounded-lg px-3 transition-colors hover:bg-surface-2 max-sm:-mx-2 max-sm:pr-0 max-sm:pl-2', row_grid, playing && 'needle')}
         >
             <span className='grid place-items-center font-mono text-[0.75rem] text-muted tabular-nums max-sm:hidden'>{playing ? <Bars still={playing === 'paused'} /> : index + 1}</span>
             <div className='flex min-w-0 items-center gap-3'>

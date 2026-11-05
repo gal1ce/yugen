@@ -3,12 +3,13 @@ import { CaretDoubleLeft, ChevronLeft, ChevronRight } from '../ui/icons'
 import { IconButton } from '../ui/Button'
 import { cancel_frame, next_frame } from '../../lib/frames'
 import { tip } from '../../lib/tip'
+import { cn } from '../../lib/cn'
 import { usePhone } from '../../hooks/phone'
 
 // a heading, what it points at, and whatever sits under it
 export function Section({ title, note, action, children, className }: { title: ReactNode; note?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
     return (
-        <section className={className ?? 'mb-12'}>
+        <section className={cn('offscreen-skip', className ?? 'mb-12')}>
             <div className='mb-4 flex items-end gap-3'>
                 <div className='min-w-0'>
                     <h2 className='truncate text-[1.125rem] font-medium text-fg'>{title}</h2>
@@ -80,7 +81,21 @@ export function Shelf({ title, note, action, children }: { title: ReactNode; not
         sizes.observe(el)
         el.addEventListener('scroll', read, { passive: true })
 
+        // cards arriving at the front of a snapping row (a shelf filled in as
+        // the tags are read) are stepped over: the engine keeps the card it
+        // had snapped to, and the row came up halfway along. until a finger
+        // has moved it, the row starts at its start
+        let touched = false
+        const touch = () => (touched = true)
+        el.addEventListener('pointerdown', touch, { passive: true })
+        const cards = new MutationObserver(() => {
+            if (!touched) el.scrollLeft = 0
+        })
+        cards.observe(el, { childList: true })
+
         return () => {
+            el.removeEventListener('pointerdown', touch)
+            cards.disconnect()
             sizes.disconnect()
             el.removeEventListener('scroll', read)
             if (frame.current) cancel_frame(frame.current)

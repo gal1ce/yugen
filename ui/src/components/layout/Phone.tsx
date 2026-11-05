@@ -151,7 +151,9 @@ export function Dock() {
                 aria-label='Open the player'
                 onKeyDown={(e) => e.key === 'Enter' && open_lyrics('player')}
                 {...swipe.handlers}
-                style={{ x: swipe.x, opacity: swipe.fade }}
+                // inline, over the touch rule every [role=button] has
+                // (index.css): sideways is the dock's, up and down the page's
+                style={{ x: swipe.x, opacity: swipe.fade, touchAction: 'pan-y' }}
                 className='flex min-w-0 flex-1 touch-pan-y items-center gap-3 pr-1 text-left'
             >
                 <Cover data={cover} size='sm' round className='size-11 shrink-0' icon={16} />
