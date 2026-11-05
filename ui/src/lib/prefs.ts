@@ -126,13 +126,41 @@ export const SWATCHES: { id: Exclude<Swatch, 'theme'>; label: string; dark: stri
     { id: 'plum', label: 'Plum', dark: '#c98bb9', light: '#87406f' },
 ]
 
-export type Scale = 'small' | 'medium' | 'large'
+export type Scale = 'small' | 'medium' | 'large' | 'xlarge'
 
 export const SCALES: { id: Scale; label: string; factor: number }[] = [
     { id: 'small', label: 'Small', factor: 0.92 },
     { id: 'medium', label: 'Medium', factor: 1 },
-    { id: 'large', label: 'Large', factor: 1.1 },
+    { id: 'large', label: 'Large', factor: 1.12 },
+    { id: 'xlarge', label: 'XLarge', factor: 1.25 },
 ]
+
+export const scale_factor = (scale: Scale) => SCALES.find((o) => o.id === scale)?.factor ?? 1
+
+/*
+ * Size, part by part, the way corners are (settings > appearance): one choice
+ * for everything, or each part its own. Text is the whole window's measure -
+ * every rem in it - and the other parts are drawn at their own size whatever
+ * text is set to: App zooms each by its choice over the text's (--z-<part>).
+ */
+export type SizePart = 'text' | 'menus' | 'lists' | 'cards' | 'controls'
+
+export const SIZE_PARTS: { id: SizePart; label: string; hint: string }[] = [
+    { id: 'text', label: 'Text and pages', hint: 'Everything not named below' },
+    { id: 'menus', label: 'Menus and popups', hint: 'Menus, sheets, the search results, dialogs' },
+    { id: 'lists', label: 'Lists', hint: 'The rows of a listing, the library and the queue' },
+    { id: 'cards', label: 'Cards', hint: 'Covers in grids and on the shelves' },
+    { id: 'controls', label: 'Buttons', hint: 'Every button, the player and the tabs' },
+]
+
+// one choice for everything was all there was before parts: that is what an old setting reads as
+export function stored_sizes(): Record<SizePart, Scale> {
+    const raw = saved().sizes as Partial<Record<SizePart, Scale>> | undefined
+    const ids = SCALES.map((o) => o.id)
+    const old = ids.includes(saved().scale as Scale) ? (saved().scale as Scale) : 'medium'
+
+    return Object.fromEntries(SIZE_PARTS.map(({ id }) => [id, raw?.[id] && ids.includes(raw[id]) ? raw[id] : old])) as Record<SizePart, Scale>
+}
 
 export type Density = 'comfortable' | 'compact'
 

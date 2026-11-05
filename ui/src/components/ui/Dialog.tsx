@@ -51,7 +51,7 @@ export function Dialog({
                 initial={{ opacity: 0, scale: 0.94, y: 12 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 transition={spring.smooth}
-                className={cn('float relative w-full max-w-md rounded-(--r-menu) p-6', className)}
+                className={cn('[zoom:var(--z-menus,1)] float relative w-full max-w-md rounded-(--r-menu) p-6', className)}
                 onClick={(e) => e.stopPropagation()}
             >
                 {title && (

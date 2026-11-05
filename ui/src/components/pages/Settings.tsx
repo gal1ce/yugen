@@ -6,12 +6,12 @@ import { spring } from '../../lib/motion'
 import { cn } from '../../lib/cn'
 import { MOTIONS, fx, set_motion } from '../../lib/fx'
 import { KEYBINDS, MODIFIER_CODES, combo_of, default_keybinds, key_label, type Bind } from '../../lib/keys'
-import { BACKDROPS, CORNERS, DENSITIES, FEELS, LIGHT_RANGE, LYRICS_SIZES, PACES, PALETTES, PLACES, RADII, REGIONS, SCALES, SCROLLINGS, SEARCH_MODES, SWATCHES, palette_of, save_pref, type Corners as CornerChoice, type Palette, type Theme } from '../../lib/prefs'
+import { BACKDROPS, CORNERS, DENSITIES, FEELS, LIGHT_RANGE, LYRICS_SIZES, PACES, PALETTES, PLACES, RADII, REGIONS, SCALES, SCROLLINGS, SEARCH_MODES, SIZE_PARTS, SWATCHES, palette_of, save_pref, type Corners as CornerChoice, type Scale, type Palette, type Theme } from '../../lib/prefs'
 import { useStore } from '../../lib/store'
 import { change_keybinds } from '../../state/keys'
 import { fetch_songs, library } from '../../state/library'
 import { set_sharing } from '../../state/player'
-import { common_radius, leave_page, set_all_radii, set_pref, set_radius, ui } from '../../state/ui'
+import { common_radius, common_size, leave_page, set_all_radii, set_all_sizes, set_pref, set_radius, set_size, ui } from '../../state/ui'
 import { tip } from '../../lib/tip'
 import { Button } from '../ui/Button'
 import { Range, Segmented, Switch } from '../ui/Controls'
@@ -319,6 +319,36 @@ function Corners() {
     )
 }
 
+/*
+ * Size: one for everything, or - opened - one for each part, as the corners
+ * are. Text is every measure in the window; the rest are drawn at their own.
+ */
+function Sizes() {
+    const sizes = useStore(ui, (s) => s.sizes)
+    const shared = common_size(sizes)
+    const [open, set_open] = useState(() => !shared)
+
+    return (
+        <>
+            <Row title='Interface size' hint={shared ? 'The same size everywhere' : 'The parts differ - set them all at once here, or one by one below'}>
+                <Segmented value={(shared ?? '') as Scale} options={SCALES} on_change={set_all_sizes} />
+            </Row>
+            <Row title='Each part on its own' hint='Text, menus, lists, cards and buttons, each its own size'>
+                <Switch on={open} label='Each part on its own size' on_toggle={() => set_open(!open)} />
+            </Row>
+            {open && (
+                <Sub>
+                    {SIZE_PARTS.map((part) => (
+                        <Row key={part.id} title={part.label} hint={part.hint}>
+                            <Segmented value={sizes[part.id]} options={SCALES} on_change={(next) => set_size(part.id, next)} />
+                        </Row>
+                    ))}
+                </Sub>
+            )}
+        </>
+    )
+}
+
 export function SettingsPage() {
     const glass = useStore(ui, (s) => s.glass)
     const blur = useStore(ui, (s) => s.blur)
@@ -328,7 +358,6 @@ export function SettingsPage() {
     const motion = useStore(fx, (s) => s.motion)
     const pace = useStore(ui, (s) => s.pace)
     const cover_accent = useStore(ui, (s) => s.cover_accent)
-    const scale = useStore(ui, (s) => s.scale)
     const density = useStore(ui, (s) => s.density)
     const nebula = useStore(ui, (s) => s.nebula)
     const lyrics_size = useStore(ui, (s) => s.lyrics_size)
@@ -372,9 +401,7 @@ export function SettingsPage() {
                     <Row title='Accent' hint={cover_accent ? 'When nothing is playing, or a cover has no colour to give' : 'Used everywhere'}>
                         <Swatches />
                     </Row>
-                    <Row title='Interface size'>
-                        <Segmented value={scale} options={SCALES} on_change={(next) => set_pref('scale', next)} />
-                    </Row>
+                    <Sizes />
                     <Row title='Density' hint='How tall the rows in a listing are'>
                         <Segmented value={density} options={DENSITIES} on_change={(next) => set_pref('density', next)} />
                     </Row>

@@ -34,8 +34,8 @@ export const GroupCard = memo(function GroupCard({
                 <Cover data={art} size='md' icon={28} round={round} className={cn('size-full', !round && 'rounded-none')} />
                 <div className='absolute inset-0 bg-black/20 opacity-0 transition-opacity group-hover:opacity-100' />
             </div>
-            <p className={cn('mt-2 truncate text-[0.875rem] font-medium', round && 'text-center')}>{name}</p>
-            <p className={cn('truncate text-[0.8125rem] text-muted', round && 'text-center')}>
+            <p className={cn('card-text mt-2 truncate text-[0.875rem] font-medium', round && 'text-center')}>{name}</p>
+            <p className={cn('card-text truncate text-[0.8125rem] text-muted', round && 'text-center')}>
                 {tracks.length} {tracks.length === 1 ? 'track' : 'tracks'}
             </p>
         </button>
@@ -52,7 +52,7 @@ export const GroupRow = memo(function GroupRow({ name, tracks, index, on_open }:
         <button
             type='button'
             onClick={on_open}
-            className='grid h-(--row) w-full grid-cols-[2rem_minmax(0,1fr)_6rem_4rem] items-center gap-3 rounded-lg px-3 text-left transition-colors hover:bg-surface-2'
+            className='[zoom:var(--z-lists,1)] grid h-(--row) w-full grid-cols-[2rem_minmax(0,1fr)_6rem_4rem] items-center gap-3 rounded-lg px-3 text-left transition-colors hover:bg-surface-2'
         >
             <span className='text-center font-mono text-[0.75rem] text-muted tabular-nums'>{index + 1}</span>
             <div className='flex min-w-0 items-center gap-3'>

@@ -1106,3 +1106,14 @@
         touch-action: manipulation;
     }
 }
+
+/* size, part by part (settings > appearance): each part zoomed from the
+   text's measure to its own (App, --z-<part>). a card's sleeve takes its
+   size from its column; its names from this */
+.card-text {
+    zoom: var(--z-cards, 1);
+}
+
+.btn:not(.btn-fill.pointer-events-none) {
+    zoom: var(--z-controls, 1);
+}

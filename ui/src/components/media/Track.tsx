@@ -104,8 +104,8 @@ export const TrackCard = memo(function TrackCard({ name, within, className }: Tr
                     </span>
                 </div>
 
-                <p className='mt-2 truncate text-[0.875rem] font-medium text-fg max-sm:pr-8'>{title}</p>
-                <p className='truncate text-[0.8125rem] text-muted max-sm:pr-8'>{artist}</p>
+                <p className='card-text mt-2 truncate text-[0.875rem] font-medium text-fg max-sm:pr-8'>{title}</p>
+                <p className='card-text truncate text-[0.8125rem] text-muted max-sm:pr-8'>{artist}</p>
             </button>
             <More target={{ kind: 'song', song: name, within }} className='absolute right-[-0.5rem] bottom-[-0.25rem]' />
 
@@ -132,7 +132,7 @@ export const TrackLine = memo(function TrackLine({ name, within, index = 0 }: Tr
             onClick={() => void play_from(name, within ?? null)}
             onKeyDown={(e) => e.key === 'Enter' && void play_from(name, within ?? null)}
             onContextMenu={context({ kind: 'song', song: name, within })}
-            className={cn('group relative flex h-(--row-line) items-center gap-3 rounded-lg px-3 transition-colors hover:bg-surface-2', playing && 'needle')}
+            className={cn('[zoom:var(--z-lists,1)] group relative flex h-(--row-line) items-center gap-3 rounded-lg px-3 transition-colors hover:bg-surface-2', playing && 'needle')}
         >
             <span className='grid w-7 shrink-0 place-items-center font-mono text-[0.75rem] text-muted tabular-nums'>{playing ? <Bars still={playing === 'paused'} /> : index + 1}</span>
             <p className={cn('min-w-0 flex-1 truncate text-[0.875rem]', playing ? 'font-medium text-fg' : 'text-fg')}>{title}</p>
@@ -157,7 +157,7 @@ export const TrackRow = memo(function TrackRow({ name, within, index = 0 }: Trac
             onClick={() => void play_from(name, within ?? null)}
             onKeyDown={(e) => e.key === 'Enter' && void play_from(name, within ?? null)}
             onContextMenu={context({ kind: 'song', song: name, within })}
-            className={cn('group relative grid h-(--row) items-center gap-3 rounded-lg px-3 transition-colors hover:bg-surface-2 max-sm:-mx-2 max-sm:pr-0 max-sm:pl-2', row_grid, playing && 'needle')}
+            className={cn('[zoom:var(--z-lists,1)] group relative grid h-(--row) items-center gap-3 rounded-lg px-3 transition-colors hover:bg-surface-2 max-sm:-mx-2 max-sm:pr-0 max-sm:pl-2', row_grid, playing && 'needle')}
         >
             <span className='grid place-items-center font-mono text-[0.75rem] text-muted tabular-nums max-sm:hidden'>{playing ? <Bars still={playing === 'paused'} /> : index + 1}</span>
             <div className='flex min-w-0 items-center gap-3'>
@@ -188,4 +188,4 @@ export const TrackRowHead = () => (
     </div>
 )
 
-export const card_grid = 'grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-x-5 gap-y-6'
+export const card_grid = 'grid grid-cols-[repeat(auto-fill,minmax(calc(9.5rem*var(--z-cards,1)),1fr))] gap-x-5 gap-y-6 max-sm:gap-x-3.5'

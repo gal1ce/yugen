@@ -53,7 +53,7 @@ function QueueRow({ name, index, manual, last }: { name: string; index: number; 
     const cover = useStore(library, (s) => s.covers[name])
 
     return (
-        <div className='group flex h-12 items-center gap-3 rounded-lg px-2 transition-colors hover:bg-surface-2' onContextMenu={context({ kind: 'song', song: name })}>
+        <div className='[zoom:var(--z-lists,1)] group flex h-12 items-center gap-3 rounded-lg px-2 transition-colors hover:bg-surface-2' onContextMenu={context({ kind: 'song', song: name })}>
             <Cover data={cover} size='sm' className='size-8' icon={14} />
             <button type='button' onClick={() => void play_music(name)} className='min-w-0 flex-1 text-left'>
                 <p className='truncate text-[0.8125rem]'>{title_of(name)}</p>

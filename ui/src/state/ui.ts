@@ -10,7 +10,6 @@ import {
     SEARCH_MODES,
     LAYOUT_PREFS,
     LYRICS_SIZES,
-    SCALES,
     SWATCHES,
     LAYOUTS,
     LIBRARY_VIEWS,
@@ -46,6 +45,8 @@ import {
     type SearchMode,
     type LyricsSize,
     type Scale,
+    type SizePart,
+    stored_sizes,
     type Swatch,
     type Theme,
     type View,
@@ -97,7 +98,7 @@ export type UiState = {
     swatch: Swatch
     // liquid glass (index.css, [data-glass]; components/ui/Glass)
     glass: boolean
-    scale: Scale
+    sizes: Record<SizePart, Scale>
     density: Density
     // where the nebula is drawn behind the pages (fx/Nebula)
     nebula: Backdrop
@@ -196,7 +197,7 @@ export const ui = create_store<UiState>({
     swatch: stored_pref('swatch', ['theme', ...SWATCHES.map((o) => o.id)] as Swatch[], 'theme'),
     // a phone's tabs and dock are glass from the start; a desktop's panels wait to be asked
     glass: stored_flag('glass', window.matchMedia(PHONE).matches),
-    scale: stored_pref('scale', SCALES.map((o) => o.id), 'medium'),
+    sizes: stored_sizes(),
     density: stored_pref('density', DENSITIES.map((o) => o.id), 'comfortable'),
     nebula: stored_backdrop(),
     lyrics_size: stored_pref('lyrics_size', LYRICS_SIZES.map((o) => o.id), 'medium'),
@@ -291,6 +292,20 @@ export function set_pref<K extends keyof UiState>(key: K, value: UiState[K], sto
 // one part's corners, or every part's at once (a pill only where a pill fits)
 export function set_radius(region: Region, radius: Radius) {
     set_pref('radii', { ...ui.get().radii, [region]: radius })
+}
+
+// one part's size, or every part's at once
+export function set_size(part: SizePart, size: Scale) {
+    set_pref('sizes', { ...ui.get().sizes, [part]: size })
+}
+
+export function set_all_sizes(size: Scale) {
+    set_pref('sizes', Object.fromEntries(Object.keys(ui.get().sizes).map((part) => [part, size])) as Record<SizePart, Scale>)
+}
+
+export const common_size = (sizes: Record<SizePart, Scale>) => {
+    const values = new Set(Object.values(sizes))
+    return values.size === 1 ? [...values][0] : null
 }
 
 export function set_all_radii(radius: Corners) {

@@ -86,7 +86,7 @@ function Dropdown({ children }: { children: React.ReactNode }) {
             initial={{ opacity: 0, scale: 0.96, y: -6 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={spring.smooth}
-            className='float absolute inset-x-0 top-full z-50 mt-2 origin-top rounded-(--r-menu) p-1.5'
+            className='[zoom:var(--z-menus,1)] float absolute inset-x-0 top-full z-50 mt-2 origin-top rounded-(--r-menu) p-1.5'
         >
             {children}
         </motion.div>

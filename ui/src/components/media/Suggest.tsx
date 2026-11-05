@@ -86,8 +86,8 @@ const SuggestionCard = memo(function SuggestionCard({ track, index }: { track: S
                     )}
                 />
             </div>
-            <p className='mt-2 truncate text-[0.875rem] font-medium max-sm:pr-8'>{track.title}</p>
-            <p className='truncate text-[0.8125rem] text-muted max-sm:pr-8'>{state.note}</p>
+            <p className='card-text mt-2 truncate text-[0.875rem] font-medium max-sm:pr-8'>{track.title}</p>
+            <p className='card-text truncate text-[0.8125rem] text-muted max-sm:pr-8'>{state.note}</p>
             {!state.held && <More target={{ kind: 'suggestion', track }} className='absolute right-[-0.5rem] bottom-[-0.25rem]' />}
         </div>
     )
@@ -98,7 +98,7 @@ const SuggestionRow = memo(function SuggestionRow({ track, index }: { track: Sug
 
     return (
         <div
-            className={cn('group flex h-(--row) animate-rise items-center gap-3 rounded-lg px-3 transition-colors hover:bg-surface-2', state.here && 'opacity-55')}
+            className={cn('[zoom:var(--z-lists,1)] group flex h-(--row) animate-rise items-center gap-3 rounded-lg px-3 transition-colors hover:bg-surface-2', state.here && 'opacity-55')}
             style={{ animationDelay: `${Math.min(index, 6) * 50}ms` }}
             onContextMenu={(e) => !state.held && context({ kind: 'suggestion', track })(e)}
         >

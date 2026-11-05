@@ -122,10 +122,12 @@ export function Shelf({ title, note, action, children }: { title: ReactNode; not
         const el = box.current
         if (!el) return
 
-        const span = Math.max(Math.floor(el.clientWidth / CARD), 1) * CARD
+        // a card as drawn - its width follows the cards' size setting
+        const card = ((el.firstElementChild as HTMLElement | null)?.offsetWidth ?? CARD - 20) + 20
+        const span = Math.max(Math.floor(el.clientWidth / card), 1) * card
         // from the card edge it is nearest, so a row the keyboard left half a
         // card off still lands flush
-        const at = Math.round(el.scrollLeft / CARD) * CARD
+        const at = Math.round(el.scrollLeft / card) * card
 
         go(at + dir * span, PAGE_MS)
     }
@@ -166,7 +168,7 @@ export function Shelf({ title, note, action, children }: { title: ReactNode; not
                     phone
                         ? // under the thumb it scrolls on its own momentum and comes to rest on a card, edge to edge of the screen
                           '-mx-4 -mt-2 flex snap-x snap-mandatory scroll-px-4 gap-3.5 overflow-x-auto overscroll-x-contain px-4 pt-2 pb-4 [&>*]:w-[calc(9.25rem*var(--z-cards,1))] [&>*]:shrink-0 [&>*]:snap-start'
-                        : '-mx-2 -mt-2 flex gap-5 overflow-hidden px-2 pt-2 pb-4 [&>*]:w-40 [&>*]:shrink-0'
+                        : '-mx-2 -mt-2 flex gap-5 overflow-hidden px-2 pt-2 pb-4 [&>*]:w-[calc(10rem*var(--z-cards,1))] [&>*]:shrink-0'
                 }
             >
                 {children}

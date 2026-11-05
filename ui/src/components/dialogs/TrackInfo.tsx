@@ -69,7 +69,7 @@ export function TrackInfo() {
                     e.stopPropagation()
                     set_adding(false)
                 }}
-                className='float relative flex max-h-[85vh] w-full max-w-4xl gap-8 overflow-hidden rounded-(--r-menu) p-8'>
+                className='[zoom:var(--z-menus,1)] float relative flex max-h-[85vh] w-full max-w-4xl gap-8 overflow-hidden rounded-(--r-menu) p-8'>
                 <IconButton size='sm' {...tip('Close')} onClick={close} className='absolute top-4 right-4 z-10'>
                     <X size={16} />
                 </IconButton>

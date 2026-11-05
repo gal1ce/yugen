@@ -14,7 +14,7 @@ import { fetch_songs, library, load_favorites, sync_liked, sync_playlists, sync_
 import { adopt, mpris_command, player, restore, start_player } from './state/player'
 import { cover_input_ref, pick_image, track_cover_target } from './state/images'
 import { column_css, COLUMNS, saved_playback, ui, type Column } from './state/ui'
-import { CORNERS, PACES, REGIONS, SCALES, SWATCHES, radius_css, save_pref } from './lib/prefs'
+import { CORNERS, PACES, REGIONS, SWATCHES, radius_css, save_pref, scale_factor } from './lib/prefs'
 import { cn } from './lib/cn'
 import { Scroll } from './components/ui/Scroll'
 import { TipLayer } from './components/ui/Tip'
@@ -48,7 +48,7 @@ function useAppearance() {
     const palette = usePalette()
     const glass = useStore(ui, (s) => s.glass)
     const blur = useStore(ui, (s) => s.blur)
-    const scale = useStore(ui, (s) => s.scale)
+    const sizes = useStore(ui, (s) => s.sizes)
     const density = useStore(ui, (s) => s.density)
     const swatch = useStore(ui, (s) => s.swatch)
     const radii = useStore(ui, (s) => s.radii)
@@ -87,7 +87,6 @@ function useAppearance() {
         root.dataset.theme = palette
         root.dataset.density = density
         root.dataset.motion = motion
-        root.style.setProperty('--ui-scale', `${SCALES.find((o) => o.id === scale)?.factor ?? 1}`)
 
         if (glass) root.dataset.glass = ''
         else delete root.dataset.glass
@@ -103,7 +102,17 @@ function useAppearance() {
             root.style.removeProperty('--fixed-accent')
             root.style.removeProperty('--fixed-accent-light')
         }
-    }, [palette, glass, blur, scale, density, swatch, motion])
+    }, [palette, glass, blur, density, swatch, motion])
+
+    // text is every rem in the window; each other part is zoomed from there
+    // to its own size, so a menu set large is large whatever text is set to
+    useEffect(() => {
+        const root = document.documentElement
+        const text = scale_factor(sizes.text)
+
+        root.style.setProperty('--ui-scale', `${text}`)
+        for (const part of ['menus', 'lists', 'cards', 'controls'] as const) root.style.setProperty(`--z-${part}`, `${scale_factor(sizes[part]) / text}`)
+    }, [sizes])
 
     // walking the window with tab draws the focus ring; nothing else does
     useEffect(() => watch_modality(), [])

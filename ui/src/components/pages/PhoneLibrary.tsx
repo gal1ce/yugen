@@ -80,7 +80,7 @@ function Row({ item }: { item: Item }) {
     const n = item.tracks.length
 
     return (
-        <div className='-mx-2 flex h-[4.6rem] items-center rounded-xl pl-2 active:bg-surface-2'>
+        <div className='[zoom:var(--z-lists,1)] -mx-2 flex h-[4.6rem] items-center rounded-xl pl-2 active:bg-surface-2'>
             <button type='button' onClick={() => open(item)} className='flex min-w-0 flex-1 items-center gap-3.5 text-left'>
                 <Art item={item} className='size-[3.6rem] shrink-0 shadow-[0_10px_20px_-14px_rgb(0_0_0/0.8)]' />
                 <span className='min-w-0'>
