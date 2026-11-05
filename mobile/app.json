@@ -37,7 +37,8 @@
         "expo-build-properties",
         {
           "android": {
-            "useLegacyPackaging": true
+            "useLegacyPackaging": true,
+            "extraProguardRules": "# youtubedl-android unpacks python through commons-compress, which registers its zip\n# fields by reflection, and reads yt-dlp's release json through jackson\n-keep class com.yausername.** { *; }\n-keep class org.apache.commons.** { *; }\n-keep class com.fasterxml.jackson.** { *; }\n-dontwarn org.apache.commons.**\n-dontwarn com.fasterxml.jackson.**"
           }
         }
       ],
