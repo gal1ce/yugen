@@ -53,6 +53,7 @@ import {
 import type { SearchResult, Source } from '../lib/search'
 import type { ViewCover } from './library'
 import { create_store } from '../lib/store'
+import { PHONE } from '../hooks/phone'
 
 // right-click targets: a track, a playlist in the sidebar, the sidebar itself,
 // or a suggestion that is not here yet
@@ -193,7 +194,8 @@ export const ui = create_store<UiState>({
     aura: stored_number('aura', 50, LIGHT_RANGE),
     radii: stored_radii(),
     swatch: stored_pref('swatch', ['theme', ...SWATCHES.map((o) => o.id)] as Swatch[], 'theme'),
-    glass: stored_flag('glass', false),
+    // a phone's tabs and dock are glass from the start; a desktop's panels wait to be asked
+    glass: stored_flag('glass', window.matchMedia(PHONE).matches),
     scale: stored_pref('scale', SCALES.map((o) => o.id), 'medium'),
     density: stored_pref('density', DENSITIES.map((o) => o.id), 'comfortable'),
     nebula: stored_backdrop(),

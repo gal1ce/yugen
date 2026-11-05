@@ -2,6 +2,7 @@ import { useEffect, useRef, type RefObject } from 'react'
 import { cancel_frame, next_frame } from '../../lib/frames'
 import { paced } from '../../lib/motion'
 import { useStore } from '../../lib/store'
+import { lens_filter } from '../../lib/lens'
 import { bar } from '../../state/bar'
 import { ui } from '../../state/ui'
 
@@ -111,28 +112,7 @@ function make_lens() {
     svg.setAttribute('height', '0')
     svg.setAttribute('aria-hidden', 'true')
     svg.style.position = 'absolute'
-    svg.innerHTML = `<filter id="bar-lens" x="0" y="0" filterUnits="userSpaceOnUse" primitiveUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-        <feImage x="0" y="0" preserveAspectRatio="none" result="mask" />
-        <feGaussianBlur in="mask" stdDeviation="5" result="soft" />
-        <feConvolveMatrix in="soft" order="3" kernelMatrix="-1 0 1 -2 0 2 -1 0 1" divisor="0.6" bias="0.5" preserveAlpha="true" result="gx" />
-        <feConvolveMatrix in="soft" order="3" kernelMatrix="-1 -2 -1 0 0 0 1 2 1" divisor="0.6" bias="0.5" preserveAlpha="true" result="gy" />
-        <feColorMatrix in="gx" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0 1" result="rx" />
-        <feColorMatrix in="gy" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 0 1" result="ry" />
-        <feComposite in="rx" in2="ry" operator="arithmetic" k2="1" k3="1" result="map" />
-        <feDisplacementMap in="SourceGraphic" in2="map" scale="30" xChannelSelector="R" yChannelSelector="G" result="d1" />
-        <feColorMatrix in="d1" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="cr" />
-        <feDisplacementMap in="SourceGraphic" in2="map" scale="36" xChannelSelector="R" yChannelSelector="G" result="d2" />
-        <feColorMatrix in="d2" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="cg" />
-        <feDisplacementMap in="SourceGraphic" in2="map" scale="42" xChannelSelector="R" yChannelSelector="G" result="d3" />
-        <feColorMatrix in="d3" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="cb" />
-        <feBlend in="cr" in2="cg" mode="screen" result="rg" />
-        <feBlend in="rg" in2="cb" mode="screen" result="bent" />
-        <feColorMatrix in="soft" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 0 0 0 0" result="height" />
-        <feSpecularLighting in="height" surfaceScale="5" specularConstant="1.1" specularExponent="28" lighting-color="#fff" result="spec">
-            <feDistantLight azimuth="235" elevation="38" />
-        </feSpecularLighting>
-        <feComposite in="spec" in2="bent" operator="arithmetic" k2="0.55" k3="1" />
-    </filter>`
+    svg.innerHTML = lens_filter('bar-lens')
     document.body.appendChild(svg)
 
     const filter = svg.querySelector('filter')!

@@ -33,7 +33,10 @@ export function Brand() {
     )
 }
 
-function ResultRow({ result, source }: { result: SearchResult; source: Source }) {
+// large is the phone's: the search is the whole page there, and a hit is a
+// row to read and press - a picture you can see, the whole title, a button
+// the size of a thumb
+function ResultRow({ result, source, large = false }: { result: SearchResult; source: Source; large?: boolean }) {
     const busy = useStore(ui, (s) => s.downloading.includes(result.ref))
     useStore(library, (s) => s.songs)
     const here = owns(result)
@@ -45,15 +48,29 @@ function ResultRow({ result, source }: { result: SearchResult; source: Source })
             aria-disabled={busy || here}
             disabled={here}
             onClick={() => !busy && !here && void download(result, source)}
-            className={cn('group flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors', here ? 'opacity-55' : 'hover:bg-surface-3')}
+            className={cn(
+                'group flex w-full items-center text-left transition-colors',
+                large ? 'gap-3.5 rounded-xl px-1 py-2' : 'gap-3 rounded-lg px-2 py-1.5',
+                here ? 'opacity-55' : large ? 'active:bg-surface-2' : 'hover:bg-surface-3',
+            )}
         >
-            {art ? <img src={art} alt='' loading='lazy' className='h-10 w-16 shrink-0 rounded-md bg-surface-3 object-cover' /> : <Cover className='h-10 w-16' />}
+            {art ? (
+                <img src={art} alt='' loading='lazy' className={cn('shrink-0 bg-surface-3 object-cover', large ? 'aspect-video w-32 rounded-lg shadow-[0_8px_18px_-10px_rgb(0_0_0/0.7)]' : 'h-10 w-16 rounded-md')} />
+            ) : (
+                <Cover className={large ? 'aspect-video h-auto w-32 rounded-lg' : 'h-10 w-16'} />
+            )}
             <div className='min-w-0 flex-1'>
-                <p className='truncate text-[0.875rem]'>{result.title}</p>
-                <p className='text-[0.75rem] text-muted'>{here ? 'In your library' : busy ? 'Downloading' : source === 'yt' ? 'YouTube' : 'SoundCloud'}</p>
+                <p className={large ? 'line-clamp-2 text-[0.9375rem] leading-snug' : 'truncate text-[0.875rem]'}>{result.title}</p>
+                <p className={cn('text-muted', large ? 'mt-1 text-[0.8125rem]' : 'text-[0.75rem]')}>{here ? 'In your library' : busy ? 'Downloading' : source === 'yt' ? 'YouTube' : 'SoundCloud'}</p>
             </div>
-            <span className={cn('grid size-8 shrink-0 place-items-center rounded-md', here ? 'text-fg-2' : 'text-muted group-hover:bg-surface-2 group-hover:text-fg')}>
-                {here ? <Check size={16} /> : busy ? <Spin><LoaderCircle size={16} /></Spin> : <Download size={16} />}
+            <span
+                className={cn(
+                    'grid shrink-0 place-items-center',
+                    large ? 'btn btn-fill size-11 rounded-full bg-[color-mix(in_oklab,var(--fg)_8%,transparent)]' : 'size-8 rounded-md',
+                    here ? 'text-fg-2' : large ? 'text-fg' : 'text-muted group-hover:bg-surface-2 group-hover:text-fg',
+                )}
+            >
+                {here ? <Check size={large ? 18 : 16} /> : busy ? <Spin><LoaderCircle size={large ? 18 : 16} /></Spin> : <Download size={large ? 18 : 16} />}
             </span>
         </button>
     )
@@ -121,7 +138,7 @@ export function SearchBox({ inline = false }: { inline?: boolean }) {
         <>
             {/* the two sources as tabs over one list, the way master had
                 it; each tab says whether its answer is in, and how big */}
-            <div className='flex items-center justify-between px-1 pb-2'>
+            <div className={cn('flex items-center px-1', inline ? 'justify-center pt-1 pb-3' : 'justify-between pb-2')}>
                 <Segmented
                     value={source}
                     on_change={switch_source}
@@ -153,7 +170,7 @@ export function SearchBox({ inline = false }: { inline?: boolean }) {
                 )}
 
                 {results.slice(0, shown).map((result) => (
-                    <ResultRow key={result.ref} result={result} source={source} />
+                    <ResultRow key={result.ref} result={result} source={source} large={inline} />
                 ))}
 
                 {results.length > shown && (

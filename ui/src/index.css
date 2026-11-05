@@ -1043,3 +1043,12 @@
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
 }
+
+/* a phone's tabs and dock: capsules of glass that bend the page going by
+   under them (hooks/lens names the lens in --lens), over a thin smoke of the
+   ground so what is on them stays read. the rim and the depth are .float's */
+:root[data-glass] .lens-glass {
+    background: color-mix(in oklab, var(--bg) 46%, transparent);
+    -webkit-backdrop-filter: var(--lens,) blur(4px) saturate(1.6);
+    backdrop-filter: var(--lens,) blur(4px) saturate(1.6);
+}

@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { useLens } from '../../hooks/lens'
 import { motion } from 'motion/react'
 import { useClock } from '../../lib/clock'
 import { cn } from '../../lib/cn'
@@ -65,14 +66,18 @@ export function Dock() {
     const cover = useStore(library, (s) => (current ? s.covers[current] : undefined))
     useStore(library, (s) => (current ? s.meta[current] : undefined))
     const queue = useQueue()
+    const capsule = useRef<HTMLDivElement>(null)
+
+    useLens(capsule, glass && !!current)
 
     if (!current) return null
 
     return (
         <div
+            ref={capsule}
             className={cn(
                 'fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5.125rem)] z-40 flex h-[3.625rem] items-center gap-3 rounded-full pr-1.5 pl-[0.4375rem]',
-                glass ? 'float thin' : 'float',
+                glass ? 'float thin lens-glass' : 'float',
             )}
             onContextMenu={context({ kind: 'song', song: current })}
         >
@@ -96,26 +101,30 @@ export function Dock() {
 
 type Tab = { label: string; icon: (props: { size?: number; className?: string }) => React.ReactNode; go: () => void }
 
+// the way spotify orders them: where you start, where you look, what you keep,
+// then the two lists of it
 const TABS: Tab[] = [
     { label: 'Home', icon: Home, go: () => open_view('library') },
+    { label: 'Search', icon: Search, go: () => open_page('search') },
+    { label: 'Your library', icon: LayoutGrid, go: () => open_page('library') },
     { label: 'Songs', icon: Music2, go: () => open_view('songs') },
     { label: 'Liked songs', icon: Heart, go: () => open_view('liked') },
-    { label: 'Your library', icon: LayoutGrid, go: () => open_page('library') },
-    { label: 'Search', icon: Search, go: () => open_page('search') },
 ]
+
+const SEARCH = 1
 
 // which tab the page on screen belongs to; a playlist, an album or an artist
 // is reached from the library, so it lights the library. settings and the
 // profile belong to none
 function useTab() {
     return useStore(ui, (s) => {
-        if (s.page === 'search') return 4
-        if (s.page === 'library') return 3
+        if (s.page === 'search') return 1
+        if (s.page === 'library') return 2
         if (s.page) return -1
-        if (s.view === 'songs') return 1
-        if (s.view === 'liked') return 2
+        if (s.view === 'songs') return 3
+        if (s.view === 'liked') return 4
         if (s.view === 'library' && !s.selection) return 0
-        return 3
+        return 2
     })
 }
 
@@ -130,6 +139,9 @@ export function TabBar() {
     const glass = useStore(ui, (s) => s.glass)
     const at = useTab()
     const last = useRef(at)
+    const capsule = useRef<HTMLElement>(null)
+
+    useLens(capsule, glass)
     const towards = at >= 0 && last.current >= 0 ? Math.sign(at - last.current) : 0
     if (at >= 0) last.current = at
 
@@ -139,10 +151,11 @@ export function TabBar() {
 
     return (
         <nav
+            ref={capsule}
             aria-label='Sections'
             className={cn(
                 'fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 h-[3.875rem] rounded-full p-[0.3125rem]',
-                glass ? 'float thin' : 'float',
+                glass ? 'float thin lens-glass' : 'float',
             )}
         >
             <div className='relative grid h-full grid-cols-5'>
@@ -167,7 +180,7 @@ export function TabBar() {
                             onClick={tab.go}
                             className={cn('relative z-10 grid place-items-center rounded-full transition-colors', i === at ? 'text-fg' : 'text-fg-2')}
                         >
-                            <Glyph size={24} className={cn(i === at && i !== 4 && 'fill-current')} />
+                            <Glyph size={24} className={cn(i === at && i !== SEARCH && 'fill-current')} />
                         </button>
                     )
                 })}
