@@ -103,6 +103,12 @@ export async function play_music(name: string) {
 
     await bridge().play_music((await music_dir()) + name, meta[0] || name, meta[1] || '', meta[2] || '')
 
+    // what follows was worked out the moment the track was shown, before a
+    // phone's playlist had it: told again now that it does, or the playlist
+    // holds the one track and stops at its end
+    told = ''
+    void push_up_next()
+
     // the far side builds a new sound per track and the new one never loops
     loops = false
     await sync_loop(player.get().looped)
