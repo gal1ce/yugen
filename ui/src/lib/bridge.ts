@@ -141,6 +141,8 @@ declare global {
         // where the backend delivers whatever the desktop asked of the mpris
         // interface - see the mpris block in the component below
         __yugen_mpris?: (cmd: string, arg: number) => void
+        // a phone's playlist, telling the page the track it has moved on to
+        __yugen_now?: (path: string) => void
     }
 }
 

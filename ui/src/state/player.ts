@@ -600,6 +600,34 @@ export function start_player() {
 }
 
 /*
+ * A phone's playlist went to another track on its own - the last one ended,
+ * or the lock screen skipped - and this is the track it is on now. Taken as
+ * the one playing, without asking the backend to play it: it already is.
+ * Absolute rather than "next" or "prev", since with the screen off the page
+ * is asleep and these queue up; relative steps all worked out from the same
+ * stale track, absolute ones leave the page on the right one whatever came in.
+ */
+export function adopt(name: string) {
+    const { current, drift, crossing, drift_return, drifted } = player.get()
+    if (!name || name === current) return
+
+    if (drift[0] === name) {
+        // what skip would have done: the first of the drift crosses
+        player.set({
+            drift: drift.slice(1),
+            crossing: name,
+            drift_return: crossing ? drift_return : current,
+            drifted: crossing ? [...drifted, crossing] : drifted,
+        })
+    } else if (crossing && name !== crossing) {
+        player.set({ crossing: null, drift_return: null, drifted: [...drifted, crossing] })
+    }
+
+    set_position(0)
+    player.set({ current: name, paused: false })
+}
+
+/*
  * MPRIS - the interface every panel, lock screen and media key reads a player
  * through. Controls come back from the backend through this.
  */

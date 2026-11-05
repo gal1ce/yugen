@@ -33,7 +33,10 @@ function Window() {
 
         // the lock screen and the notification, told to the page the way
         // mpris tells it on the desktop
-        listen_remote((cmd, arg) => send(`window.__yugen_mpris && window.__yugen_mpris(${JSON.stringify(cmd)}, ${arg})`))
+        listen_remote(
+            (cmd, arg) => send(`window.__yugen_mpris && window.__yugen_mpris(${JSON.stringify(cmd)}, ${arg})`),
+            (path) => send(`window.__yugen_now && window.__yugen_now(${JSON.stringify(path)})`),
+        )
 
         // back is escape: it closes the player, the search, a menu or a dialog
         const back = BackHandler.addEventListener('hardwareBackPress', () => {

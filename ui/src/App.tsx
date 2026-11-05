@@ -11,7 +11,7 @@ import { useStore } from './lib/store'
 import { thumb_of } from './lib/thumbs'
 import { sync_keybinds } from './state/keys'
 import { fetch_songs, library, load_favorites, sync_liked, sync_playlists, sync_profile, sync_view_covers } from './state/library'
-import { mpris_command, player, restore, start_player } from './state/player'
+import { adopt, mpris_command, player, restore, start_player } from './state/player'
 import { cover_input_ref, pick_image, track_cover_target } from './state/images'
 import { column_css, COLUMNS, saved_playback, ui, type Column } from './state/ui'
 import { CORNERS, PACES, REGIONS, SCALES, SWATCHES, radius_css, save_pref } from './lib/prefs'
@@ -212,12 +212,15 @@ function useStartup() {
             if (!alive) ui.set({ view: 'library', selection: null })
         })()
 
-        // where the backend delivers whatever the desktop asked of mpris
+        // where the backend delivers whatever the desktop asked of mpris, and
+        // where a phone's playlist says which track it has moved on to
         window.__yugen_mpris = mpris_command
+        window.__yugen_now = (path: string) => adopt(path.slice(path.lastIndexOf('/') + 1))
 
         return () => {
             stop()
             delete window.__yugen_mpris
+            delete window.__yugen_now
         }
     }, [])
 }

@@ -14,10 +14,9 @@ import { load, save } from './store'
  * list.
  *
  * Whenever the playlist moves on its own - a track ended, the lock screen -
- * the page is told the way MPRIS tells it on the desktop (__yugen_mpris
- * 'next' / 'prev'), and catches up: its skip lands on the track already
- * playing here, which play() takes as a no-op. The lock screen's play and
- * pause reach the page the same way.
+ * the page is told which track it is on now (__yugen_now) and takes it as
+ * the one playing. The lock screen's play and pause reach the page the way
+ * MPRIS reaches it on the desktop (__yugen_mpris).
  */
 
 let voice: AudioPlaylist | null = null
@@ -25,16 +24,15 @@ let voice: AudioPlaylist | null = null
 let paths: string[] = []
 // the track the page and the lock screen were last told is up
 let up = ''
-// moves made here the page has been told of and not yet caught up with: its
-// skips answering them land on tracks this has already moved past
-let owed = 0
 let finished = false
 // what the page last asked for; a change it did not ask for came from outside
 let wanted_playing = false
 let on_remote: (cmd: string, arg: number) => void = () => {}
+let on_track: (path: string) => void = () => {}
 
-export function listen_remote(callback: (cmd: string, arg: number) => void) {
+export function listen_remote(callback: (cmd: string, arg: number) => void, track: (path: string) => void) {
     on_remote = callback
+    on_track = track
 }
 
 const LOCK_SCREEN = { showNextTrack: true, showPreviousTrack: true, showSeekForward: false, showSeekBackward: false }
@@ -80,13 +78,11 @@ function moved() {
     const path = paths[index]
     if (!path || path === up) return
 
-    const from = paths.indexOf(up)
     up = path
     finished = false
     wanted_playing = true
-    owed++
     void show(path)
-    on_remote(from >= 0 && index < from ? 'prev' : 'next', 0)
+    on_track(path)
 }
 
 // the lock screen wants a picture it can open: the cover goes to a file first
@@ -128,15 +124,6 @@ export async function play(path: string, title: string, artist: string, album: s
     finished = false
     wanted_playing = true
 
-    // the page catching up with a move made here: its skip names a track
-    // this has gone through already, or the one playing - nothing to do
-    if (owed > 0 && paths.includes(path)) {
-        owed--
-        list.play()
-        return
-    }
-    owed = 0
-
     // the page asked for it, so the move is not reported back to the page
     up = path
 
@@ -147,14 +134,10 @@ export async function play(path: string, title: string, artist: string, album: s
         return
     }
 
-    // in the playlist already: a step to it keeps the rest as it is
-    if (at >= 0) {
-        list.skipTo(at)
-        list.play()
-        void show(path)
-        return
-    }
-
+    // anything else starts the playlist over from it. not a skipTo, even to
+    // a track already in it: a jump of the index has crashed the app in
+    // media3's session ("Invalid PlayerInfo update", its controller still
+    // holding a one-item list) - the page sends what follows right after
     const source = source_of(path)
     if (!source) return
 
@@ -163,34 +146,61 @@ export async function play(path: string, title: string, artist: string, album: s
     list.add(source)
     list.play()
 
-    list.setActiveForLockScreen(true, { title, artist, albumTitle: album }, LOCK_SCREEN)
+    about_now = { title, artist, albumTitle: album }
+    list.setActiveForLockScreen(true, about_now, LOCK_SCREEN)
     void show(path)
 }
 
 /*
- * The page's order around the track that is playing: the one before it, and
- * the ones after it. Everything but the playing item is taken out and put back
- * in the new order, so the track playing never stops.
+ * The lock screen's session, handed the playlist again once a run of edits
+ * has settled. Its controller connects while the playlist still holds the
+ * one track it was started with, and the additions made during that
+ * handshake did not reach it: it kept a one-item list, and the first move
+ * past the first item crashed the app. Made active again, it reads the
+ * playlist as it is now.
  */
-export async function set_up_next(around: string, previous: string, next: string[]) {
+let about_now: { title: string; artist: string; albumTitle: string } = { title: '', artist: '', albumTitle: '' }
+let resettle = 0
+
+function settle_lock_screen() {
+    clearTimeout(resettle)
+    resettle = setTimeout(() => {
+        if (!voice || !paths.length) return
+        voice.setActiveForLockScreen(true, about_now, LOCK_SCREEN)
+        void show(paths[voice.currentIndex])
+    }, 400) as unknown as number
+}
+
+/*
+ * The page's order after the track that is playing. Only what follows the
+ * playing item is ever touched, and only from where the old order and the
+ * new one part: media3's session crashed the app ("Invalid PlayerInfo
+ * update") when the items in front of the playing one were taken out and put
+ * back, the index shifting under its controller. What came before stays, as
+ * the tracks that played - which is what the lock screen's previous walks
+ * back through. `previous` is the page's own idea of that, kept for the
+ * desktop-shaped call and not needed here.
+ */
+export async function set_up_next(around: string, _previous: string, next: string[]) {
     const list = await the_voice()
-    const current = paths[list.currentIndex]
+    const at = list.currentIndex
+    const current = paths[at]
     // only a list worked out around the track playing here: one from a page
     // that is behind (asleep while this went on) waits for it to catch up
     if (!current || current !== around) return
 
-    const before = previous && previous !== current && source_of(previous) ? previous : ''
     const after = next.filter((p) => p !== current && source_of(p))
-    const want = [...(before ? [before] : []), current, ...after]
-    if (want.length === paths.length && want.every((p, i) => p === paths[i])) return
+    const tail = paths.slice(at + 1)
 
-    // after the current item, from the end, then everything before it
-    for (let i = paths.length - 1; i > list.currentIndex; i--) list.remove(i)
-    for (let i = list.currentIndex - 1; i >= 0; i--) list.remove(0)
+    let same = 0
+    while (same < after.length && same < tail.length && after[same] === tail[same]) same++
+    if (same === after.length && same === tail.length) return
 
-    for (const path of after) list.add(source_of(path)!)
-    if (before) list.insert(source_of(before)!, 0)
-    paths = want
+    // from the end back to where they part, then what the new order adds
+    for (let i = paths.length - 1; i > at + same; i--) list.remove(i)
+    for (const path of after.slice(same)) list.add(source_of(path)!)
+    paths = [...paths.slice(0, at + 1 + same), ...after.slice(same)]
+    settle_lock_screen()
 }
 
 export async function resume() {
