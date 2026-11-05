@@ -106,9 +106,10 @@ export type Bridge = {
     // to 14 kHz, tilted 3 dB an octave. preferred over the frames when there
     get_spectrum?(bands: number): Promise<number[]>
     // a phone's own (mobile/src/native/player): what comes before and after
-    // the track playing, in the queue's order, so its playlist can go on with
-    // the screen off and the page asleep. the desktop has no such thing
-    set_up_next?(previous: string, next: string[]): Promise<void>
+    // `around`, the track the page has playing, in the queue's order, so its
+    // playlist can go on with the screen off and the page asleep. the desktop
+    // has no such thing
+    set_up_next?(around: string, previous: string, next: string[]): Promise<void>
     // the rate those frames were mixed at, asked for once
     get_sample_rate?(): Promise<number>
     // the display's refresh rate, on the Qt build only: see lib/frames.ts

@@ -27,7 +27,7 @@ export const HANDLERS: Record<string, Handler> = {
     play_music: (path: string, title: string, artist: string, album: string) => player.play(path, title, artist, album),
     // a phone's own: the page's order around what is playing, so the playlist
     // can go on without it (src/native/player)
-    set_up_next: (previous: string, next: string[]) => player.set_up_next(previous, next),
+    set_up_next: (around: string, previous: string, next: string[]) => player.set_up_next(around, previous, next),
     resume: () => player.resume(),
     stop: () => player.stop(),
     seek: (position: number) => player.seek(position),

@@ -430,7 +430,7 @@ async function push_up_next() {
     told = key
 
     const dir = await music_dir()
-    void tell(previous && dir + previous, next.map((name) => dir + name)).catch(() => {})
+    void tell(dir + current, previous && dir + previous, next.map((name) => dir + name)).catch(() => {})
 }
 
 function persist() {

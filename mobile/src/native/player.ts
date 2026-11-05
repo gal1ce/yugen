@@ -23,11 +23,14 @@ import { load, save } from './store'
 let voice: AudioPlaylist | null = null
 // the path of every item in the playlist, in its order
 let paths: string[] = []
+// the track the page and the lock screen were last told is up
+let up = ''
+// moves made here the page has been told of and not yet caught up with: its
+// skips answering them land on tracks this has already moved past
+let owed = 0
 let finished = false
 // what the page last asked for; a change it did not ask for came from outside
 let wanted_playing = false
-// a move the page asked for, so its trackChanged is not reported back
-let moving_to = -1
 let on_remote: (cmd: string, arg: number) => void = () => {}
 
 export function listen_remote(callback: (cmd: string, arg: number) => void) {
@@ -45,24 +48,45 @@ async function the_voice() {
     voice.volume = await load_volume()
 
     voice.addListener('playlistStatusUpdate', (status) => {
-        // the end of the last track there is: the page's poll takes it from here
-        if (status.didJustFinish && status.currentIndex >= paths.length - 1) finished = true
-        if (status.isLoaded && status.playing !== wanted_playing && !status.didJustFinish && !finished) {
+        moved()
+
+        // the end of the last track there is: not a pause from outside - the
+        // page's poll takes it from here
+        const ended = !status.playing && status.currentIndex >= paths.length - 1 && status.duration > 0 && status.currentTime >= status.duration - 0.5
+        if (ended) return void (finished = true)
+
+        if (status.isLoaded && status.playing !== wanted_playing && !finished) {
             wanted_playing = status.playing
             on_remote(status.playing ? 'play' : 'pause', 0)
         }
     })
 
-    voice.addListener('trackChanged', ({ previousIndex, currentIndex }) => {
-        void show(paths[currentIndex])
-        if (currentIndex === moving_to) return void (moving_to = -1)
-
-        finished = false
-        wanted_playing = true
-        on_remote(currentIndex > previousIndex ? 'next' : 'prev', 0)
-    })
+    voice.addListener('trackChanged', () => moved())
 
     return voice
+}
+
+/*
+ * Whether the playlist has gone to another track on its own. Told by path,
+ * and read off the playlist as it is now rather than the event: set_up_next
+ * takes items out from in front of the one playing, which shifts its index
+ * without a transition, so the last index expo-audio reported goes stale (a
+ * later move to that same index would never be reported), and an event raised
+ * halfway through a rearrangement names an index of a list that is gone.
+ */
+function moved() {
+    if (!voice) return
+    const index = voice.currentIndex
+    const path = paths[index]
+    if (!path || path === up) return
+
+    const from = paths.indexOf(up)
+    up = path
+    finished = false
+    wanted_playing = true
+    owed++
+    void show(path)
+    on_remote(from >= 0 && index < from ? 'prev' : 'next', 0)
 }
 
 // the lock screen wants a picture it can open: the cover goes to a file first
@@ -104,6 +128,18 @@ export async function play(path: string, title: string, artist: string, album: s
     finished = false
     wanted_playing = true
 
+    // the page catching up with a move made here: its skip names a track
+    // this has gone through already, or the one playing - nothing to do
+    if (owed > 0 && paths.includes(path)) {
+        owed--
+        list.play()
+        return
+    }
+    owed = 0
+
+    // the page asked for it, so the move is not reported back to the page
+    up = path
+
     // already up: the playlist got here first, and the page is catching up
     const at = paths.indexOf(path)
     if (at >= 0 && at === list.currentIndex) {
@@ -113,9 +149,9 @@ export async function play(path: string, title: string, artist: string, album: s
 
     // in the playlist already: a step to it keeps the rest as it is
     if (at >= 0) {
-        moving_to = at
         list.skipTo(at)
         list.play()
+        void show(path)
         return
     }
 
@@ -124,7 +160,6 @@ export async function play(path: string, title: string, artist: string, album: s
 
     list.clear()
     paths = [path]
-    moving_to = 0
     list.add(source)
     list.play()
 
@@ -137,10 +172,12 @@ export async function play(path: string, title: string, artist: string, album: s
  * the ones after it. Everything but the playing item is taken out and put back
  * in the new order, so the track playing never stops.
  */
-export async function set_up_next(previous: string, next: string[]) {
+export async function set_up_next(around: string, previous: string, next: string[]) {
     const list = await the_voice()
     const current = paths[list.currentIndex]
-    if (!current) return
+    // only a list worked out around the track playing here: one from a page
+    // that is behind (asleep while this went on) waits for it to catch up
+    if (!current || current !== around) return
 
     const before = previous && previous !== current && source_of(previous) ? previous : ''
     const after = next.filter((p) => p !== current && source_of(p))
