@@ -263,6 +263,15 @@
         --row-nav: 2rem;
     }
 
+    /* a phone's rows keep their two lines under a thumb, compact or not:
+       compact there is a little tighter, not a line shorter */
+    @media (max-width: 639.98px) {
+        html[data-density='compact'] {
+            --row: 3.9rem;
+            --row-line: 3.1rem;
+        }
+    }
+
     body {
         margin: 0;
         background-color: var(--bg);

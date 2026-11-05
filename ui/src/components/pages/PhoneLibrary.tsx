@@ -118,7 +118,7 @@ function Collections() {
     const liked_art = useStore(library, (s) => s.view_covers.liked)
     const songs_art = useStore(library, (s) => s.view_covers.songs)
 
-    const tile = 'float thin on-page flex h-[4.25rem] min-w-0 items-center gap-3 rounded-2xl pr-3 pl-2 text-left active:scale-[0.98] transition-transform'
+    const tile = 'float thin on-page relative flex h-[4.25rem] min-w-0 items-center gap-3 rounded-2xl pr-3 pl-2 text-left active:scale-[0.98] transition-transform'
 
     return (
         <div className='grid grid-cols-2 gap-2.5'>

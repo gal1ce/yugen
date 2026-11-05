@@ -161,10 +161,10 @@ export const TrackRow = memo(function TrackRow({ name, within, index = 0 }: Trac
         >
             <span className='grid place-items-center font-mono text-[0.75rem] text-muted tabular-nums max-sm:hidden'>{playing ? <Bars still={playing === 'paused'} /> : index + 1}</span>
             <div className='flex min-w-0 items-center gap-3'>
-                <Cover data={cover} size='sm' className='size-9 in-[[data-density=compact]]:size-7 max-sm:size-[3.15rem] max-sm:in-[[data-density=compact]]:size-10' icon={14} />
+                <Cover data={cover} size='sm' className='size-9 sm:in-[[data-density=compact]]:size-7 max-sm:size-[3.15rem]' icon={14} />
                 <div className='min-w-0'>
                     <p className={cn('truncate text-[0.875rem] max-sm:text-[1.0625rem]', playing ? 'font-medium text-fg max-sm:text-accent' : 'text-fg')}>{title}</p>
-                    <p className='truncate text-[0.8125rem] text-muted in-[[data-density=compact]]:hidden max-sm:text-[0.9375rem]'>{artist}</p>
+                    <p className='truncate text-[0.8125rem] text-muted sm:in-[[data-density=compact]]:hidden max-sm:text-[0.9375rem]'>{artist}</p>
                 </div>
             </div>
             <p className='hidden truncate text-[0.8125rem] text-fg-2 md:block'>{album_of(name)}</p>
