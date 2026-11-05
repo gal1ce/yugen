@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { motion } from 'motion/react'
+import { animate, motion, useMotionValue, useTransform } from 'motion/react'
 import { useClock } from '../../lib/clock'
 import { cn } from '../../lib/cn'
 import { spring } from '../../lib/motion'
@@ -8,11 +8,12 @@ import { tip } from '../../lib/tip'
 import { useQueue } from '../../state/derive'
 import { artist_of, fetch_songs, library, title_of } from '../../state/library'
 import { new_playlist } from '../../state/playlists'
-import { player, skip, toggle_pause } from '../../state/player'
+import { next_shuffle, player, shuffle_into, skip, toggle_pause } from '../../state/player'
+import { SHUFFLES } from '../../lib/prefs'
 import { context, open_lyrics, open_page, open_view, ui } from '../../state/ui'
 import { IconButton } from '../ui/Button'
 import { Cover } from '../ui/Cover'
-import { Heart, Home, LayoutGrid, Music2, Pause, Play, Plus, RefreshCw, Search, SkipForward } from '../ui/icons'
+import { Heart, Home, LayoutGrid, Music2, Pause, Play, Plus, RefreshCw, Search, Shuffle, SkipBack, SkipForward } from '../ui/icons'
 import { Spin } from '../ui/Spin'
 import { QuickLook } from './Look'
 import { Nav, Shelves } from './Sidebar'
@@ -62,37 +63,125 @@ function DockProgress() {
     )
 }
 
+// how far a finger has to carry the track, or how fast, before it goes
+const SWIPE_FAR = 72
+const SWIPE_FAST = 0.45
+
+/*
+ * The track in the dock, carried sideways by a finger: let go far enough
+ * along, or quickly, and it slides off that way and the next (from the right)
+ * or the previous (from the left) slides in after it - the same skip the
+ * buttons make. A tap is the player opened; a drag that sets off more up or
+ * down than across is nothing of the dock's.
+ */
+function useSwipe(enabled: boolean, open: () => void) {
+    const x = useMotionValue(0)
+    const fade = useTransform(x, [-140, 0, 140], [0.15, 1, 0.15])
+    const from = useRef<{ x: number; y: number; t: number; axis: 'x' | 'y' | null; id: number } | null>(null)
+
+    const settle = () => void animate(x, 0, spring.snappy)
+
+    const handlers = {
+        onPointerDown: (e: React.PointerEvent) => {
+            from.current = { x: e.clientX, y: e.clientY, t: e.timeStamp, axis: null, id: e.pointerId }
+        },
+        onPointerMove: (e: React.PointerEvent) => {
+            const start = from.current
+            if (!start || start.id !== e.pointerId) return
+
+            const dx = e.clientX - start.x
+            const dy = e.clientY - start.y
+            if (!start.axis && Math.hypot(dx, dy) > 8) {
+                start.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'
+                if (start.axis === 'x') e.currentTarget.setPointerCapture(e.pointerId)
+            }
+            // past either end of an empty queue it gives, but only a little
+            if (start.axis === 'x') x.set(enabled ? dx : dx * 0.25)
+        },
+        onPointerUp: (e: React.PointerEvent) => {
+            const start = from.current
+            from.current = null
+            if (!start) return
+            if (!start.axis) return open()
+            if (start.axis !== 'x') return
+
+            const dx = e.clientX - start.x
+            const speed = Math.abs(dx) / Math.max(e.timeStamp - start.t, 1)
+            if (!enabled || (Math.abs(dx) < SWIPE_FAR && speed < SWIPE_FAST)) return settle()
+
+            // left is onwards, as a page is turned
+            const side = Math.sign(dx)
+            const width = e.currentTarget.getBoundingClientRect().width
+            void animate(x, side * width, { duration: 0.16, ease: [0.4, 0, 1, 1] }).then(() => {
+                skip(side < 0 ? 1 : -1)
+                x.set(-side * width * 0.5)
+                settle()
+            })
+        },
+        onPointerCancel: () => {
+            from.current = null
+            settle()
+        },
+    }
+
+    return { x, fade, handlers }
+}
+
 // the player, folded into a capsule above the tabs. the sleeve and the names
-// open it whole; play and next answer from where they are
+// open it whole, or carry the track off sideways to the next; the transport
+// answers from where it is
 export function Dock() {
     const glass = useStore(ui, (s) => s.glass)
     const current = useStore(player, (s) => s.current)
     const paused = useStore(player, (s) => s.paused)
+    const shuffle = useStore(player, (s) => s.shuffle_mode)
     const cover = useStore(library, (s) => (current ? s.covers[current] : undefined))
     useStore(library, (s) => (current ? s.meta[current] : undefined))
     const queue = useQueue()
+    const swipe = useSwipe(queue.length > 0, () => open_lyrics('player'))
 
     if (!current) return null
 
     return (
         <div
             className={cn(
-                'fixed inset-x-3 bottom-[calc(var(--safe-bottom)+5.125rem)] z-40 flex h-[3.625rem] items-center gap-3 rounded-full pr-1.5 pl-[0.4375rem]',
+                'fixed inset-x-3 bottom-[calc(var(--safe-bottom)+5.125rem)] z-40 flex h-[3.625rem] items-center gap-0.5 overflow-hidden rounded-full pr-1 pl-[0.4375rem]',
                 glass ? 'float thin lens-glass' : 'float',
             )}
-            onContextMenu={context({ kind: 'song', song: current })}
         >
-            <button type='button' onClick={() => open_lyrics('player')} className='flex min-w-0 flex-1 items-center gap-3 text-left' aria-label='Open the player'>
+            <motion.div
+                role='button'
+                tabIndex={0}
+                aria-label='Open the player'
+                onKeyDown={(e) => e.key === 'Enter' && open_lyrics('player')}
+                {...swipe.handlers}
+                style={{ x: swipe.x, opacity: swipe.fade }}
+                className='flex min-w-0 flex-1 touch-pan-y items-center gap-3 pr-1 text-left'
+            >
                 <Cover data={cover} size='sm' round className='size-11 shrink-0' icon={16} />
                 <span className='min-w-0'>
                     <span className='block truncate text-[0.875rem]'>{title_of(current)}</span>
                     <span className='block truncate text-[0.75rem] text-fg-2'>{artist_of(current)}</span>
                 </span>
-            </button>
-            <IconButton size='lg' {...tip(paused ? 'Play' : 'Pause')} onClick={() => void toggle_pause()} className='text-fg'>
-                {paused ? <Play size={18} /> : <Pause size={18} />}
+            </motion.div>
+            <IconButton
+                size='md'
+                aria-label={SHUFFLES.find((o) => o.id === shuffle)?.label}
+                aria-pressed={shuffle !== 'off'}
+                disabled={!queue.length}
+                onClick={() => void shuffle_into(next_shuffle())}
+                className={cn('relative', shuffle !== 'off' ? 'text-accent' : 'text-fg-2')}
+            >
+                <Shuffle size={17} />
+                {shuffle === 'all' && <span className='absolute bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full bg-accent' />}
             </IconButton>
-            <IconButton size='lg' {...tip('Next')} disabled={!queue.length} onClick={() => skip(1)} className='text-fg'>
+            <IconButton size='md' aria-label='Previous' disabled={!queue.length} onClick={() => skip(-1)} className='text-fg'>
+                <SkipBack size={18} />
+            </IconButton>
+            <IconButton size='md' aria-label={paused ? 'Play' : 'Pause'} onClick={() => void toggle_pause()} className='text-fg'>
+                {paused ? <Play size={20} /> : <Pause size={20} />}
+            </IconButton>
+            <IconButton size='md' aria-label='Next' disabled={!queue.length} onClick={() => skip(1)} className='text-fg'>
                 <SkipForward size={18} />
             </IconButton>
             <DockProgress />

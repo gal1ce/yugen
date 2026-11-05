@@ -3,6 +3,7 @@ import { CaretDoubleLeft, ChevronLeft, ChevronRight } from '../ui/icons'
 import { IconButton } from '../ui/Button'
 import { cancel_frame, next_frame } from '../../lib/frames'
 import { tip } from '../../lib/tip'
+import { usePhone } from '../../hooks/phone'
 
 // a heading, what it points at, and whatever sits under it
 export function Section({ title, note, action, children, className }: { title: ReactNode; note?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
@@ -47,6 +48,7 @@ type Reach = { left: boolean; right: boolean; far: boolean }
 export function Shelf({ title, note, action, children }: { title: ReactNode; note?: ReactNode; action?: ReactNode; children: ReactNode }) {
     const box = useRef<HTMLDivElement>(null)
     const frame = useRef(0)
+    const phone = usePhone()
     const [reach, set_reach] = useState<Reach>({
         left: false,
         right: false,
@@ -128,7 +130,8 @@ export function Shelf({ title, note, action, children }: { title: ReactNode; not
         go(at + dir * span, PAGE_MS)
     }
 
-    const overflow = reach.left || reach.right
+    // a phone's row is swiped, as every row on a phone is: no buttons there
+    const overflow = !phone && (reach.left || reach.right)
 
     return (
         <Section
@@ -157,7 +160,15 @@ export function Shelf({ title, note, action, children }: { title: ReactNode; not
         >
             {/* clipped, not scrollable: the padding keeps a card's shadow from
                 being cut off at the edges */}
-            <div ref={box} className='-mx-2 -mt-2 flex gap-5 overflow-hidden px-2 pt-2 pb-4 [&>*]:w-40 [&>*]:shrink-0'>
+            <div
+                ref={box}
+                className={
+                    phone
+                        ? // under the thumb it scrolls on its own momentum and comes to rest on a card, edge to edge of the screen
+                          '-mx-4 -mt-2 flex snap-x snap-mandatory scroll-px-4 gap-3.5 overflow-x-auto overscroll-x-contain px-4 pt-2 pb-4 [&>*]:w-[calc(9.25rem*var(--z-cards,1))] [&>*]:shrink-0 [&>*]:snap-start'
+                        : '-mx-2 -mt-2 flex gap-5 overflow-hidden px-2 pt-2 pb-4 [&>*]:w-40 [&>*]:shrink-0'
+                }
+            >
                 {children}
             </div>
         </Section>
