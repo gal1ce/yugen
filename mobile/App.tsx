@@ -1,6 +1,5 @@
 import { useEffect, useRef, type ComponentType, type Ref } from 'react'
 import { BackHandler, StatusBar, StyleSheet, View } from 'react-native'
-import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { WebView as Bare, type WebViewMessageEvent, type WebViewProps } from 'react-native-webview'
 import { answer, type Call } from './src/bridge/host'
 import { INJECTED } from './src/bridge/inject'
@@ -24,7 +23,6 @@ const GROUND = '#100f0e'
 
 function Window() {
     const view = useRef<Handle>(null)
-    const insets = useSafeAreaInsets()
 
     // anything sent into the page goes as one statement, its values as json
     const send = (script: string) => view.current?.injectJavaScript(`${script};true;`)
@@ -59,7 +57,9 @@ function Window() {
     }
 
     return (
-        <View style={[styles.window, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        // edge to edge: the page reads the system bars' insets itself (env(safe-area-inset-*)),
+        // so the glass at its foot runs down under the gesture bar
+        <View style={styles.window}>
             <StatusBar barStyle='light-content' />
             <WebView
                 ref={view}
@@ -85,11 +85,7 @@ function Window() {
 }
 
 export default function App() {
-    return (
-        <SafeAreaProvider>
-            <Window />
-        </SafeAreaProvider>
-    )
+    return <Window />
 }
 
 const styles = StyleSheet.create({
