@@ -10,7 +10,7 @@ import { pick_image } from '../../state/images'
 import { library, type ViewCover } from '../../state/library'
 import { play_listing, play_music, player, shuffle_into } from '../../state/player'
 import { nearby_key_of, nearby_named, show_nearby } from '../../state/suggest'
-import { open_group, set_layout, set_pref, ui } from '../../state/ui'
+import { open_group, open_page, set_layout, set_pref, ui } from '../../state/ui'
 import { Button, IconButton } from '../ui/Button'
 import { Empty } from '../ui/Controls'
 import { Cover } from '../ui/Cover'
@@ -117,9 +117,15 @@ function Head({ listed }: { listed: string[] }) {
         )
 
     return (
-        <section className='mb-10'>
+        <section className='mb-10 max-sm:mb-6'>
+            {/* a phone reaches a playlist, an album or an artist from its library, and goes back there */}
+            {selection && (
+                <button type='button' onClick={() => open_page('library')} className='-mt-2 mb-3 hidden h-10 items-center gap-1.5 text-[0.875rem] text-fg-2 max-sm:flex'>
+                    <ArrowLeft size={18} /> Your library
+                </button>
+            )}
             {selection && (view === 'albums' || view === 'artists') && (
-                <button type='button' onClick={() => ui.set({ selection: null })} className='mb-4 flex h-8 items-center gap-1.5 rounded-md text-[0.8125rem] text-muted transition-colors hover:text-fg'>
+                <button type='button' onClick={() => ui.set({ selection: null })} className='mb-4 flex h-8 items-center gap-1.5 rounded-md text-[0.8125rem] text-muted transition-colors hover:text-fg max-sm:hidden'>
                     <ArrowLeft size={16} /> All {view}
                 </button>
             )}
@@ -133,7 +139,7 @@ function Head({ listed }: { listed: string[] }) {
                         {span > 0 && <> · {format_span(span)}</>}
                     </p>
 
-                    <div className='mt-6 flex flex-wrap items-center gap-2 max-sm:mt-4'>
+                    <div className='mt-6 flex flex-wrap items-center gap-2 max-sm:hidden'>
                         <Button size='lg' disabled={!listed.length} icon={<Play size={16} />} onClick={() => void play_listing(listed)}>
                             Play
                         </Button>
@@ -142,12 +148,7 @@ function Head({ listed }: { listed: string[] }) {
                             variant='secondary'
                             disabled={!listed.length}
                             icon={<Shuffle size={16} />}
-                            onClick={async () => {
-                                player.set({ scope: null, manual_queue: null })
-                                await shuffle_into('listing')
-                                const order = player.get().shuffled
-                                if (order?.length) void play_music(order[0])
-                            }}
+                            onClick={() => void shuffle_listing()}
                         >
                             Shuffle
                         </Button>
@@ -159,8 +160,23 @@ function Head({ listed }: { listed: string[] }) {
                     </div>
                 </div>
             </div>
+            <div className='mt-5 hidden grid-cols-2 gap-2 max-sm:grid'>
+                <Button size='lg' disabled={!listed.length} icon={<Play size={16} />} onClick={() => void play_listing(listed)} className='w-full'>
+                    Play
+                </Button>
+                <Button size='lg' variant='secondary' disabled={!listed.length} icon={<Shuffle size={16} />} onClick={() => void shuffle_listing()} className='w-full'>
+                    Shuffle
+                </Button>
+            </div>
         </section>
     )
+}
+
+async function shuffle_listing() {
+    player.set({ scope: null, manual_queue: null })
+    await shuffle_into('listing')
+    const order = player.get().shuffled
+    if (order?.length) void play_music(order[0])
 }
 
 function Tracks({ listed }: { listed: string[] }) {

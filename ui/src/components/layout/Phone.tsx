@@ -1,22 +1,18 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { animate, motion, useMotionValue, useTransform } from 'motion/react'
 import { useClock } from '../../lib/clock'
 import { cn } from '../../lib/cn'
 import { spring } from '../../lib/motion'
 import { useStore } from '../../lib/store'
-import { tip } from '../../lib/tip'
 import { useQueue } from '../../state/derive'
-import { artist_of, fetch_songs, library, title_of } from '../../state/library'
-import { new_playlist } from '../../state/playlists'
+import { artist_of, library, title_of } from '../../state/library'
 import { next_shuffle, player, shuffle_into, skip, toggle_pause } from '../../state/player'
 import { SHUFFLES } from '../../lib/prefs'
-import { context, open_lyrics, open_page, open_view, ui } from '../../state/ui'
+import { open_lyrics, open_page, open_view, ui } from '../../state/ui'
 import { IconButton } from '../ui/Button'
 import { Cover } from '../ui/Cover'
-import { Heart, Home, LayoutGrid, Music2, Pause, Play, Plus, RefreshCw, Search, Shuffle, SkipBack, SkipForward } from '../ui/icons'
-import { Spin } from '../ui/Spin'
+import { Heart, Home, LayoutGrid, Music2, Pause, Play, Search, Shuffle, SkipBack, SkipForward } from '../ui/icons'
 import { QuickLook } from './Look'
-import { Nav, Shelves } from './Sidebar'
 import { Brand, ProfileMenu, SearchBox } from './TopBar'
 
 /*
@@ -275,38 +271,7 @@ export function TabBar() {
     )
 }
 
-// the sidebar, as a page: the four ways into the library, then the playlists,
-// albums and artists
-export function LibraryPage() {
-    const loading = useStore(library, (s) => s.loading)
-
-    return (
-        <div onContextMenu={context({ kind: 'sidebar' })}>
-            <h1 className='mb-5 font-serif text-[2.25rem] leading-tight font-medium'>Your library</h1>
-            <Nav />
-
-            <div className='mt-7 mb-2 flex items-center gap-1 pl-1'>
-                <span className='flex-1 text-[0.8125rem] text-muted'>Collections</span>
-                <IconButton {...tip('New playlist')} onClick={() => void new_playlist()}>
-                    <Plus size={18} />
-                </IconButton>
-            </div>
-            <div className='flex flex-col'>
-                <Shelves />
-            </div>
-
-            <button
-                type='button'
-                onClick={() => void fetch_songs()}
-                disabled={loading}
-                className='mt-2 flex h-11 items-center gap-2.5 px-1 text-[0.875rem] text-muted transition-colors hover:text-fg disabled:opacity-60'
-            >
-                <Spin on={loading}><RefreshCw size={16} /></Spin>
-                {loading ? 'Scanning' : 'Rescan library'}
-            </button>
-        </div>
-    )
-}
+export { PhoneLibrary as LibraryPage } from '../pages/PhoneLibrary'
 
 export function SearchPage() {
     return (
@@ -315,4 +280,54 @@ export function SearchPage() {
             <SearchBox inline />
         </div>
     )
+}
+
+/*
+ * Android's back, which the app sends as escape: what is open over the page
+ * closes first (a sheet, a dialog, the player - each listens for escape on
+ * its own), and with nothing open the page goes back to the one before it,
+ * as a phone's back does everywhere. Run in capture, before those close
+ * themselves, so it sees whether anything was open.
+ */
+type Place = { page: string | null; view: string; selection: string | null }
+
+export function Back() {
+    useBack()
+    return null
+}
+
+function useBack() {
+    useEffect(() => {
+        const trail: Place[] = []
+        let last: Place = { page: ui.get().page, view: ui.get().view, selection: ui.get().selection }
+        let going_back = false
+
+        const stop = ui.subscribe(() => {
+            const s = ui.get()
+            const now = { page: s.page, view: s.view, selection: s.selection }
+            if (now.page === last.page && now.view === last.view && now.selection === last.selection) return
+            if (!going_back) trail.push(last)
+            if (trail.length > 50) trail.shift()
+            last = now
+        })
+
+        const on_key = (e: KeyboardEvent) => {
+            if (e.key !== 'Escape') return
+            const s = ui.get()
+            if (s.lyrics_open || s.menu || s.editing || s.retitling || s.profile_edit || s.crop || s.info_open) return
+            if (document.querySelector('[role="menu"], [role="dialog"]')) return
+
+            const to = trail.pop()
+            if (!to) return
+            going_back = true
+            ui.set({ page: to.page as never, view: to.view as never, selection: to.selection })
+            going_back = false
+        }
+
+        window.addEventListener('keydown', on_key, { capture: true })
+        return () => {
+            stop()
+            window.removeEventListener('keydown', on_key, { capture: true })
+        }
+    }, [])
 }

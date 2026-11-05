@@ -24,7 +24,7 @@ import { NowPanel } from './components/layout/NowPanel'
 import { PlayerBar } from './components/layout/PlayerBar'
 import { Sidebar } from './components/layout/Sidebar'
 import { PageBar } from './components/layout/TopBar'
-import { Dock, LibraryPage, PhoneBar, SearchPage, TabBar } from './components/layout/Phone'
+import { Dock, LibraryPage, PhoneBar, SearchPage, TabBar, Back } from './components/layout/Phone'
 import { usePhone } from './hooks/phone'
 import { set_scroll } from './state/bar'
 import { Ambient } from './components/fx/Ambient'
@@ -538,6 +538,7 @@ export default function App() {
                     <Page phone />
                     <Dock />
                     <TabBar />
+                    <Back />
                     <Overlays />
                     {cover_input}
                 </div>

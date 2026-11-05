@@ -64,6 +64,8 @@ import {
     Waveform as PhWaveform,
     X as PhX,
     DotsThree as PhDotsThree,
+    ArrowsDownUp as PhArrowsDownUp,
+    Rows as PhRows,
     DotsThreeVertical as PhDotsThreeVertical,
 } from '@phosphor-icons/react'
 import type { Icon as PhIcon, IconWeight } from '@phosphor-icons/react'
@@ -154,6 +156,8 @@ export const Expand = make(PhArrowsOutSimple)
 export const Quotes = make(PhQuotes)
 export const Discord = make(PhDiscordLogo)
 export const DotsThree = make(PhDotsThree)
+export const ArrowsDownUp = make(PhArrowsDownUp)
+export const Rows = make(PhRows)
 export const DotsThreeVertical = make(PhDotsThreeVertical, 'bold')
 
 // the right panel's own toggle is the sidebar mark turned around
