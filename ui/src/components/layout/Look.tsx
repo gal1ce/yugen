@@ -70,7 +70,8 @@ export function LightControls() {
     )
 }
 
-export function QuickLook() {
+// `large` is a phone's: the same popover behind a button the size of a thumb
+export function QuickLook({ large = false }: { large?: boolean }) {
     const [open, set_open] = useState(false)
     const theme = useStore(ui, (s) => s.theme)
     const glass = useStore(ui, (s) => s.glass)
@@ -82,8 +83,8 @@ export function QuickLook() {
 
     return (
         <div className='relative' onClick={(e) => e.stopPropagation()}>
-            <IconButton size='sm' {...tip('Look')} aria-expanded={open} onClick={() => set_open(!open)} className={open ? 'bg-surface-2 text-fg' : ''}>
-                <Palette size={16} />
+            <IconButton size={large ? 'lg' : 'sm'} {...tip('Look')} aria-expanded={open} onClick={() => set_open(!open)} className={open ? 'bg-surface-2 text-fg' : ''}>
+                <Palette size={large ? 22 : 16} />
             </IconButton>
             {open && (
                 <MenuPanel className='absolute top-full right-0 mt-2 w-72 origin-top-right'>

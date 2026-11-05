@@ -12,8 +12,9 @@ import { player, skip, toggle_pause } from '../../state/player'
 import { context, open_lyrics, open_page, open_view, ui } from '../../state/ui'
 import { IconButton } from '../ui/Button'
 import { Cover } from '../ui/Cover'
-import { Heart, Home, LayoutGrid, Music2, Pause, Play, Plus, RefreshCw, Search, Settings, SkipForward } from '../ui/icons'
+import { Heart, Home, LayoutGrid, Music2, Pause, Play, Plus, RefreshCw, Search, SkipForward } from '../ui/icons'
 import { Spin } from '../ui/Spin'
+import { QuickLook } from './Look'
 import { Nav, Shelves } from './Sidebar'
 import { Brand, ProfileMenu, SearchBox } from './TopBar'
 
@@ -23,18 +24,14 @@ import { Brand, ProfileMenu, SearchBox } from './TopBar'
  * page runs on under them, so what scrolls by is seen through them.
  */
 
-// the head of the page: the name, settings a press away, and the profile.
-// the search is a section of its own down in the tabs
+// the head of the page: the name, the look, and the profile (settings are in
+// its menu, as on the desktop). the search is a section of its own down in the tabs
 export function PhoneBar() {
-    const open = useStore(ui, (s) => s.page === 'settings')
-
     return (
         <header className='absolute inset-x-0 top-0 z-30 flex h-16 items-center justify-between px-3 pt-[env(safe-area-inset-top)]'>
             <Brand />
             <div className='flex items-center gap-1'>
-                <IconButton size='lg' {...tip('Settings')} aria-pressed={open} variant={open ? 'on' : 'plain'} onClick={() => open_page('settings')}>
-                    <Settings size={22} />
-                </IconButton>
+                <QuickLook large />
                 <ProfileMenu />
             </div>
         </header>
