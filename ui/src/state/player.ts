@@ -400,6 +400,39 @@ export async function restore(songs: string[]) {
     player.set({ current: song, paused: true, length })
 }
 
+/*
+ * What skip() would play, worked out ahead: the track it would go back to,
+ * and the ones it would go forward through - the drift first, then the queue
+ * from where it was left, round to its start. Handed to a phone's playlist
+ * (set_up_next), which plays them in this order when the page cannot: with
+ * the screen off its timers are frozen. Each time the playlist moves on its
+ * own it says next or prev (mpris_command), and skip lands where it already is.
+ */
+const AHEAD = 20
+let told = ''
+
+async function push_up_next() {
+    const tell = bridge().set_up_next
+    const { current, drift, crossing, drift_return } = player.get()
+    if (!tell || !current) return
+
+    const queue = queue_now()
+    const anchor = crossing ? (drift_return ?? current) : current
+    const at = anchor ? queue.indexOf(anchor) : -1
+    const n = queue.length
+
+    const previous = crossing && drift_return ? drift_return : n ? queue[(at - 1 + n) % n] : ''
+    const next = [...drift]
+    for (let i = 1; n && i <= n && next.length < AHEAD; i++) next.push(queue[(at + i) % n])
+
+    const key = JSON.stringify([current, previous, next])
+    if (key === told) return
+    told = key
+
+    const dir = await music_dir()
+    void tell(previous && dir + previous, next.map((name) => dir + name)).catch(() => {})
+}
+
 function persist() {
     const { current, shuffle_mode } = player.get()
     if (!current) return
@@ -491,6 +524,18 @@ export function start_player() {
 
         if (now.shuffle_mode !== last.shuffle_mode) persist()
 
+        if (
+            now.current !== last.current ||
+            now.shuffled !== last.shuffled ||
+            now.shuffle_mode !== last.shuffle_mode ||
+            now.manual_queue !== last.manual_queue ||
+            now.scope !== last.scope ||
+            now.drift !== last.drift ||
+            now.crossing !== last.crossing
+        ) {
+            void push_up_next()
+        }
+
         last = now
     }
 
@@ -499,7 +544,11 @@ export function start_player() {
         const { current } = player.get()
 
         if (now.info_open && !last_ui.info_open && current) fetch_info(current)
-        if (now.view !== last_ui.view || now.selection !== last_ui.selection) persist()
+        if (now.view !== last_ui.view || now.selection !== last_ui.selection) {
+            persist()
+            // with nothing pinned the queue is what is listed, and that just changed
+            void push_up_next()
+        }
 
         last_ui = now
     }
