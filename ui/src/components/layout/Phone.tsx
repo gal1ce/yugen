@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { animate, motion, useMotionValue, useTransform } from 'motion/react'
 import { useClock } from '../../lib/clock'
 import { cn } from '../../lib/cn'
@@ -223,7 +223,17 @@ function useTab() {
  */
 export function TabBar() {
     const glass = useStore(ui, (s) => s.glass)
-    const at = useTab()
+    const shown = useTab()
+    // the tab pressed, ahead of the page: the glass sets off under the finger
+    // in the frame of the press, and the page is built in the one after
+    const [pressed, set_pressed] = useState<number | null>(null)
+    const at = pressed ?? shown
+    useEffect(() => set_pressed(null), [shown])
+
+    const go = (i: number) => {
+        set_pressed(i)
+        requestAnimationFrame(() => setTimeout(TABS[i].go, 0))
+    }
     const last = useRef(at)
     const towards = at >= 0 && last.current >= 0 ? Math.sign(at - last.current) : 0
     if (at >= 0) last.current = at
@@ -259,7 +269,7 @@ export function TabBar() {
                             type='button'
                             aria-label={tab.label}
                             aria-current={i === at ? 'page' : undefined}
-                            onClick={tab.go}
+                            onClick={() => go(i)}
                             className={cn('relative z-10 grid place-items-center rounded-full transition-colors', i === at ? 'text-fg' : 'text-fg-2')}
                         >
                             <Glyph size={24} className={cn(i === at && i !== SEARCH && 'fill-current')} />

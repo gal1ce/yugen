@@ -397,7 +397,9 @@ function Page({ phone = false }: { phone?: boolean }) {
                 {phone ? <PhoneBar /> : !floating && <PageBar floating={false} />}
                 <motion.div
                     key={`${page}:${view}:${selection}`}
-                    initial={{ opacity: 0, y: 8 }}
+                    // a phone's tabs swap at once, the way a phone's apps do: a
+                    // page rising out of nothing read as a page arriving late
+                    initial={phone ? false : { opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={spring.smooth}
                     // on a phone the foot of the page is left clear for the dock and the tabs

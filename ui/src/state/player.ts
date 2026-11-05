@@ -95,14 +95,18 @@ export async function play_music(name: string) {
     // the tags travel with the call: the backend needs them for the discord
     // status and this side has already read them
     const meta = library.get().meta[name] ?? []
+
+    // what is playing is shown before the backend has loaded it: the dock,
+    // the rows and the lock screen's page follow the press, not the load
+    set_position(0)
+    player.set({ current: name, paused: false })
+
     await bridge().play_music((await music_dir()) + name, meta[0] || name, meta[1] || '', meta[2] || '')
 
     // the far side builds a new sound per track and the new one never loops
     loops = false
     await sync_loop(player.get().looped)
-
     set_position(0)
-    player.set({ current: name, paused: false })
 }
 
 // playing out of a section pins it: the bar, the queue and the shuffle walk
@@ -140,14 +144,16 @@ export async function play_listing(listed: string[]) {
     await play_music(listed[0])
 }
 
+// the button answers at once; the backend is told after (on a phone a call
+// is a round trip through the app, and the icon waited on it)
 export async function toggle_pause() {
     const { current, paused } = player.get()
     if (!current) return
 
+    player.set({ paused: !paused })
+
     if (paused) await bridge().resume()
     else await bridge().stop()
-
-    player.set({ paused: !paused })
 }
 
 export async function toggle_loop() {
