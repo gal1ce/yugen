@@ -28,7 +28,7 @@ import { Brand, ProfileMenu, SearchBox } from './TopBar'
 // its menu, as on the desktop). the search is a section of its own down in the tabs
 export function PhoneBar() {
     return (
-        <header className='absolute inset-x-0 top-0 z-30 flex h-16 items-center justify-between px-3 pt-[env(safe-area-inset-top)]'>
+        <header className='absolute inset-x-0 top-0 z-30 flex h-[calc(var(--safe-top)+4.25rem)] items-center justify-between px-3 pt-[calc(var(--safe-top)+0.5rem)]'>
             <Brand />
             <div className='flex items-center gap-1'>
                 <QuickLook large />
@@ -77,7 +77,7 @@ export function Dock() {
     return (
         <div
             className={cn(
-                'fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5.125rem)] z-40 flex h-[3.625rem] items-center gap-3 rounded-full pr-1.5 pl-[0.4375rem]',
+                'fixed inset-x-3 bottom-[calc(var(--safe-bottom)+5.125rem)] z-40 flex h-[3.625rem] items-center gap-3 rounded-full pr-1.5 pl-[0.4375rem]',
                 glass ? 'float thin lens-glass' : 'float',
             )}
             onContextMenu={context({ kind: 'song', song: current })}
@@ -151,7 +151,7 @@ export function TabBar() {
         <nav
             aria-label='Sections'
             className={cn(
-                'fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 h-[3.875rem] rounded-full p-[0.3125rem]',
+                'fixed inset-x-3 bottom-[calc(var(--safe-bottom)+0.75rem)] z-40 h-[3.875rem] rounded-full p-[0.3125rem]',
                 glass ? 'float thin lens-glass' : 'float',
             )}
         >

@@ -1,14 +1,17 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
-import { Download, Heart, ImagePlus, ListEnd, ListMusic, ListPlus, ListStart, Minus, Pencil, Pin, PinOff, Play, Plus, Star, Trash2, Waveform } from '../ui/icons'
+import { Disc3, Download, Heart, Mic2, ImagePlus, ListEnd, ListMusic, ListPlus, ListStart, Minus, Pencil, Pin, PinOff, Play, Plus, Star, Trash2, Waveform } from '../ui/icons'
 import { useDismiss } from '../../hooks/dismiss'
 import { useStore } from '../../lib/store'
 import { playlist_names_of } from '../../state/derive'
 import { choose_track_cover } from '../../state/images'
-import { add_to_playlist, is_favorite, library, remove_from_playlist, title_of, toggle_favorite, toggle_like } from '../../state/library'
+import { add_to_playlist, album_of, artist_of, is_favorite, library, remove_from_playlist, title_of, toggle_favorite, toggle_like } from '../../state/library'
 import { add_to_drift, add_to_queue, play_from, play_next, remove_song } from '../../state/player'
 import { delete_playlist, new_playlist } from '../../state/playlists'
 import { download_suggestion } from '../../state/suggest'
-import { toggle_pin, ui } from '../../state/ui'
+import { open_group, toggle_pin, ui } from '../../state/ui'
+import { usePhone } from '../../hooks/phone'
+import { group_key } from '../../lib/names'
+import { Cover } from '../ui/Cover'
 import { MenuItem, MenuLabel, MenuPanel, MenuSep, Submenu } from '../ui/Menu'
 import { Scroll } from '../ui/Scroll'
 
@@ -45,16 +48,34 @@ export function PlaylistTargets({ song }: { song: string }) {
     )
 }
 
+// the head of a track's sheet on a phone: which track the sheet is about,
+// as the row it was opened from showed it
+function SongHead({ song, cover }: { song: string; cover?: string }) {
+    return (
+        <div className='mb-1 flex items-center gap-3.5 border-b border-line px-3 pt-1 pb-3.5'>
+            <Cover data={cover} size='sm' className='size-14 shrink-0' icon={18} />
+            <div className='min-w-0'>
+                <p className='truncate text-[1.0625rem] text-fg'>{title_of(song)}</p>
+                <p className='truncate text-[0.875rem] text-muted'>
+                    {artist_of(song)} · {album_of(song)}
+                </p>
+            </div>
+        </div>
+    )
+}
+
 function SongMenu({ song, within }: { song: string; within?: string[] }) {
     const liked = useStore(library, (s) => s.liked.has(song))
     const favorite = useStore(library, () => is_favorite(song))
     const view = useStore(ui, (s) => s.view)
     const selection = useStore(ui, (s) => s.selection)
     const in_playlist = useStore(library, (s) => view === 'playlist' && !!selection && !!s.playlists[selection]?.includes(song))
+    const cover = useStore(library, (s) => s.covers[song])
+    const phone = usePhone()
 
     return (
         <>
-            <MenuLabel>{title_of(song)}</MenuLabel>
+            {phone ? <SongHead song={song} cover={cover} /> : <MenuLabel>{title_of(song)}</MenuLabel>}
             <MenuItem icon={<Play size={16} />} onClick={() => void play_from(song, within ?? null)}>
                 Play
             </MenuItem>
@@ -83,6 +104,18 @@ function SongMenu({ song, within }: { song: string; within?: string[] }) {
             <Submenu icon={<ListPlus size={16} />} label='Add to playlist'>
                 <PlaylistTargets song={song} />
             </Submenu>
+
+            {phone && (
+                <>
+                    <MenuSep />
+                    <MenuItem icon={<Disc3 size={16} />} onClick={() => (ui.set({ lyrics_open: false }), open_group('albums', group_key(album_of(song))))}>
+                        Go to album
+                    </MenuItem>
+                    <MenuItem icon={<Mic2 size={16} />} onClick={() => (ui.set({ lyrics_open: false }), open_group('artists', group_key(artist_of(song))))}>
+                        Go to artist
+                    </MenuItem>
+                </>
+            )}
 
             <MenuSep />
             <MenuItem icon={<Pencil size={16} />} onClick={() => ui.set({ retitling: song })}>
@@ -114,11 +147,14 @@ export function ContextMenu() {
         const box = panel.current
         if (!menu || !box) return
 
-        const { offsetWidth: width, offsetHeight: height } = box
+        // measured as drawn, and placed in the menu's own units: a menu sized
+        // up in settings is zoomed, and its left and top are zoomed with it
+        const { width, height } = box.getBoundingClientRect()
+        const zoom = parseFloat(getComputedStyle(box).zoom) || 1
         const left = menu.x + width > window.innerWidth - 8 ? Math.max(8, menu.x - width) : menu.x
         const top = menu.y + height > window.innerHeight - 8 ? Math.max(8, Math.min(menu.y - height, window.innerHeight - height - 8)) : menu.y
 
-        set_place({ left, top })
+        set_place({ left: left / zoom, top: top / zoom })
     }, [menu])
 
     if (!menu) return null

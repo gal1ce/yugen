@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
 
+export const DISMISS = 'yugen:dismiss'
+
 // whatever floats closes the way a menu does: a click anywhere, escape, the
 // window changing size, or the panel it hangs off scrolling away from it.
 // a scroll inside a menu - the list of playlists in Add to - is the menu's
@@ -19,6 +21,8 @@ export function useDismiss(open: boolean, close: () => void, { scroll = true } =
         const timer = setTimeout(() => window.addEventListener('click', close))
 
         window.addEventListener('keydown', on_key)
+        // a phone's sheet is put away by its backdrop (ui/Menu)
+        window.addEventListener(DISMISS, close)
         window.addEventListener('resize', close)
         if (scroll) document.addEventListener('scroll', on_scroll, true)
 
@@ -26,6 +30,7 @@ export function useDismiss(open: boolean, close: () => void, { scroll = true } =
             clearTimeout(timer)
             window.removeEventListener('click', close)
             window.removeEventListener('keydown', on_key)
+            window.removeEventListener(DISMISS, close)
             window.removeEventListener('resize', close)
             document.removeEventListener('scroll', on_scroll, true)
         }

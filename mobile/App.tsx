@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ComponentType, type Ref } from 'react'
 import { BackHandler, StatusBar, StyleSheet, View } from 'react-native'
+import { initialWindowMetrics } from 'react-native-safe-area-context'
 import { WebView as Bare, type WebViewMessageEvent, type WebViewProps } from 'react-native-webview'
 import { answer, type Call } from './src/bridge/host'
 import { INJECTED } from './src/bridge/inject'
@@ -20,6 +21,18 @@ const WebView = Bare as unknown as ComponentType<WebViewProps & { ref?: Ref<Hand
 const UI = 'file:///android_asset/ui/index.html'
 // the palette's ground, under the page before it has drawn
 const GROUND = '#100f0e'
+
+/*
+ * The system bars' heights, handed to the page before it draws. Edge to edge,
+ * the page runs under both, and an android webview reports no safe-area
+ * insets of its own: without these the page's head sat under the clock.
+ */
+const insets = initialWindowMetrics?.insets ?? { top: StatusBar.currentHeight ?? 24, bottom: 0 }
+const INSETS = `
+document.documentElement.style.setProperty('--inset-top', '${insets.top}px');
+document.documentElement.style.setProperty('--inset-bottom', '${insets.bottom}px');
+true;
+`
 
 function Window() {
     const view = useRef<Handle>(null)
@@ -68,7 +81,7 @@ function Window() {
                 ref={view}
                 source={{ uri: UI }}
                 originWhitelist={['*']}
-                injectedJavaScriptBeforeContentLoaded={INJECTED}
+                injectedJavaScriptBeforeContentLoaded={INSETS + INJECTED}
                 onMessage={on_message}
                 // the bundle's module scripts and fonts are files beside the page
                 allowFileAccess
@@ -77,6 +90,10 @@ function Window() {
                 // the system's font size is the interface's own setting here
                 textZoom={100}
                 overScrollMode='never'
+                // an app, not a document: no pinch, no double-tap zoom
+                scalesPageToFit={false}
+                setBuiltInZoomControls={false}
+                setDisplayZoomControls={false}
                 setSupportMultipleWindows={false}
                 mediaPlaybackRequiresUserAction={false}
                 androidLayerType='hardware'

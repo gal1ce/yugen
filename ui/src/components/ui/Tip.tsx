@@ -22,6 +22,10 @@ export function TipLayer() {
         }
 
         const over = (e: PointerEvent) => {
+            // a finger has no hover to wait out: on a phone a tap would leave
+            // the tip standing over the button it pressed
+            if (e.pointerType !== 'mouse') return hide()
+
             const target = (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-tip]') ?? null
             if (target === host) return
 

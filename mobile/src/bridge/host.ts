@@ -1,3 +1,4 @@
+import * as lastfm from '../native/lastfm'
 import * as library from '../native/library'
 import * as player from '../native/player'
 import * as services from '../native/services'
@@ -92,9 +93,9 @@ export const HANDLERS: Record<string, Handler> = {
     download_yt: (id: string) => ytdlp.download(`https://youtube.com/watch?v=${id}`),
     download_sc: (url: string) => ytdlp.download(url),
 
-    // not on the phone yet: last.fm
-    get_similar: async () => '',
-    get_info: async () => '',
+    // last.fm, with the desktop's key (src/native/lastfm)
+    get_similar: (path: string, limit: number) => lastfm.similar(path, limit),
+    get_info: (artist: string, track: string) => lastfm.info(artist, track),
 }
 
 export type Call = { id: number; method: string; args: unknown[] }

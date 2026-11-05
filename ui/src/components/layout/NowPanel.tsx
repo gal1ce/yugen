@@ -1,3 +1,4 @@
+import { More } from '../ui/More'
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useSheet } from '../../hooks/sheet'
@@ -58,8 +59,9 @@ function QueueRow({ name, index, manual, last }: { name: string; index: number; 
                 <p className='truncate text-[0.8125rem]'>{title_of(name)}</p>
                 <p className='truncate text-[0.75rem] text-muted'>{artist_of(name)}</p>
             </button>
+            <More target={{ kind: 'song', song: name }} className='-mr-1 size-9' />
             {manual && (
-                <div className='flex opacity-0 transition-opacity group-hover:opacity-100'>
+                <div className='flex opacity-0 transition-opacity group-hover:opacity-100 max-sm:opacity-100'>
                     <IconButton size='sm' {...tip('Move up')} disabled={index <= 1} onClick={() => move_in_queue(index, -1)}>
                         <ChevronUp size={16} />
                     </IconButton>
@@ -95,7 +97,7 @@ function DriftRow({ name, index, crossing }: { name: string; index: number; cros
                 <p className='truncate text-[0.75rem] text-muted'>{crossing ? 'Crossing now' : artist_of(name)}</p>
             </div>
             {!crossing && (
-                <IconButton size='sm' {...tip('Take it out')} onClick={() => remove_from_drift(index)} className='opacity-0 group-hover:opacity-100'>
+                <IconButton size='sm' {...tip('Take it out')} onClick={() => remove_from_drift(index)} className='opacity-0 group-hover:opacity-100 max-sm:opacity-100'>
                     <X size={14} />
                 </IconButton>
             )}

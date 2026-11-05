@@ -392,7 +392,7 @@ function Page({ phone = false }: { phone?: boolean }) {
                     animate={{ opacity: 1, y: 0 }}
                     transition={spring.smooth}
                     // on a phone the foot of the page is left clear for the dock and the tabs
-                    className={phone ? 'px-4 pt-20 pb-[calc(env(safe-area-inset-bottom)+10.5rem)]' : 'mx-auto max-w-[1480px] px-8 pt-20 pb-16'}
+                    className={phone ? 'px-4 pt-[calc(var(--safe-top)+4.75rem)] pb-[calc(var(--safe-bottom)+10.5rem)]' : 'mx-auto max-w-[1480px] px-8 pt-20 pb-16'}
                 >
                     {body}
                 </motion.div>

@@ -23,6 +23,7 @@ import { context, set_pref, ui } from '../../state/ui'
 import { Button, IconButton } from '../ui/Button'
 import { Empty } from '../ui/Controls'
 import { MenuItem, MenuLabel, MenuPanel } from '../ui/Menu'
+import { More } from '../ui/More'
 import { tip } from '../../lib/tip'
 import { card_grid } from './Track'
 import { Section } from './Rail'
@@ -81,12 +82,13 @@ const SuggestionCard = memo(function SuggestionCard({ track, index }: { track: S
                     {...state}
                     className={cn(
                         'absolute top-2 right-2 size-8 bg-black/55 text-white hover:bg-black/75',
-                        state.held ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+                        state.held ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 max-sm:opacity-100',
                     )}
                 />
             </div>
-            <p className='mt-2 truncate text-[0.875rem] font-medium'>{track.title}</p>
-            <p className='truncate text-[0.8125rem] text-muted'>{state.note}</p>
+            <p className='mt-2 truncate text-[0.875rem] font-medium max-sm:pr-8'>{track.title}</p>
+            <p className='truncate text-[0.8125rem] text-muted max-sm:pr-8'>{state.note}</p>
+            {!state.held && <More target={{ kind: 'suggestion', track }} className='absolute right-[-0.5rem] bottom-[-0.25rem]' />}
         </div>
     )
 })
@@ -106,6 +108,7 @@ const SuggestionRow = memo(function SuggestionRow({ track, index }: { track: Sug
                 <p className='truncate text-[0.8125rem] text-muted'>{state.note}</p>
             </div>
             <Badge track={track} {...state} className='size-8 text-muted hover:bg-surface-3 hover:text-fg' />
+            {!state.held && <More target={{ kind: 'suggestion', track }} className='-mr-2' />}
         </div>
     )
 })

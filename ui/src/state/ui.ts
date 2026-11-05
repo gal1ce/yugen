@@ -327,8 +327,13 @@ export function open_menu(target: MenuTarget, x: number, y: number) {
     ui.set({ menu: { ...target, x, y } })
 }
 
+// on a phone a long press is a scroll that paused, not a question: the menu
+// is behind each row's dots there (ui/More), the way a phone's apps keep it
+const touch_only = window.matchMedia('(pointer: coarse)')
+
 export const context = (target: MenuTarget) => (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    if (touch_only.matches && window.matchMedia(PHONE).matches) return
     open_menu(target, e.clientX, e.clientY)
 }

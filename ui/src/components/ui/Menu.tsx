@@ -5,6 +5,8 @@ import { spring } from '../../lib/motion'
 import { Check, ChevronRight } from './icons'
 import { cn } from '../../lib/cn'
 import { HoverGlass } from './HoverGlass'
+import { DISMISS } from '../../hooks/dismiss'
+import { usePhone } from '../../hooks/phone'
 
 // the panel every menu in the app is drawn in: right-click menus, the sort
 // menu, the profile menu. it grows out of where it was opened from (the
@@ -29,14 +31,56 @@ export function MenuPanel({
     ref?: Ref<HTMLDivElement>
 }) {
     const own = useRef<HTMLDivElement>(null)
+    const phone = usePhone()
 
     useImperativeHandle(ref, () => own.current as HTMLDivElement, [])
+
+    /*
+     * On a phone every menu is a sheet up from the foot of the screen, under
+     * the thumb, whatever opened it and wherever: a menu placed at the finger
+     * ran off the edges, and its submenus off the screen altogether. The
+     * caller's placing is for a pointer and is let go of here; the backdrop
+     * puts it away as a click outside would (hooks/dismiss).
+     */
+    if (phone) {
+        return createPortal(
+            <div className='fixed inset-0 z-50' onClick={onClick}>
+                <motion.div
+                    aria-hidden
+                    className='absolute inset-0 bg-black/45'
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.18 }}
+                    onClick={(e) => {
+                        e.stopPropagation()
+                        window.dispatchEvent(new Event(DISMISS))
+                    }}
+                />
+                <motion.div
+                    ref={own}
+                    role='menu'
+                    initial={{ y: '100%' }}
+                    animate={{ y: 0 }}
+                    transition={spring.sheet}
+                    onContextMenu={(e) => e.preventDefault()}
+                    className='float sheet-menu absolute inset-x-2 bottom-[calc(var(--safe-bottom)+0.5rem)] max-h-[78vh] overflow-y-auto overscroll-contain rounded-[1.75rem] px-2 pt-2 pb-2'
+                >
+                    <span aria-hidden className='mx-auto mb-1.5 block h-1 w-10 rounded-full bg-line-strong' />
+                    <div className='relative' style={{ zoom: 'var(--z-menus, 1)' }}>
+                        <HoverGlass className='rounded-[max(0.125rem,calc(var(--r-menu)-0.25rem))]' />
+                        {children}
+                    </div>
+                </motion.div>
+            </div>,
+            document.body,
+        )
+    }
 
     return (
         <motion.div
             ref={own}
             role='menu'
-            style={style}
+            style={{ zoom: 'var(--z-menus, 1)', ...style }}
             initial={{ opacity: 0, scale: 0.94 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={spring.smooth}
@@ -69,6 +113,8 @@ export function MenuItem({ icon, checked, danger, hint, more, className, childre
             data-hover
             className={cn(
                 'relative flex h-8 w-full items-center gap-2.5 rounded-[max(0.125rem,calc(var(--r-menu)-0.25rem))] px-2 text-left text-[0.8125rem] transition-colors duration-100',
+                // a thumb's row on a phone's sheet
+                'max-sm:h-12 max-sm:gap-3.5 max-sm:px-3 max-sm:text-[0.9375rem]',
                 danger ? 'text-danger hover:bg-danger/10' : 'text-fg',
                 'disabled:pointer-events-none disabled:opacity-40',
                 className,
@@ -86,7 +132,7 @@ export function MenuItem({ icon, checked, danger, hint, more, className, childre
     )
 }
 
-export const MenuLabel = ({ children }: { children: ReactNode }) => <div className='truncate px-2 pt-2 pb-1 text-[0.75rem] text-muted'>{children}</div>
+export const MenuLabel = ({ children }: { children: ReactNode }) => <div className='truncate px-2 pt-2 pb-1 text-[0.75rem] text-muted max-sm:px-3 max-sm:text-[0.8125rem]'>{children}</div>
 
 export const MenuSep = () => <div className='mx-2 my-1 h-px bg-line' />
 
@@ -111,6 +157,7 @@ export function Submenu({ icon, label, width = 224, children }: { icon?: ReactNo
     const row = useRef<HTMLDivElement>(null)
     const panel = useRef<HTMLDivElement>(null)
     const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+    const phone = usePhone()
 
     const show = () => {
         clearTimeout(timer.current)
@@ -125,19 +172,49 @@ export function Submenu({ icon, label, width = 224, children }: { icon?: ReactNo
     useEffect(() => () => clearTimeout(timer.current), [])
 
     useLayoutEffect(() => {
-        if (!open) return
+        if (!open || phone) return
 
         const from = row.current?.getBoundingClientRect()
         const box = panel.current
         if (!from || !box) return
 
-        const height = box.offsetHeight
+        // as drawn, then back into the menu's own (zoomed) units
+        const zoom = parseFloat(getComputedStyle(box).zoom) || 1
+        const height = box.getBoundingClientRect().height
+        const drawn = width * zoom
         const right = from.right + 4
-        const left = right + width > window.innerWidth - 8 ? from.left - 4 - width : right
+        const left = right + drawn > window.innerWidth - 8 ? from.left - 4 - drawn : right
         const top = Math.max(8, Math.min(from.top - 4, window.innerHeight - height - 8))
 
-        set_place({ left, top, flip: left < from.left })
-    }, [open, width])
+        set_place({ left: left / zoom, top: top / zoom, flip: left < from.left })
+    }, [open, width, phone])
+
+    // on a phone's sheet there is no beside: the second menu opens in place,
+    // under its row, and a second tap folds it again
+    if (phone) {
+        return (
+            <div>
+                <MenuItem
+                    icon={icon}
+                    more
+                    aria-haspopup='menu'
+                    aria-expanded={open}
+                    onClick={(e) => {
+                        e.stopPropagation()
+                        set_open(!open)
+                    }}
+                    className={open ? 'bg-surface-3 [&>svg:last-child]:rotate-90' : ''}
+                >
+                    {label}
+                </MenuItem>
+                {open && (
+                    <div className='my-1 ml-5 border-l border-line pl-2' onClick={(e) => e.stopPropagation()}>
+                        {children}
+                    </div>
+                )}
+            </div>
+        )
+    }
 
     return (
         <div

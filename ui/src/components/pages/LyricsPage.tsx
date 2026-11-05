@@ -253,7 +253,7 @@ function QueueFace() {
                     <X size={20} />
                 </IconButton>
             </div>
-            <div className='flex min-h-0 flex-1 flex-col px-3 pb-[env(safe-area-inset-bottom)]' onPointerDown={hold}>
+            <div className='flex min-h-0 flex-1 flex-col px-3 pb-[var(--safe-bottom)]' onPointerDown={hold}>
                 <Queue />
             </div>
         </>
@@ -356,8 +356,8 @@ export function LyricsPage() {
                 }}
             >
                 {phone ? (
-                    <div className='relative flex min-h-0 flex-1 touch-pan-y flex-col pt-[calc(env(safe-area-inset-top)+0.75rem)]' onPointerDown={(e) => pull.start(e)}>
-                        <span aria-hidden className='absolute top-[calc(env(safe-area-inset-top)+0.5rem)] left-1/2 z-10 h-1 w-10 -translate-x-1/2 rounded-full bg-line-strong' />
+                    <div className='relative flex min-h-0 flex-1 touch-pan-y flex-col pt-[calc(var(--safe-top)+0.75rem)]' onPointerDown={(e) => pull.start(e)}>
+                        <span aria-hidden className='absolute top-[calc(var(--safe-top)+0.5rem)] left-1/2 z-10 h-1 w-10 -translate-x-1/2 rounded-full bg-line-strong' />
                         {current ? <PhoneSheet /> : <div className='grid flex-1 place-items-center text-fg-2'>Nothing is playing</div>}
                     </div>
                 ) : (

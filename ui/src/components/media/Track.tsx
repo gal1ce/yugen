@@ -10,6 +10,7 @@ import { play_from, player } from '../../state/player'
 import { context } from '../../state/ui'
 import { Heart } from '../ui/Controls'
 import { Cover } from '../ui/Cover'
+import { More } from '../ui/More'
 
 /*
  * One track, three ways: a card in a grid or a rail, a line in a compact list,
@@ -37,7 +38,11 @@ const useTrack = (name: string) => {
 // any track can be picked up and dropped on the drift in the queue panel
 export const TRACK_DRAG = 'application/x-yugen-track'
 
-const drag = (name: string) => ({
+// a touch screen holds a finger down for the menu, and would start the drag
+// instead: the card lifted out of its place under the finger
+const COARSE = window.matchMedia('(pointer: coarse)').matches
+
+const drag = (name: string) => COARSE ? {} : ({
     draggable: true,
     onDragStart: (e: React.DragEvent) => {
         e.dataTransfer.setData(TRACK_DRAG, name)
@@ -99,9 +104,10 @@ export const TrackCard = memo(function TrackCard({ name, within, className }: Tr
                     </span>
                 </div>
 
-                <p className='mt-2 truncate text-[0.875rem] font-medium text-fg'>{title}</p>
-                <p className='truncate text-[0.8125rem] text-muted'>{artist}</p>
+                <p className='mt-2 truncate text-[0.875rem] font-medium text-fg max-sm:pr-8'>{title}</p>
+                <p className='truncate text-[0.8125rem] text-muted max-sm:pr-8'>{artist}</p>
             </button>
+            <More target={{ kind: 'song', song: name, within }} className='absolute right-[-0.5rem] bottom-[-0.25rem]' />
 
             {/* outside the main button, so buttons are not nested */}
             <Heart
@@ -131,12 +137,13 @@ export const TrackLine = memo(function TrackLine({ name, within, index = 0 }: Tr
             <span className='grid w-7 shrink-0 place-items-center font-mono text-[0.75rem] text-muted tabular-nums'>{playing ? <Bars still={playing === 'paused'} /> : index + 1}</span>
             <p className={cn('min-w-0 flex-1 truncate text-[0.875rem]', playing ? 'font-medium text-fg' : 'text-fg')}>{title}</p>
             <p className='hidden w-1/3 truncate text-[0.8125rem] text-muted md:block'>{artist}</p>
-            <Heart liked={liked} on_toggle={() => void toggle_like(name)} size={16} className={cn('size-8', !liked && 'opacity-0 group-hover:opacity-100')} />
+            <Heart liked={liked} on_toggle={() => void toggle_like(name)} size={16} className={cn('size-8', !liked && 'opacity-0 group-hover:opacity-100 max-sm:hidden')} />
+            <More target={{ kind: 'song', song: name, within }} className='-mr-2' />
         </div>
     )
 })
 
-const row_grid = 'grid-cols-[2rem_minmax(0,1fr)_2rem_3.5rem] md:grid-cols-[2rem_minmax(0,1.6fr)_minmax(0,1fr)_7rem_2rem_3.5rem]'
+const row_grid = 'grid-cols-[2rem_minmax(0,1fr)_2rem_3.5rem] md:grid-cols-[2rem_minmax(0,1.6fr)_minmax(0,1fr)_7rem_2rem_3.5rem] max-sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] max-sm:gap-2'
 
 export const TrackRow = memo(function TrackRow({ name, within, index = 0 }: TrackProps) {
     const { cover, liked, title, artist } = useTrack(name)
@@ -150,27 +157,28 @@ export const TrackRow = memo(function TrackRow({ name, within, index = 0 }: Trac
             onClick={() => void play_from(name, within ?? null)}
             onKeyDown={(e) => e.key === 'Enter' && void play_from(name, within ?? null)}
             onContextMenu={context({ kind: 'song', song: name, within })}
-            className={cn('group relative grid h-(--row) items-center gap-3 rounded-lg px-3 transition-colors hover:bg-surface-2', row_grid, playing && 'needle')}
+            className={cn('group relative grid h-(--row) items-center gap-3 rounded-lg px-3 transition-colors hover:bg-surface-2 max-sm:-mx-2 max-sm:pr-0 max-sm:pl-2', row_grid, playing && 'needle')}
         >
-            <span className='grid place-items-center font-mono text-[0.75rem] text-muted tabular-nums'>{playing ? <Bars still={playing === 'paused'} /> : index + 1}</span>
+            <span className='grid place-items-center font-mono text-[0.75rem] text-muted tabular-nums max-sm:hidden'>{playing ? <Bars still={playing === 'paused'} /> : index + 1}</span>
             <div className='flex min-w-0 items-center gap-3'>
-                <Cover data={cover} size='sm' className='size-9 in-[[data-density=compact]]:size-7' icon={14} />
+                <Cover data={cover} size='sm' className='size-9 in-[[data-density=compact]]:size-7 max-sm:size-[3.15rem] max-sm:in-[[data-density=compact]]:size-10' icon={14} />
                 <div className='min-w-0'>
-                    <p className={cn('truncate text-[0.875rem]', playing ? 'font-medium text-fg' : 'text-fg')}>{title}</p>
-                    <p className='truncate text-[0.8125rem] text-muted in-[[data-density=compact]]:hidden'>{artist}</p>
+                    <p className={cn('truncate text-[0.875rem] max-sm:text-[1.0625rem]', playing ? 'font-medium text-fg max-sm:text-accent' : 'text-fg')}>{title}</p>
+                    <p className='truncate text-[0.8125rem] text-muted in-[[data-density=compact]]:hidden max-sm:text-[0.9375rem]'>{artist}</p>
                 </div>
             </div>
             <p className='hidden truncate text-[0.8125rem] text-fg-2 md:block'>{album_of(name)}</p>
             <p className='hidden text-[0.8125rem] text-muted md:block'>{format_date(added_of(name))}</p>
-            <Heart liked={liked} on_toggle={() => void toggle_like(name)} size={16} className={cn('size-8', !liked && 'opacity-0 group-hover:opacity-100')} />
-            <p className='text-right font-mono text-[0.75rem] text-muted tabular-nums'>{format_time(length_of(name))}</p>
+            <Heart liked={liked} on_toggle={() => void toggle_like(name)} size={16} className={cn('size-8', !liked && 'opacity-0 group-hover:opacity-100 max-sm:hidden')} />
+            <p className='text-right font-mono text-[0.75rem] text-muted tabular-nums max-sm:w-10 max-sm:text-[0.8125rem]'>{format_time(length_of(name))}</p>
+            <More target={{ kind: 'song', song: name, within }} />
         </div>
     )
 })
 
 // the head over a full list: what each column is
 export const TrackRowHead = () => (
-    <div className={cn('mb-1 grid h-8 items-center gap-3 border-b border-line px-3 text-[0.75rem] text-muted', row_grid)}>
+    <div className={cn('mb-1 grid h-8 items-center gap-3 border-b border-line px-3 text-[0.75rem] text-muted max-sm:hidden', row_grid)}>
         <span className='text-center'>#</span>
         <span>Title</span>
         <span className='hidden md:block'>Album</span>

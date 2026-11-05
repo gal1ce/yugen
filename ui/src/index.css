@@ -249,6 +249,14 @@
         --row-nav: 2.25rem;
     }
 
+    /* a thumb's rows on a phone: the design's sixty pixels */
+    @media (max-width: 639.98px) {
+        html {
+            --row: 4.3rem;
+            --row-line: 3.4rem;
+        }
+    }
+
     html[data-density='compact'] {
         --row: 2.75rem;
         --row-line: 2.25rem;
@@ -1074,5 +1082,27 @@
     :root[data-glass] .btn:not(.btn-fill):hover {
         -webkit-backdrop-filter: none;
         backdrop-filter: none;
+    }
+}
+
+/* the system bars' insets: the engine's own, or what the phone's app measured
+   and handed over (mobile/App.tsx), where a webview reports none */
+:root {
+    --safe-top: max(env(safe-area-inset-top, 0px), var(--inset-top, 0px));
+    --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--inset-bottom, 0px));
+}
+
+/* a finger holding a cover is asking for its menu, not for the system's
+   callout or a selection */
+@media (pointer: coarse) {
+    body {
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    button,
+    a,
+    [role='button'] {
+        touch-action: manipulation;
     }
 }
