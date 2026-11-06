@@ -16,10 +16,6 @@ import { SeeAll, Shelf } from '../media/Rail'
 import { DiscoverShelf } from '../media/Suggest'
 import { Bars, TrackCard } from '../media/Track'
 import { Spin } from '../ui/Spin'
-import { usePhone } from '../../hooks/phone'
-import { group_art, playlist_art, playlist_names_of } from '../../state/derive'
-import { open_group, open_playlist } from '../../state/ui'
-import { Heart, Music2 } from '../ui/icons'
 
 const SHELF = 12
 
@@ -106,7 +102,7 @@ function Hero() {
      * floor of that frame and fading out at both ends.
      */
     return (
-        <section className='@container relative mb-14 overflow-hidden rounded-(--r-panel) border border-line p-6 pb-20 max-sm:mt-2 max-sm:mb-10 max-sm:p-4 max-sm:pb-16'>
+        <section className='@container relative mb-14 overflow-hidden rounded-(--r-panel) border border-line p-6 pb-20 max-sm:mt-2 max-sm:mb-10 max-sm:p-4 max-sm:pb-10'>
             {wave && (
                 <Wave
                     gain={0.95}
@@ -139,18 +135,19 @@ function Hero() {
                     </p>
                 </div>
 
-                <div className='col-start-2 row-start-2 mt-6 flex items-center gap-2 max-sm:col-span-2 max-sm:col-start-1 max-sm:mt-4 max-sm:flex-wrap'>
-                    <Button size='lg' icon={paused ? <Play size={16} /> : <Pause size={16} />} onClick={() => void toggle_pause()}>
+                <div className='col-start-2 row-start-2 mt-6 flex items-center gap-2 max-sm:col-span-2 max-sm:col-start-1 max-sm:mt-4 max-sm:gap-1.5'>
+                    <Button size='lg' icon={paused ? <Play size={16} /> : <Pause size={16} />} onClick={() => void toggle_pause()} className='max-sm:h-10 max-sm:px-4'>
                         {paused ? 'Resume' : 'Pause'}
                     </Button>
-                    <Button size='lg' variant='secondary' icon={<MicVocal size={16} />} onClick={() => open_lyrics()}>
+                    <Button size='lg' variant='secondary' icon={<MicVocal size={16} />} onClick={() => open_lyrics()} className='max-sm:h-10 max-sm:px-4'>
                         Lyrics
                     </Button>
-                    <IconButton size='lg' variant='soft' {...tip('Track info')} onClick={() => ui.set({ info_open: true, info_face: 'about' })}>
+                    <IconButton size='lg' variant='soft' {...tip('Track info')} onClick={() => ui.set({ info_open: true, info_face: 'about' })} className='max-sm:size-10'>
                         <Info size={18} />
                     </IconButton>
                     <IconButton
                         size='lg'
+                        className='max-sm:size-10'
                         variant='soft'
                         {...tip('More')}
                         onClick={(e) => {
@@ -231,53 +228,7 @@ function Shelves() {
     )
 }
 
-type Quick = { key: string; label: string; art: string; go: () => void; icon?: React.ReactNode }
-
-/*
- * A phone's way in: the player is already in the dock, so the head of the
- * page is the places it goes back to most - the two collections, the pinned
- * playlists, then the others and the albums most recently added to - as small
- * glass tiles, two to a row, under a thumb.
- */
-function QuickTiles() {
-    const playlists = useStore(library, (s) => s.playlists)
-    // the tiles read their sleeves off the library: they draw again as covers arrive
-    useStore(library, (s) => s.covers)
-    const view_covers = useStore(library, (s) => s.view_covers)
-    useStore(library, (s) => s.meta)
-    const pins = useStore(ui, (s) => s.pins)
-    const albums = useAlbums()
-
-    const tiles: Quick[] = [
-        { key: 'liked', label: 'Liked songs', art: view_covers.liked ?? '', go: () => open_view('liked'), icon: <Heart size={18} className='fill-current text-accent' /> },
-        { key: 'songs', label: 'All songs', art: view_covers.songs ?? '', go: () => open_view('songs'), icon: <Music2 size={18} className='text-fg-2' /> },
-    ]
-    for (const name of playlist_names_of(playlists, pins)) tiles.push({ key: `p:${name}`, label: name, art: playlist_art(name), go: () => open_playlist(name) })
-    const newest = [...albums].sort(([, a], [, b]) => Math.max(...b.map(added_of)) - Math.max(...a.map(added_of)))
-    for (const [name, tracks] of newest) {
-        if (tiles.length >= 8) break
-        tiles.push({ key: `a:${name}`, label: name, art: group_art(tracks), go: () => open_group('albums', name) })
-    }
-
-    return (
-        <div className='mb-9 grid grid-cols-2 gap-2'>
-            {tiles.slice(0, 8).map((tile) => (
-                <button key={tile.key} type='button' onClick={tile.go} className='float thin on-page relative flex h-14 min-w-0 items-center gap-2.5 overflow-hidden rounded-xl pr-2 text-left transition-transform active:scale-[0.97]'>
-                    {tile.art || !tile.icon ? (
-                        <Cover data={tile.art} size='sm' icon={16} className='size-14 shrink-0 rounded-none' />
-                    ) : (
-                        <span className='grid size-14 shrink-0 place-items-center bg-surface-3'>{tile.icon}</span>
-                    )}
-                    <span className='line-clamp-2 min-w-0 text-[0.875rem] leading-tight font-medium'>{tile.label}</span>
-                </button>
-            ))}
-        </div>
-    )
-}
-
 export function HomePage() {
-    const phone = usePhone()
-    const playing = useStore(player, (s) => !!s.current)
     const songs = useStore(library, (s) => s.songs.length)
     const loading = useStore(library, (s) => s.loading)
     const error = useStore(library, (s) => s.scan_error)
@@ -292,15 +243,7 @@ export function HomePage() {
     return (
         <>
             <Head />
-            {/* on a phone what is playing is the dock's; the hero gives way to the tiles */}
-            {phone && songs ? (
-                <>
-                    {!playing && <Hero />}
-                    <QuickTiles />
-                </>
-            ) : (
-                <Hero />
-            )}
+            <Hero />
 
             {songs ? (
                 <>
