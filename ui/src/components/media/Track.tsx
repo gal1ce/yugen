@@ -10,6 +10,7 @@ import { play_from, player } from '../../state/player'
 import { context } from '../../state/ui'
 import { Heart } from '../ui/Controls'
 import { Cover } from '../ui/Cover'
+import { useThumb } from '../../lib/thumbs'
 import { More } from '../ui/More'
 
 /*
@@ -84,24 +85,37 @@ export function Bars({ still, className }: { still?: boolean; className?: string
 }
 
 /*
- * A card: the sleeve, and the two lines under it. Under the pointer the whole
- * card stands on a piece of the same glass the rows are hovered with, the
- * sleeve darkens toward its foot and the play button comes up out of it; the
- * heart waits there too. A liked track says so beside its title rather than
- * with a badge over the picture, and the one playing is ringed in the accent.
+ * A card: a tile of its own, lit from inside by its sleeve - a blurred copy
+ * of the cover behind everything, strongest under the picture and fading out
+ * under the two lines - so a shelf of them reads as so many records rather
+ * than pictures with captions. Under the pointer the tile turns to the glass
+ * the rows are hovered with, the sleeve darkens toward its foot and the play
+ * button comes up out of it; the heart waits there too. A liked track says so
+ * beside its title, and the one playing is ringed in the accent. A phone keeps
+ * the bare card: its shelves are narrow, and every blur is a pass a frame.
  */
 export const TrackCard = memo(function TrackCard({ name, within, className }: TrackProps & { className?: string }) {
     const { cover, liked, title, artist } = useTrack(name)
     const playing = usePlaying(name)
+    const tint = useThumb(cover, 'md')
 
     return (
-        <div className={cn('group relative min-w-0', className)} {...drag(name)} onContextMenu={context({ kind: 'song', song: name, within })}>
-            <span aria-hidden className='hover-glass pointer-events-none absolute -inset-2 rounded-[calc(var(--r-cover)+0.5rem)] opacity-0 transition-opacity duration-200 group-hover:opacity-100' />
+        <div
+            className={cn('card-tile group relative min-w-0 rounded-[calc(var(--r-cover)+0.75rem)] sm:p-3', className)}
+            {...drag(name)}
+            onContextMenu={context({ kind: 'song', song: name, within })}
+        >
+            {tint && (
+                <span aria-hidden className='pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit] max-sm:hidden'>
+                    <img src={tint} alt='' className='card-tint size-full scale-125 object-cover' />
+                </span>
+            )}
+            <span aria-hidden className='hover-glass pointer-events-none absolute inset-0 rounded-[inherit] opacity-0 transition-opacity duration-200 group-hover:opacity-100 max-sm:hidden' />
 
-            <button type='button' className='relative block w-full text-left active:scale-[0.985] transition-[scale]' onClick={() => void play_from(name, within ?? null)}>
+            <button type='button' className='relative block w-full text-left transition-[scale] active:scale-[0.985]' onClick={() => void play_from(name, within ?? null)}>
                 <div
                     className={cn(
-                        'relative aspect-square overflow-hidden rounded-(--r-cover) bg-surface-2 shadow-[0_18px_30px_-20px_rgb(0_0_0/0.75),0_2px_6px_-3px_rgb(0_0_0/0.35)]',
+                        'relative aspect-square overflow-hidden rounded-(--r-cover) bg-surface-2 shadow-[0_16px_28px_-18px_rgb(0_0_0/0.8),0_2px_6px_-3px_rgb(0_0_0/0.35)]',
                         playing && 'outline-2 outline-offset-2 outline-accent',
                     )}
                 >
@@ -120,7 +134,7 @@ export const TrackCard = memo(function TrackCard({ name, within, className }: Tr
                     </span>
                 </div>
 
-                <p className={cn('card-text mt-2.5 flex items-center gap-1.5 text-[0.875rem] font-medium max-sm:pr-8', playing ? 'text-accent' : 'text-fg')}>
+                <p className={cn('card-text mt-3 flex items-center gap-1.5 text-[0.875rem] font-medium max-sm:mt-2.5 max-sm:pr-8', playing ? 'text-accent' : 'text-fg')}>
                     <span className='truncate'>{title}</span>
                     {liked && <HeartIcon size={12} aria-label='Liked' className='shrink-0 fill-current text-accent' />}
                 </p>
@@ -133,7 +147,7 @@ export const TrackCard = memo(function TrackCard({ name, within, className }: Tr
                 liked={liked}
                 on_toggle={() => void toggle_like(name)}
                 size={15}
-                className='absolute top-2 right-2 size-8 rounded-full! bg-black/40 text-white! opacity-0 backdrop-blur-md transition-opacity group-hover:opacity-100 hover:bg-black/60 max-sm:hidden'
+                className='absolute top-5 right-5 size-8 rounded-full! bg-black/40 text-white! opacity-0 backdrop-blur-md transition-opacity group-hover:opacity-100 hover:bg-black/60 max-sm:hidden'
             />
         </div>
     )
@@ -218,3 +232,7 @@ export const TrackRowHead = () => (
 )
 
 export const card_grid = 'grid grid-cols-[repeat(auto-fill,minmax(calc(9.5rem*var(--z-cards,1)),1fr))] gap-x-5 gap-y-6 max-sm:gap-x-3.5'
+
+// track cards stand on tiles with room round the sleeve, so off a phone each
+// takes more of the line, and the tiles themselves keep them apart
+export const tile_grid = 'grid grid-cols-[repeat(auto-fill,minmax(calc(9.5rem*var(--z-cards,1)),1fr))] gap-x-3.5 gap-y-6 sm:grid-cols-[repeat(auto-fill,minmax(calc(11rem*var(--z-cards,1)),1fr))] sm:gap-4'

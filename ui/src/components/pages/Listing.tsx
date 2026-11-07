@@ -19,7 +19,7 @@ import { tip } from '../../lib/tip'
 import { GroupCard, GroupRow } from '../media/Group'
 import { NearbyShelf } from '../media/Suggest'
 import { HoverGlass } from '../ui/HoverGlass'
-import { TrackCard, TrackLine, TrackRow, TrackRowHead, card_grid } from '../media/Track'
+import { TrackCard, TrackLine, TrackRow, TrackRowHead, card_grid, tile_grid } from '../media/Track'
 
 function SortMenu() {
     const [open, set_open] = useState(false)
@@ -209,7 +209,7 @@ function Tracks({ listed }: { listed: string[] }) {
 
     if (layout === 'grid') {
         return (
-            <div className={card_grid}>
+            <div className={tile_grid}>
                 {listed.map((name, i) => (
                     <TrackCard key={name} name={name} index={i} />
                 ))}
