@@ -6,7 +6,7 @@ import { spring } from '../../lib/motion'
 import { cn } from '../../lib/cn'
 import { MOTIONS, fx, set_motion } from '../../lib/fx'
 import { KEYBINDS, MODIFIER_CODES, combo_of, default_keybinds, key_label, type Bind } from '../../lib/keys'
-import { BACKDROPS, CORNERS, DENSITIES, FEELS, LIGHT_RANGE, LYRICS_SIZES, PACES, PALETTES, PLACES, RADII, REGIONS, SCALES, SCROLLINGS, SEARCH_MODES, SIZE_PARTS, SWATCHES, palette_of, save_pref, type Corners as CornerChoice, type Scale, type Palette, type Theme } from '../../lib/prefs'
+import { BACKDROPS, CARD_STYLES, CARD_TONES, CORNERS, DENSITIES, FEELS, LIGHT_RANGE, LYRICS_SIZES, PACES, PALETTES, PLACES, RADII, REGIONS, SCALES, SCROLLINGS, SEARCH_MODES, SIZE_PARTS, SWATCHES, palette_of, save_pref, type Corners as CornerChoice, type Scale, type Palette, type Theme } from '../../lib/prefs'
 import { useStore } from '../../lib/store'
 import { change_keybinds } from '../../state/keys'
 import { fetch_songs, library } from '../../state/library'
@@ -24,8 +24,8 @@ import { HoverGlass } from '../ui/HoverGlass'
  * - a Group is a heading over a card;
  * - a Row is a line of that card: what it is (and a line on what it does) on
  *   the left, its control always on the right;
- * - a Sub hangs under the row it belongs to, indented behind a rule, and
- *   fades when that row is off - so it is plain which option an option is of;
+ * - a Sub hangs under the row it belongs to, a well pressed into the card,
+ *   and fades when that row is off - so it is plain which option an option is of;
  * - a Block is something that needs the full width (the themes, the keys),
  *   its label above it.
  */
@@ -51,10 +51,11 @@ function Row({ title, hint, dimmed, children }: { title: ReactNode; hint?: React
     )
 }
 
-// the options of the row above: indented behind a rule, faded with it when it is off
+// the options of the row above: a well pressed into the group right under
+// it, so they read as that row's own, and faded with it when it is off
 function Sub({ off, children }: { off?: boolean; children: ReactNode }) {
     return (
-        <div inert={off} className={cn('mb-3 ml-1 divide-y divide-line border-l-2 border-line-strong pl-5 transition-opacity', off && 'opacity-40')}>
+        <div inert={off} className={cn('settings-sub mb-4 divide-y divide-line px-4 transition-opacity', off && 'opacity-40')}>
             {children}
         </div>
     )
@@ -359,6 +360,8 @@ export function SettingsPage() {
     const pace = useStore(ui, (s) => s.pace)
     const cover_accent = useStore(ui, (s) => s.cover_accent)
     const density = useStore(ui, (s) => s.density)
+    const card_style = useStore(ui, (s) => s.card_style)
+    const card_tone = useStore(ui, (s) => s.card_tone)
     const nebula = useStore(ui, (s) => s.nebula)
     const lyrics_size = useStore(ui, (s) => s.lyrics_size)
     const lp_lyrics = useStore(ui, (s) => s.lp_lyrics)
@@ -405,6 +408,14 @@ export function SettingsPage() {
                     <Row title='Density' hint='How tall the rows in a listing are'>
                         <Segmented value={density} options={DENSITIES} on_change={(next) => set_pref('density', next)} />
                     </Row>
+                    <Row title='Track cards' hint={card_style === 'sleeve' ? 'One piece: the cover over a label with the title, the artist and the length' : 'The cover on its own, with two lines under it'}>
+                        <Segmented value={card_style} options={CARD_STYLES} on_change={(next) => set_pref('card_style', next)} />
+                    </Row>
+                    <Sub off={card_style !== 'sleeve'}>
+                        <Row title='Label colour' hint={card_tone === 'cover' ? 'Each label is tinted with the colour of its own cover' : 'Every label is the plain colour of the theme'}>
+                            <Segmented value={card_tone} options={CARD_TONES} on_change={(next) => set_pref('card_tone', next)} />
+                        </Row>
+                    </Sub>
                     <Row title='Floating bar' hint={bar_float ? 'The search and the buttons beside it stay over the page, on a bar that comes away from the top as you scroll' : 'The search and the buttons beside it scroll away with the page'}>
                         <Switch on={bar_float} label='Floating bar' on_toggle={() => set_pref('bar_float', !bar_float)} />
                     </Row>

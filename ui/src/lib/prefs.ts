@@ -162,6 +162,23 @@ export function stored_sizes(): Record<SizePart, Scale> {
     return Object.fromEntries(SIZE_PARTS.map(({ id }) => [id, raw?.[id] && ids.includes(raw[id]) ? raw[id] : old])) as Record<SizePart, Scale>
 }
 
+// how a track is drawn as a card: a sleeve over a label, one object, or the
+// first way - the bare sleeve and two lines under it
+export type CardStyle = 'sleeve' | 'classic'
+
+export const CARD_STYLES: { id: CardStyle; label: string }[] = [
+    { id: 'sleeve', label: 'Sleeve' },
+    { id: 'classic', label: 'Classic' },
+]
+
+// where a sleeve card's label takes its colour
+export type CardTone = 'cover' | 'theme'
+
+export const CARD_TONES: { id: CardTone; label: string }[] = [
+    { id: 'cover', label: 'From the cover' },
+    { id: 'theme', label: 'From the theme' },
+]
+
 export type Density = 'comfortable' | 'compact'
 
 export const DENSITIES: { id: Density; label: string }[] = [
