@@ -8,7 +8,7 @@ import { Button } from '../ui/Button'
 import { Empty } from '../ui/Controls'
 import { Cover } from '../ui/Cover'
 import { tip } from '../../lib/tip'
-import { TrackCard, card_grid } from '../media/Track'
+import { TrackCard, tile_grid } from '../media/Track'
 
 export function ProfilePage() {
     const username = useStore(library, (s) => s.username)
@@ -69,7 +69,7 @@ export function ProfilePage() {
 
             <h2 className='mb-4 text-[1.125rem] font-medium'>Favorite songs</h2>
             {favorites.length ? (
-                <div className={card_grid}>
+                <div className={tile_grid}>
                     {favorites.map((name, i) => (
                         <TrackCard key={name} name={name} within={favorites} index={i} />
                     ))}
