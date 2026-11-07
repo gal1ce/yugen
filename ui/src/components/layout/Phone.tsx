@@ -13,6 +13,7 @@ import { IconButton } from '../ui/Button'
 import { Cover } from '../ui/Cover'
 import { Heart, Home, LayoutGrid, Music2, Pause, Play, Search, SkipForward } from '../ui/icons'
 import { root_of, to_top } from '../../state/screens'
+import { press } from '../../hooks/press'
 
 /*
  * The window on a phone: one page, and floating over its foot the player and
@@ -214,7 +215,8 @@ export function TabBar() {
 
     // the screens are kept (layout/Screens), so a tab is gone to in the frame
     // of the press: no frame held back for the glass to set off first. the
-    // tab already open, pressed again, goes back to its top
+    // tab already open, pressed again, goes back to its top. a press is taken
+    // even while the page under the bar is still flung (hooks/press)
     const go = (i: number) => (i === at ? to_top() : TABS[i].go())
     // which way the piece last went: the tab before is kept as state and
     // moved on during the render that sees a new one
@@ -258,7 +260,7 @@ export function TabBar() {
                             type='button'
                             aria-label={tab.label}
                             aria-current={i === at ? 'page' : undefined}
-                            onClick={() => go(i)}
+                            {...press(() => go(i))}
                             className={cn('relative z-10 grid place-items-center rounded-full transition-colors', i === at ? 'text-fg' : 'text-fg-2')}
                         >
                             <Glyph size={24} className={cn(i === at && i !== SEARCH && 'fill-current')} />

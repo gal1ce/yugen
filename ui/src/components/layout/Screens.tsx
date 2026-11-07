@@ -14,6 +14,7 @@ import { SettingsPage } from '../pages/Settings'
 import { Scroll } from '../ui/Scroll'
 import { ChevronLeft } from '../ui/icons'
 import { ProfileMenu, SearchBox } from './TopBar'
+import { press } from '../../hooks/press'
 
 /*
  * A phone's screens, the way a phone's own apps keep them: each tab is a
@@ -54,7 +55,7 @@ export function ScreenBar({ title, large = false, back = false, actions }: { tit
             {floating && <div aria-hidden className={cn('phone-bar-body pointer-events-none absolute', glass ? 'float thin lens-glass' : 'float')} />}
             <div className='phone-bar-row relative flex h-full items-center gap-1'>
                 {back && (
-                    <button type='button' aria-label='Back' onClick={go_back} className='grid size-11 shrink-0 place-items-center rounded-full text-fg active:bg-surface-2'>
+                    <button type='button' aria-label='Back' {...press(go_back)} className='grid size-11 shrink-0 place-items-center rounded-full text-fg active:bg-surface-2'>
                         <ChevronLeft size={20} weight='bold' />
                     </button>
                 )}

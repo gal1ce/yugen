@@ -74,6 +74,13 @@ function grain_url() {
     return grain
 }
 
+// the layers from the newest one fully shown up: everything under it is hidden
+function shown_from(layers: Layer[], now: number) {
+    let from = 0
+    layers.forEach((l, i) => now - l.born >= FADE && (from = i))
+    return from ? layers.slice(from) : layers
+}
+
 export function Ambient({ className, page = true, boost = 1 }: { className?: string; page?: boolean; boost?: number }) {
     const ref = useRef<HTMLCanvasElement>(null)
     const layers = useRef<Layer[]>([])
@@ -103,8 +110,11 @@ export function Ambient({ className, page = true, boost = 1 }: { className?: str
                 if (!live || !image) return
 
                 const now = performance.now() / 1000
-                // the ones fully covered by now are let go
-                layers.current = [...layers.current.filter((l) => now - l.born < FADE), { image, born: now }].slice(-2)
+                // the new cover comes in over what is up now; only what is
+                // already under a fully shown layer is let go. (keeping only
+                // the layers still fading let go of the one on screen, and the
+                // room went dark for each new track and came back in)
+                layers.current = [...shown_from(layers.current, now), { image, born: now }].slice(-3)
                 redraw.current()
             })
 
@@ -118,8 +128,11 @@ export function Ambient({ className, page = true, boost = 1 }: { className?: str
         const ctx = canvas?.getContext('2d')
         if (!canvas || !ctx) return
 
-        canvas.width = W
-        canvas.height = H
+        // a canvas given its size again is cleared, even the same size: done
+        // on each play and pause, the room went dark until the next beat
+        // drew it - a beat that waits for a still finger (lib/fx)
+        if (canvas.width !== W) canvas.width = W
+        if (canvas.height !== H) canvas.height = H
 
         // one clock for the turning, so stopping and starting the drift picks
         // up where it was rather than jumping
@@ -133,6 +146,9 @@ export function Ambient({ className, page = true, boost = 1 }: { className?: str
             ctx.globalAlpha = 1
             ctx.filter = 'none'
             ctx.clearRect(0, 0, W, H)
+
+            // what a new cover has fully covered is not drawn under it again
+            layers.current = shown_from(layers.current, now)
 
             for (const layer of layers.current) {
                 const shown = Math.min((now - layer.born) / FADE, 1)
@@ -178,6 +194,7 @@ export function Ambient({ className, page = true, boost = 1 }: { className?: str
         }
 
         redraw.current = () => {}
+        draw(clock)
 
         // light this slow is smooth at thirty frames a second
         return add_painter(
