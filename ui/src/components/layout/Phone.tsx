@@ -23,20 +23,26 @@ import { Brand, ProfileMenu, SearchBox } from './TopBar'
 
 // the head of the page: the name, the look, and the profile (settings are in
 // its menu, as on the desktop). the search is a section of its own down in the
-// tabs. by default it is the top of the page and goes up with it; floating (a
-// setting) it stays, and once the page is under it a ground comes up behind it
-// - a smoke of the page's own colour, not a frost: on a phone every backdrop
-// is another pass over the screen each frame the page moves
+// tabs. by default it is the top of the page and goes up with it. floating (a
+// setting) it does what the desktop's bar does: once the page is under it, it
+// comes away from the top edge as a capsule of the same glass as the dock and
+// the tabs - drawn in from the sides, rounded off, dropped a little - and at
+// the top of the page it goes back into the edge
 export function PhoneBar({ floating = false }: { floating?: boolean }) {
+    const glass = useStore(ui, (s) => s.glass)
+
     return (
         <header
             data-floating={floating || undefined}
-            className='phone-bar absolute inset-x-0 top-0 z-30 flex h-[calc(var(--safe-top)+4.25rem)] items-center justify-between px-3 pt-[calc(var(--safe-top)+0.5rem)]'
+            className='phone-bar absolute inset-x-0 top-0 z-30 h-[calc(var(--safe-top)+4.25rem)] pt-[calc(var(--safe-top)+0.5rem)]'
         >
-            <Brand />
-            <div className='flex items-center gap-1'>
-                <QuickLook large />
-                <ProfileMenu />
+            {floating && <div aria-hidden className={cn('phone-bar-body pointer-events-none absolute', glass ? 'float thin lens-glass' : 'float')} />}
+            <div className='phone-bar-row relative flex h-full items-center justify-between px-3'>
+                <Brand />
+                <div className='flex items-center gap-1'>
+                    <QuickLook large />
+                    <ProfileMenu />
+                </div>
             </div>
         </header>
     )

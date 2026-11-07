@@ -1040,27 +1040,60 @@
 }
 
 /* ---------- a phone's bar, floating ----------
-   it stays over the page; once anything is under it (the frame's
-   [data-scrolled], App) a ground fades up behind it with a hairline under -
-   the page's own colour, or with liquid glass ios's frosted bar - and goes
-   again at the top */
-.phone-bar[data-floating] {
-    transition: background-color 0.2s ease, box-shadow 0.2s ease, backdrop-filter 0.2s ease;
+   the desktop's floating bar, on a phone: at the top of the page the body is
+   one with the edge - as wide as the screen, square, unseen. once anything
+   is under it (the frame's [data-scrolled], App) it comes away: drawn in from
+   the sides, rounded into a capsule, dropped below the status bar, and seen -
+   the dock's glass (.float.lens-glass), or its solid fill without liquid
+   glass. the controls go in with it. at the top again it all goes back */
+.phone-bar-body {
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 0;
+    opacity: 0;
+    transition:
+        top 0.32s cubic-bezier(0.2, 0.8, 0.2, 1),
+        left 0.32s cubic-bezier(0.2, 0.8, 0.2, 1),
+        right 0.32s cubic-bezier(0.2, 0.8, 0.2, 1),
+        bottom 0.32s cubic-bezier(0.2, 0.8, 0.2, 1),
+        border-radius 0.32s cubic-bezier(0.2, 0.8, 0.2, 1),
+        opacity 0.2s ease;
 }
 
-[data-scrolled] > .phone-bar[data-floating] {
-    background: color-mix(in oklab, var(--bg) 96%, transparent);
-    box-shadow: 0 1px 0 color-mix(in oklab, var(--fg) 8%, transparent);
+.phone-bar-row {
+    transition: padding 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/* with liquid glass it is ios's bar: the page going under it is frosted and
-   shows through, a hair of a line under it. one backdrop the width of the
-   screen, kept to a modest blur - a phone draws it every frame it scrolls */
-:root[data-glass] [data-scrolled] > .phone-bar[data-floating] {
-    background: color-mix(in oklab, var(--bg) 64%, transparent);
-    -webkit-backdrop-filter: blur(18px) saturate(1.8);
-    backdrop-filter: blur(18px) saturate(1.8);
-    box-shadow: 0 0.5px 0 color-mix(in oklab, var(--fg) 14%, transparent);
+[data-scrolled] > .phone-bar[data-floating] .phone-bar-body {
+    top: calc(var(--safe-top) + 0.375rem);
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: 0.125rem;
+    border-radius: 9999px;
+    opacity: 1;
+}
+
+[data-scrolled] > .phone-bar[data-floating] .phone-bar-row {
+    padding-inline: 1.375rem 1rem;
+}
+
+/* the page going by over the bar runs under the status bar too: a fade of
+   the ground there keeps the clock and the icons read */
+.phone-bar[data-floating]::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto;
+    height: calc(var(--safe-top) + 1.5rem);
+    background: linear-gradient(color-mix(in oklab, var(--bg) 94%, transparent) var(--safe-top), transparent);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+[data-scrolled] > .phone-bar[data-floating]::before {
+    opacity: 1;
 }
 
 /* ---------- settings: the section picked from the index ----------
