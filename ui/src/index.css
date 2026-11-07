@@ -970,6 +970,27 @@
         0 0.25rem 0.5rem -0.25rem color-mix(in oklab, var(--mode-shadow) 60%, transparent);
 }
 
+/* ---------- settings: the section picked from the index ----------
+   for a moment the others step back and its card is ringed in the accent
+   (pages/Settings spotlight), then everything settles again */
+[data-section] {
+    transition: opacity 0.35s ease;
+}
+
+[data-spot] > [data-section]:not([data-lit]) {
+    opacity: 0.35;
+}
+
+.settings-card {
+    transition: box-shadow 0.35s ease;
+}
+
+[data-lit] > .settings-card {
+    box-shadow:
+        inset 0 0 0 1px color-mix(in oklab, var(--accent) 70%, transparent),
+        0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent) !important;
+}
+
 /* ---------- settings: a row's own options ----------
    a well pressed into the group under the row it belongs to (pages/Settings
    Sub): a step of the text colour, a hairline round it and a little shade
@@ -983,6 +1004,11 @@
     box-shadow:
         inset 0 0 0 1px color-mix(in oklab, var(--fg) 6%, transparent),
         inset 0 1px 2px color-mix(in oklab, var(--mode-shadow) 35%, transparent);
+}
+
+/* the last thing in a group: as far from the group's foot as from its sides */
+.settings-sub:last-child {
+    margin-bottom: 1.25rem;
 }
 
 .settings-sub > * {
@@ -1049,8 +1075,8 @@
    once the page is under it, one body comes up behind all of them and tears
    off the top edge to float (layout/GlassBar), shaped by a mask the component
    draws, with its shadow in a layer of its own under it. solid, the body is
-   the floating fill; with liquid glass, clear glass that bends and lights
-   what is behind it (#bar-lens). on the bare page the search field stands on
+   the floating fill; with liquid glass, frosted glass with a rim of light
+   laid over it (.bar-rim). on the bare page the search field stands on
    its own - a well with a hairline round it, or with liquid glass a piece of
    glass; as the bar comes up around it (--lift, 0 to 1, set by the bar) that
    goes into the bar, so in the bar it is a field of the bar rather than a
@@ -1067,8 +1093,25 @@
     background:
         linear-gradient(color-mix(in oklab, var(--edge) 7%, transparent), transparent 46%),
         color-mix(in oklab, var(--bg) var(--bar-smoke, 56%), transparent);
-    -webkit-backdrop-filter: url(#bar-lens) blur(16px) saturate(1.25);
-    backdrop-filter: url(#bar-lens) blur(16px) saturate(1.25);
+    -webkit-backdrop-filter: blur(16px) saturate(1.25);
+    backdrop-filter: blur(16px) saturate(1.25);
+}
+
+/* the light along the floating bar's edge - caught along the top, in round
+   the sides, the foot a little darker - laid over it as a fixed thing, since
+   a backdrop lens computing it was most of every frame of a scroll */
+.bar-rim {
+    display: none;
+}
+
+:root[data-glass] .bar-rim {
+    display: block;
+    box-shadow:
+        inset 0 1px 0.5px color-mix(in oklab, var(--edge) 26%, transparent),
+        inset 0 0 0 1px color-mix(in oklab, var(--edge) 7%, transparent),
+        inset 8px 0 12px -10px color-mix(in oklab, var(--edge) 22%, transparent),
+        inset -8px 0 12px -10px color-mix(in oklab, var(--edge) 22%, transparent),
+        inset 0 -3px 6px -3px color-mix(in oklab, var(--g) 60%, transparent);
 }
 
 /* paper is lit from in front: a lighter smoke would let a cover going under

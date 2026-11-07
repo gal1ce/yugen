@@ -15,6 +15,8 @@ import { bridge } from './bridge'
  */
 let interval = 0
 let next_target = 0
+// when the beat that is waiting was due
+let due_at = 0
 let timer: ReturnType<typeof setTimeout> | undefined
 let queue = new Map<number, (now: number) => void>()
 let next_id = 1
@@ -22,7 +24,13 @@ let next_id = 1
 function beat() {
     timer = undefined
 
-    const now = performance.now()
+    // the time the beat was due, not the time the timer woke: a timer wakes a
+    // millisecond early or two late, and a glide stepped by when it woke moves
+    // a different distance each frame - at 165 Hz that is a step a fifth too
+    // long or too short, which reads as a shiver. stepped by the beat, every
+    // frame is the same length and the motion is even. a beat late by a whole
+    // interval is the count starting again (schedule), not a catch-up
+    const now = due_at
     const due = queue
     queue = new Map()
 
@@ -41,6 +49,7 @@ function schedule() {
     next_target += interval
     if (next_target < now - interval) next_target = now + interval
 
+    due_at = next_target
     timer = setTimeout(beat, Math.max(0, next_target - now))
 }
 
