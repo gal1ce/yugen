@@ -157,7 +157,7 @@ export function Shelf({ title, note, action, children }: { title: ReactNode; not
         >
             {/* clipped, not scrollable: the padding keeps a card's shadow from
                 being cut off at the edges */}
-            <div ref={box} className='-mx-2 -mt-2 flex gap-4 overflow-hidden px-2 pt-2 pb-4 [&>*]:w-46 [&>*]:shrink-0'>
+            <div ref={box} className='-mx-2 -mt-2 flex gap-4 overflow-hidden px-2 pt-2 pb-4 [&>*]:w-42 [&>*]:shrink-0'>
                 {children}
             </div>
         </Section>

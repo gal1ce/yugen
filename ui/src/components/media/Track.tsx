@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef } from 'react'
+import { memo, useEffect, useReducer, useRef } from 'react'
 import { paced } from '../../lib/frames'
 import { add_painter } from '../../lib/fx'
 import { Heart as HeartIcon, Play } from '../ui/icons'
@@ -10,6 +10,7 @@ import { play_from, player } from '../../state/player'
 import { context } from '../../state/ui'
 import { Heart } from '../ui/Controls'
 import { Cover } from '../ui/Cover'
+import { palette_of } from '../../lib/palette'
 import { useThumb } from '../../lib/thumbs'
 
 /*
@@ -79,44 +80,56 @@ export function Bars({ still, className }: { still?: boolean; className?: string
     )
 }
 
+// the strongest colour of a sleeve, read once from its shrunk copy and kept:
+// what a card's label is tinted with
+const tones = new Map<string, string>()
+const asked = new Set<string>()
+
+function useTone(src?: string | null) {
+    const [, landed] = useReducer((count: number) => count + 1, 0)
+
+    useEffect(() => {
+        if (!src || tones.has(src) || asked.has(src)) return
+        asked.add(src)
+        void palette_of(src).then((colours) => {
+            tones.set(src, colours[0] ?? '')
+            landed()
+        })
+    }, [src])
+
+    return src ? tones.get(src) || undefined : undefined
+}
+
 /*
- * A card: a tile of its own, lit from inside by its sleeve - a blurred copy
- * of the cover behind everything, strongest under the picture and fading out
- * under the two lines - so a shelf of them reads as so many records rather
- * than pictures with captions. Under the pointer the tile turns to the glass
- * the rows are hovered with, the sleeve darkens toward its foot and the play
- * button comes up out of it; the heart waits there too. A liked track says so
- * beside its title, and the one playing is ringed in the accent. A phone keeps
- * the bare card: its shelves are narrow, and every blur is a pass a frame.
+ * A card, made the way a record is: the sleeve fills the top of it edge to
+ * edge, and under it a label - the title, the artist, the length - on a strip
+ * of the card tinted with the sleeve's own strongest colour. One object with
+ * one hairline round all of it, so a black sleeve and a white one both have
+ * an edge, and nothing under it: no shadow, no bleed. Under the pointer it
+ * stands on the glass the rows are hovered with, the sleeve darkens toward
+ * its foot and the play button comes up out of it; the heart waits there too.
+ * A liked track says so beside its title, and the one playing is ringed in
+ * the accent.
  */
 export const TrackCard = memo(function TrackCard({ name, within, className }: TrackProps & { className?: string }) {
     const { cover, liked, title, artist } = useTrack(name)
     const playing = usePlaying(name)
-    const tint = useThumb(cover, 'md')
+    const tone = useTone(useThumb(cover, 'sm'))
 
     return (
-        <div
-            className={cn('card-tile group relative min-w-0 rounded-[calc(var(--r-cover)+0.75rem)] sm:p-3', className)}
-            {...drag(name)}
-            onContextMenu={context({ kind: 'song', song: name, within })}
-        >
-            {tint && (
-                <span aria-hidden className='pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]'>
-                    <img src={tint} alt='' className='card-tint size-full scale-125 object-cover' />
-                </span>
-            )}
-            <span aria-hidden className='hover-glass pointer-events-none absolute inset-0 rounded-[inherit] opacity-0 transition-opacity duration-200 group-hover:opacity-100' />
+        <div className={cn('group relative min-w-0', className)} {...drag(name)} onContextMenu={context({ kind: 'song', song: name, within })}>
+            <span aria-hidden className='hover-glass pointer-events-none absolute -inset-1.5 rounded-[calc(var(--r-card)+0.375rem)] opacity-0 transition-opacity duration-200 group-hover:opacity-100' />
 
-            <button type='button' className='relative block w-full text-left transition-[scale] active:scale-[0.985]' onClick={() => void play_from(name, within ?? null)}>
+            <button
+                type='button'
+                className={cn('card-sleeve relative block w-full text-left transition-[scale] active:scale-[0.985]', playing && 'outline-2 outline-offset-2 outline-accent')}
+                style={tone ? ({ '--tone': tone } as React.CSSProperties) : undefined}
+                onClick={() => void play_from(name, within ?? null)}
+            >
                 <div
-                    className={cn(
-                        'relative aspect-square overflow-hidden rounded-(--r-cover) bg-surface-2 shadow-[0_16px_28px_-18px_rgb(0_0_0/0.8),0_2px_6px_-3px_rgb(0_0_0/0.35)]',
-                        playing && 'outline-2 outline-offset-2 outline-accent',
-                    )}
+                    className='relative aspect-square overflow-hidden bg-surface-2'
                 >
                     <Cover data={cover} size='md' icon={28} className='size-full rounded-none' />
-                    {/* a hairline of light round the sleeve, so a dark one still has an edge */}
-                    <span aria-hidden className='pointer-events-none absolute inset-0 rounded-[inherit] shadow-[inset_0_0_0_1px_rgb(255_255_255/0.09)]' />
                     <span aria-hidden className='pointer-events-none absolute inset-0 bg-linear-to-t from-black/55 via-black/10 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100' />
 
                     <span
@@ -129,11 +142,16 @@ export const TrackCard = memo(function TrackCard({ name, within, className }: Tr
                     </span>
                 </div>
 
-                <p className={cn('mt-3 flex items-center gap-1.5 text-[0.875rem] font-medium', playing ? 'text-accent' : 'text-fg')}>
-                    <span className='truncate'>{title}</span>
-                    {liked && <HeartIcon size={12} aria-label='Liked' className='shrink-0 fill-current text-accent' />}
-                </p>
-                <p className='truncate text-[0.8125rem] text-muted'>{artist}</p>
+                <div className='px-3 pt-2.5 pb-3'>
+                    <p className={cn('flex items-center gap-1.5 text-[0.875rem] font-medium', playing ? 'text-accent' : 'text-fg')}>
+                        <span className='truncate'>{title}</span>
+                        {liked && <HeartIcon size={12} aria-label='Liked' className='shrink-0 fill-current text-accent' />}
+                    </p>
+                    <p className='flex items-baseline gap-2 text-[0.8125rem] text-muted'>
+                        <span className='min-w-0 flex-1 truncate'>{artist}</span>
+                        <span className='shrink-0 font-mono text-[0.6875rem] tabular-nums'>{format_time(length_of(name))}</span>
+                    </p>
+                </div>
             </button>
 
             {/* outside the main button, so buttons are not nested */}
@@ -141,7 +159,7 @@ export const TrackCard = memo(function TrackCard({ name, within, className }: Tr
                 liked={liked}
                 on_toggle={() => void toggle_like(name)}
                 size={15}
-                className='absolute top-5 right-5 size-8 rounded-full! bg-black/40 text-white! opacity-0 backdrop-blur-md transition-opacity group-hover:opacity-100 hover:bg-black/60'
+                className='absolute top-2.5 right-2.5 size-8 rounded-full! bg-black/40 text-white! opacity-0 backdrop-blur-md transition-opacity group-hover:opacity-100 hover:bg-black/60'
             />
         </div>
     )
@@ -225,6 +243,6 @@ export const TrackRowHead = () => (
 
 export const card_grid = 'grid grid-cols-[repeat(auto-fill,minmax(calc(9.5rem*var(--z-cards,1)),1fr))] gap-x-5 gap-y-6 max-sm:gap-x-3.5'
 
-// track cards stand on tiles with room round the sleeve, so off a phone each
-// takes more of the line, and the tiles themselves keep them apart
-export const tile_grid = 'grid grid-cols-[repeat(auto-fill,minmax(calc(9.5rem*var(--z-cards,1)),1fr))] gap-x-3.5 gap-y-6 sm:grid-cols-[repeat(auto-fill,minmax(calc(11rem*var(--z-cards,1)),1fr))] sm:gap-4'
+// track cards are whole objects with a label under the sleeve, so they keep
+// a little more of the line and a little less room between them
+export const tile_grid = 'grid grid-cols-[repeat(auto-fill,minmax(calc(9.5rem*var(--z-cards,1)),1fr))] gap-x-3.5 gap-y-6 sm:grid-cols-[repeat(auto-fill,minmax(calc(10rem*var(--z-cards,1)),1fr))] sm:gap-x-4 sm:gap-y-5'
