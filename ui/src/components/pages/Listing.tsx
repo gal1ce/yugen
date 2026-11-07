@@ -18,6 +18,7 @@ import { MenuItem, MenuLabel, MenuPanel, MenuSep } from '../ui/Menu'
 import { tip } from '../../lib/tip'
 import { GroupCard, GroupRow } from '../media/Group'
 import { NearbyShelf } from '../media/Suggest'
+import { HoverGlass } from '../ui/HoverGlass'
 import { TrackCard, TrackLine, TrackRow, TrackRowHead, card_grid } from '../media/Track'
 
 function SortMenu() {
@@ -202,7 +203,8 @@ function Tracks({ listed }: { listed: string[] }) {
 
     if (layout === 'compact') {
         return (
-            <div className='space-y-0.5'>
+            <div className='relative space-y-0.5'>
+                <HoverGlass className='rounded-[min(var(--r-control),1.25rem)]' />
                 {listed.map((name, i) => (
                     <TrackLine key={name} name={name} index={i} />
                 ))}
@@ -211,7 +213,8 @@ function Tracks({ listed }: { listed: string[] }) {
     }
 
     return (
-        <div>
+        <div className='relative'>
+            <HoverGlass className='rounded-[min(var(--r-control),1.25rem)]' />
             <TrackRowHead />
             {listed.map((name, i) => (
                 <TrackRow key={name} name={name} index={i} />

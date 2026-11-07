@@ -156,6 +156,8 @@ export function HoverGlass({ className }: { className?: string }) {
         }
 
         const on_over = (event: PointerEvent) => {
+            // a finger has no hover: a tap would leave the glass on its row
+            if (event.pointerType === 'touch') return
             const row = (event.target as Element).closest<HTMLElement>('[data-hover]')
             if (!row || !list.contains(row) || row === over) return
             over = row

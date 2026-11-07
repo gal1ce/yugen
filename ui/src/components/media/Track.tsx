@@ -114,6 +114,14 @@ export const TrackCard = memo(function TrackCard({ name, within, className }: Tr
     )
 })
 
+// a row's place in the list, and under the pointer what a click on it does
+const Numbered = ({ index }: { index: number }) => (
+    <>
+        <span className='group-hover:hidden'>{index + 1}</span>
+        <Play size={14} className='hidden text-fg group-hover:block' />
+    </>
+)
+
 export const TrackLine = memo(function TrackLine({ name, within, index = 0 }: TrackProps) {
     const { liked, title, artist } = useTrack(name)
     const playing = usePlaying(name)
@@ -126,9 +134,10 @@ export const TrackLine = memo(function TrackLine({ name, within, index = 0 }: Tr
             onClick={() => void play_from(name, within ?? null)}
             onKeyDown={(e) => e.key === 'Enter' && void play_from(name, within ?? null)}
             onContextMenu={context({ kind: 'song', song: name, within })}
-            className={cn('group relative flex h-(--row-line) items-center gap-3 rounded-lg px-3 transition-colors hover:bg-surface-2', playing && 'needle')}
+            data-hover
+            className={cn('group relative flex h-(--row-line) items-center gap-3 rounded-lg px-3', playing && 'needle')}
         >
-            <span className='grid w-7 shrink-0 place-items-center font-mono text-[0.75rem] text-muted tabular-nums'>{playing ? <Bars still={playing === 'paused'} /> : index + 1}</span>
+            <span className='grid w-7 shrink-0 place-items-center font-mono text-[0.75rem] text-muted tabular-nums'>{playing ? <Bars still={playing === 'paused'} /> : <Numbered index={index} />}</span>
             <p className={cn('min-w-0 flex-1 truncate text-[0.875rem]', playing ? 'font-medium text-fg' : 'text-fg')}>{title}</p>
             <p className='hidden w-1/3 truncate text-[0.8125rem] text-muted md:block'>{artist}</p>
             <Heart liked={liked} on_toggle={() => void toggle_like(name)} size={16} className={cn('size-8', !liked && 'opacity-0 group-hover:opacity-100')} />
@@ -150,9 +159,10 @@ export const TrackRow = memo(function TrackRow({ name, within, index = 0 }: Trac
             onClick={() => void play_from(name, within ?? null)}
             onKeyDown={(e) => e.key === 'Enter' && void play_from(name, within ?? null)}
             onContextMenu={context({ kind: 'song', song: name, within })}
-            className={cn('group relative grid h-(--row) items-center gap-3 rounded-lg px-3 transition-colors hover:bg-surface-2', row_grid, playing && 'needle')}
+            data-hover
+            className={cn('group relative grid h-(--row) items-center gap-3 rounded-lg px-3', row_grid, playing && 'needle')}
         >
-            <span className='grid place-items-center font-mono text-[0.75rem] text-muted tabular-nums'>{playing ? <Bars still={playing === 'paused'} /> : index + 1}</span>
+            <span className='grid place-items-center font-mono text-[0.75rem] text-muted tabular-nums'>{playing ? <Bars still={playing === 'paused'} /> : <Numbered index={index} />}</span>
             <div className='flex min-w-0 items-center gap-3'>
                 <Cover data={cover} size='sm' className='size-9 in-[[data-density=compact]]:size-7' icon={14} />
                 <div className='min-w-0'>

@@ -119,11 +119,11 @@ function make_lens() {
         <feColorMatrix in="gx" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0 1" result="rx" />
         <feColorMatrix in="gy" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 0 1" result="ry" />
         <feComposite in="rx" in2="ry" operator="arithmetic" k2="1" k3="1" result="map" />
-        <feDisplacementMap in="SourceGraphic" in2="map" scale="30" xChannelSelector="R" yChannelSelector="G" result="d1" />
+        <feDisplacementMap in="SourceGraphic" in2="map" scale="16" xChannelSelector="R" yChannelSelector="G" result="d1" />
         <feColorMatrix in="d1" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="cr" />
-        <feDisplacementMap in="SourceGraphic" in2="map" scale="36" xChannelSelector="R" yChannelSelector="G" result="d2" />
+        <feDisplacementMap in="SourceGraphic" in2="map" scale="19" xChannelSelector="R" yChannelSelector="G" result="d2" />
         <feColorMatrix in="d2" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="cg" />
-        <feDisplacementMap in="SourceGraphic" in2="map" scale="42" xChannelSelector="R" yChannelSelector="G" result="d3" />
+        <feDisplacementMap in="SourceGraphic" in2="map" scale="22" xChannelSelector="R" yChannelSelector="G" result="d3" />
         <feColorMatrix in="d3" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="cb" />
         <feBlend in="cr" in2="cg" mode="screen" result="rg" />
         <feBlend in="rg" in2="cb" mode="screen" result="bent" />
@@ -131,7 +131,7 @@ function make_lens() {
         <feSpecularLighting in="height" surfaceScale="5" specularConstant="1.1" specularExponent="28" lighting-color="#fff" result="spec">
             <feDistantLight azimuth="235" elevation="38" />
         </feSpecularLighting>
-        <feComposite in="spec" in2="bent" operator="arithmetic" k2="0.55" k3="1" />
+        <feComposite in="spec" in2="bent" operator="arithmetic" k2="0.4" k3="1" />
     </filter>`
     document.body.appendChild(svg)
 

@@ -985,14 +985,27 @@
     background: var(--float-fill);
 }
 
+/* frosted enough that the rows going under it are colour and light rather
+   than a second line of text to read through the search, smoked toward the
+   ground so it sits one step off the page, and lit along its top. the lens
+   only bends what is right at the rim */
 :root[data-glass] .bar-glass {
-    background: color-mix(in oklab, var(--bg) 16%, transparent);
-    -webkit-backdrop-filter: url(#bar-lens) blur(1px) saturate(1.5);
-    backdrop-filter: url(#bar-lens) blur(1px) saturate(1.5);
+    background:
+        linear-gradient(color-mix(in oklab, var(--edge) 7%, transparent), transparent 46%),
+        color-mix(in oklab, var(--bg) var(--bar-smoke, 56%), transparent);
+    -webkit-backdrop-filter: url(#bar-lens) blur(16px) saturate(1.25);
+    backdrop-filter: url(#bar-lens) blur(16px) saturate(1.25);
 }
 
+/* paper is lit from in front: a lighter smoke would let a cover going under
+   wash the whole bar in its colour */
+:root[data-glass][data-theme='paper'] .bar-glass {
+    --bar-smoke: 70%;
+}
+
+/* a shadow to float on, not a hole under it */
 .bar-shade {
-    background: var(--mode-shadow);
+    background: color-mix(in oklab, var(--mode-shadow) 55%, transparent);
 }
 
 :root:not([data-glass]) .page-bar .search-field {
