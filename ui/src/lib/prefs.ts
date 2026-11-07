@@ -296,11 +296,12 @@ export const SCROLLINGS: { id: Scrolling; label: string; hint: string }[] = [
  */
 export type Pace = 'off' | 'slow' | 'normal' | 'fast'
 
-export const PACES: { id: Pace; label: string; factor: number }[] = [
-    { id: 'off', label: 'Off', factor: 0 },
-    { id: 'slow', label: 'Slow', factor: 1.6 },
-    { id: 'normal', label: 'Normal', factor: 1 },
-    { id: 'fast', label: 'Fast', factor: 0.55 },
+// the ids are older than the names: what was slow is gentle, and so on
+export const PACES: { id: Pace; label: string; factor: number; hint: string }[] = [
+    { id: 'off', label: 'Off', factor: 0, hint: 'Nothing moves' },
+    { id: 'slow', label: 'Gentle', factor: 1.45, hint: 'Sheets and pages ease in and settle slowly' },
+    { id: 'normal', label: 'Natural', factor: 1, hint: 'Sheets and pages arrive with a little weight' },
+    { id: 'fast', label: 'Quick', factor: 0.55, hint: 'Sheets and pages are there almost at once' },
 ]
 
 // a search asks both sources at once and shows each as it answers, or one tab at a time

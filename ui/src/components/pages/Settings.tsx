@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { ArrowLeft, RefreshCw } from '../ui/icons'
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { ArrowLeft, ChevronLeft, ChevronRight, FolderOpen, Keyboard, LayoutGrid, MicVocal, Palette as PaletteIcon, RefreshCw, Search, Sparkles, Sun, Waveform } from '../ui/icons'
 import { useDark, usePalette, useSystemDark } from '../../hooks/dark'
 import { motion } from 'motion/react'
 import { spring } from '../../lib/motion'
@@ -17,6 +17,8 @@ import { Button } from '../ui/Button'
 import { Range, Segmented, Switch } from '../ui/Controls'
 import { glide_to } from '../../hooks/glide'
 import { usePhone } from '../../hooks/phone'
+import { useDismiss } from '../../hooks/dismiss'
+import { MenuItem, MenuLabel, MenuPanel } from '../ui/Menu'
 import { HoverGlass } from '../ui/HoverGlass'
 
 /*
@@ -30,7 +32,29 @@ import { HoverGlass } from '../ui/HoverGlass'
  * - a Block is something that needs the full width (the themes, the keys),
  *   its label above it.
  */
+/*
+ * On a phone the page is a phone's settings rather than the desktop's page
+ * made narrow: a list of the sections, each opening as a page of its own with
+ * a way back, and a choice shown as its value - pressed, its options come up
+ * from the foot of the screen - rather than a row of buttons that cannot fit.
+ * The groups and rows below are the same ones; this says which section is open.
+ */
+const PhonePages = createContext<{ phone: boolean; open: string | null }>({ phone: false, open: null })
+
 function Group({ id, title, note, children }: { id: string; title: string; note?: string; children: ReactNode }) {
+    const { phone, open } = useContext(PhonePages)
+
+    if (phone) {
+        if (open !== id) return null
+
+        return (
+            <section data-section={id} className='mb-6'>
+                {note && <p className='mb-3 px-1 text-[0.875rem] leading-snug text-muted'>{note}</p>}
+                <div className='settings-card flow-root divide-y divide-line rounded-2xl bg-surface-2 px-4'>{children}</div>
+            </section>
+        )
+    }
+
     return (
         <section id={`settings-${id}`} data-section={id} className='mb-10 scroll-mt-24'>
             <h2 className='text-[1.125rem] font-medium'>{title}</h2>
@@ -41,10 +65,26 @@ function Group({ id, title, note, children }: { id: string; title: string; note?
 }
 
 function Row({ title, hint, dimmed, children }: { title: ReactNode; hint?: ReactNode; dimmed?: boolean; children?: ReactNode }) {
+    const { phone } = useContext(PhonePages)
+
+    // a phone's row: its words on the left and its control - a switch, or a
+    // choice shown as its value - at the right, a thumb's height
+    if (phone) {
+        return (
+            <div className={cn('flex min-h-14 items-center gap-4 py-3 transition-opacity', dimmed && 'opacity-45')}>
+                <div className='min-w-0 flex-1'>
+                    <p className='text-[0.9375rem]'>{title}</p>
+                    {hint && <p className='mt-0.5 text-[0.8125rem] leading-snug text-muted'>{hint}</p>}
+                </div>
+                <div className='flex shrink-0 items-center gap-2'>{children}</div>
+            </div>
+        )
+    }
+
     return (
         // the words take the line and the control sits beside them while there
-        // is room; on a phone a wide control (four choices) goes under them
-        // instead of crushing them into a word a line
+        // is room; in a narrow window a wide control goes under them instead of
+        // crushing them into a word a line
         <div className={cn('flex min-h-15 flex-wrap items-center gap-x-8 gap-y-2.5 py-3 transition-opacity', dimmed && 'opacity-45')}>
             <div className='min-w-0 flex-[1_1_14rem]'>
                 <p className='text-[0.875rem]'>{title}</p>
@@ -52,6 +92,40 @@ function Row({ title, hint, dimmed, children }: { title: ReactNode; hint?: React
             </div>
             <div className='ml-auto flex max-w-full items-center justify-end gap-3'>{children}</div>
         </div>
+    )
+}
+
+/*
+ * One of a few. On a desktop the choices side by side; on a phone the choice
+ * made, and a press brings them all up as a sheet with the one picked ticked.
+ */
+function Pick<T extends string>({ value, options, on_change, title }: { value: T; options: { id: T; label: ReactNode; hint?: string }[]; on_change: (id: T) => void; title?: string }) {
+    const { phone } = useContext(PhonePages)
+    const [open, set_open] = useState(false)
+    const close = useCallback(() => set_open(false), [])
+    useDismiss(open, close)
+
+    if (!phone) return <Segmented value={value} options={options} on_change={on_change} />
+
+    const chosen = options.find((o) => o.id === value)
+
+    return (
+        <>
+            <button type='button' onClick={() => set_open(true)} className='-mr-1 flex max-w-[11rem] items-center gap-1 rounded-lg py-1.5 pl-2 text-[0.9375rem] text-fg-2 active:bg-surface-3'>
+                <span className='truncate'>{chosen?.label ?? 'Mixed'}</span>
+                <ChevronRight size={16} className='shrink-0 text-muted' />
+            </button>
+            {open && (
+                <MenuPanel onClick={close}>
+                    {title && <MenuLabel>{title}</MenuLabel>}
+                    {options.map((option) => (
+                        <MenuItem key={option.id} checked={option.id === value} hint={option.hint} onClick={() => on_change(option.id)}>
+                            {option.label}
+                        </MenuItem>
+                    ))}
+                </MenuPanel>
+            )}
+        </>
     )
 }
 
@@ -331,7 +405,7 @@ function Corners() {
     return (
         <>
             <Row title='Every part' hint={shared ? 'The same corners everywhere' : 'The parts differ - set them all at once here, or one by one below'}>
-                <Segmented value={(shared ?? '') as CornerChoice} options={CORNERS} on_change={set_all_radii} />
+                <Pick value={(shared ?? '') as CornerChoice} options={CORNERS} on_change={set_all_radii} />
             </Row>
             <Row title='Each part on its own' hint='Panels, buttons, controls, the search bar, menus and covers, each its own way'>
                 <Switch on={open} label='Each part on its own' on_toggle={() => set_open(!open)} />
@@ -340,7 +414,7 @@ function Corners() {
                 <Sub>
                     {REGIONS.map((region) => (
                         <Row key={region.id} title={region.label} hint={region.hint}>
-                            <Segmented value={radii[region.id]} options={region.pill ? RADII : CORNERS} on_change={(next) => set_radius(region.id, next)} />
+                            <Pick value={radii[region.id]} options={region.pill ? RADII : CORNERS} on_change={(next) => set_radius(region.id, next)} />
                         </Row>
                     ))}
                 </Sub>
@@ -361,7 +435,7 @@ function Sizes() {
     return (
         <>
             <Row title='Interface size' hint={shared ? 'The same size everywhere' : 'The parts differ - set them all at once here, or one by one below'}>
-                <Segmented value={(shared ?? '') as Scale} options={SCALES} on_change={set_all_sizes} />
+                <Pick value={(shared ?? '') as Scale} options={SCALES} on_change={set_all_sizes} />
             </Row>
             <Row title='Each part on its own' hint='Text, menus, lists, cards and buttons, each its own size'>
                 <Switch on={open} label='Each part on its own size' on_toggle={() => set_open(!open)} />
@@ -370,12 +444,48 @@ function Sizes() {
                 <Sub>
                     {SIZE_PARTS.map((part) => (
                         <Row key={part.id} title={part.label} hint={part.hint}>
-                            <Segmented value={sizes[part.id]} options={SCALES} on_change={(next) => set_size(part.id, next)} />
+                            <Pick value={sizes[part.id]} options={SCALES} on_change={(next) => set_size(part.id, next)} />
                         </Row>
                     ))}
                 </Sub>
             )}
         </>
+    )
+}
+
+// the sections a phone lists, each with its mark
+const PHONE_SECTIONS = [
+    { id: 'appearance', label: 'Appearance', hint: 'Theme, accent, size, cards', icon: PaletteIcon },
+    { id: 'corners', label: 'Corners', hint: 'How round things are', icon: LayoutGrid },
+    { id: 'light', label: 'Light and glass', hint: 'Cover light, liquid glass, blur', icon: Sun },
+    { id: 'motion', label: 'Motion', hint: 'How fast things move', icon: Sparkles },
+    { id: 'lyrics', label: 'Lyrics', hint: 'The words and the wave', icon: MicVocal },
+    { id: 'search', label: 'Search', hint: 'YouTube and SoundCloud', icon: Search },
+    { id: 'suggestions', label: 'Suggestions', hint: 'What last.fm offers, and where', icon: Waveform },
+    { id: 'library', label: 'Library', hint: 'The music folder', icon: FolderOpen },
+    { id: 'keys', label: 'Keyboard', hint: 'For a keyboard plugged in or paired', icon: Keyboard },
+]
+
+// a phone's settings, first: who you are, then every section as a row to open
+function PhoneIndex({ on_open }: { on_open: (id: string) => void }) {
+    return (
+        <div data-settings-root>
+            <h1 className='mt-1 mb-6 font-serif text-[2.25rem] leading-tight font-medium'>Settings</h1>
+            <div className='divide-y divide-line overflow-hidden rounded-2xl bg-surface-2'>
+                {PHONE_SECTIONS.map(({ id, label, hint, icon: Glyph }) => (
+                    <button key={id} type='button' onClick={() => on_open(id)} className='flex w-full items-center gap-3.5 px-4 py-3 text-left active:bg-surface-3'>
+                        <span className='grid size-9 shrink-0 place-items-center rounded-[0.625rem] bg-[color-mix(in_oklab,var(--accent)_18%,transparent)] text-accent'>
+                            <Glyph size={18} />
+                        </span>
+                        <span className='min-w-0 flex-1'>
+                            <span className='block text-[0.9375rem] text-fg'>{label}</span>
+                            <span className='block truncate text-[0.8125rem] text-muted'>{hint}</span>
+                        </span>
+                        <ChevronRight size={18} className='shrink-0 text-muted' />
+                    </button>
+                ))}
+            </div>
+        </div>
     )
 }
 
@@ -385,7 +495,7 @@ export function SettingsPage() {
     const light_on = useStore(ui, (s) => s.aura_on)
     const light = useStore(ui, (s) => s.aura)
     const light_motion = useStore(ui, (s) => s.light_motion)
-    const motion = useStore(fx, (s) => s.motion)
+    const ambient = useStore(fx, (s) => s.motion)
     const pace = useStore(ui, (s) => s.pace)
     const cover_accent = useStore(ui, (s) => s.cover_accent)
     const density = useStore(ui, (s) => s.density)
@@ -405,17 +515,49 @@ export function SettingsPage() {
     const share = useStore(ui, (s) => s.share_dc)
     const keyboard = useStore(ui, (s) => s.keyboard)
     const phone = usePhone()
+    const [section, set_section] = useState<string | null>(null)
+
+    // a phone's back, from a section, is the list of sections
+    useEffect(() => {
+        if (!phone || !section) return
+        const on_key = (e: KeyboardEvent) => {
+            // a choice's sheet open over the section takes the back first
+            if (e.key !== 'Escape' || document.querySelector('[role="menu"], [role="dialog"]')) return
+            set_section(null)
+        }
+        window.addEventListener('keydown', on_key)
+        return () => window.removeEventListener('keydown', on_key)
+    }, [phone, section])
+
+    // a new section starts at its top
+    useEffect(() => {
+        if (!phone) return
+        const box = document.querySelector('[data-subpage], [data-settings-root]')?.closest<HTMLElement>('.overflow-y-auto')
+        if (box) glide_to(box, 0, { instant: true })
+    }, [phone, section])
+
     const folder = useStore(library, (s) => s.folder)
     const songs = useStore(library, (s) => s.songs.length)
     const loading = useStore(library, (s) => s.loading)
     const held = reduced()
 
+    if (phone && !section) return <PhoneIndex on_open={set_section} />
+
     return (
-        // the cards are kept to a width a row reads across - a label on the
-        // left and its control on the right, not a window apart - and the head
-        // (back, the title, the index) stands beside them, staying put while
-        // they go by under the bar
-        <div className='mx-auto max-w-[86rem] lg:grid lg:grid-cols-[11rem_minmax(0,72rem)] lg:gap-x-10'>
+        <PhonePages.Provider value={{ phone, open: section }}>
+        {/* the cards are kept to a width a row reads across - a label on the
+            left and its control on the right, not a window apart - and the head
+            (back, the title, the index) stands beside them, staying put while
+            they go by under the bar. on a phone, one section's page */}
+        <div data-subpage={phone || undefined} className='mx-auto max-w-[86rem] lg:grid lg:grid-cols-[11rem_minmax(0,72rem)] lg:gap-x-10'>
+            {phone ? (
+                <motion.div initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} transition={spring.snappy} className='mb-5'>
+                    <button type='button' onClick={() => set_section(null)} className='-ml-1.5 flex h-10 items-center gap-1 rounded-lg pr-2 text-[0.9375rem] text-fg-2 active:bg-surface-2'>
+                        <ChevronLeft size={20} /> Settings
+                    </button>
+                    <h1 className='mt-2 font-serif text-[2rem] leading-tight font-medium'>{PHONE_SECTIONS.find((o) => o.id === section)?.label}</h1>
+                </motion.div>
+            ) : (
             <div className='lg:sticky lg:top-20 lg:self-start'>
                 <button type='button' onClick={leave_page} className='mb-6 flex h-8 items-center gap-1.5 rounded-md text-[0.8125rem] text-muted transition-colors hover:text-fg'>
                     <ArrowLeft size={16} /> Back
@@ -423,8 +565,9 @@ export function SettingsPage() {
                 <h1 className='mb-8 font-serif text-[2.25rem] leading-tight font-medium'>Settings</h1>
                 <Index />
             </div>
+            )}
 
-            <div className='min-w-0'>
+            <motion.div key={section ?? 'all'} initial={phone ? { opacity: 0, x: 24 } : false} animate={{ opacity: 1, x: 0 }} transition={spring.snappy} className='min-w-0'>
                 <Group id='appearance' title='Appearance'>
                     <Block title='Theme'>
                         <ThemePicker />
@@ -437,14 +580,14 @@ export function SettingsPage() {
                     </Row>
                     <Sizes />
                     <Row title='Density' hint='How tall the rows in a listing are'>
-                        <Segmented value={density} options={DENSITIES} on_change={(next) => set_pref('density', next)} />
+                        <Pick value={density} options={DENSITIES} on_change={(next) => set_pref('density', next)} />
                     </Row>
                     <Row title='Track cards' hint={card_style === 'sleeve' ? 'One piece: the cover over a label with the title, the artist and the length' : 'The cover on its own, with two lines under it'}>
-                        <Segmented value={card_style} options={CARD_STYLES} on_change={(next) => set_pref('card_style', next)} />
+                        <Pick value={card_style} options={CARD_STYLES} on_change={(next) => set_pref('card_style', next)} />
                     </Row>
                     <Sub off={card_style !== 'sleeve'}>
                         <Row title='Label colour' hint={card_tone === 'cover' ? 'Each label is tinted with the colour of its own cover' : 'Every label is the plain colour of the theme'}>
-                            <Segmented value={card_tone} options={CARD_TONES} on_change={(next) => set_pref('card_tone', next)} />
+                            <Pick value={card_tone} options={CARD_TONES} on_change={(next) => set_pref('card_tone', next)} />
                         </Row>
                     </Sub>
                     <Row title='Floating bar' hint={bar_float ? 'The search and the buttons beside it stay over the page, on a bar that comes away from the top as you scroll' : 'The search and the buttons beside it scroll away with the page'}>
@@ -471,7 +614,7 @@ export function SettingsPage() {
                                 on_change={(value) => ui.set({ aura: value })}
                                 onPointerUp={() => save_pref('aura', ui.get().aura)}
                                 onKeyUp={() => save_pref('aura', ui.get().aura)}
-                                className='range-accent w-48'
+                                className='range-accent w-48 max-sm:w-28'
                             />
                             <span className='w-9 text-right font-mono text-[0.75rem] text-muted tabular-nums'>{light}%</span>
                         </Row>
@@ -488,23 +631,28 @@ export function SettingsPage() {
                 </Group>
 
                 <Group id='motion' title='Motion'>
-                    <Row title='Animations' hint={pace === 'off' ? 'Pages, menus and dialogs appear without moving' : 'How fast pages, menus, dialogs and the lyrics move'}>
-                        <Segmented value={pace} options={PACES} on_change={(next) => set_pref('pace', next)} />
+                    <Row title='Animations' hint={pace === 'off' ? 'Pages, menus and dialogs appear without moving' : PACES.find((o) => o.id === pace)?.hint}>
+                        <Pick value={pace} options={PACES} on_change={(next) => set_pref('pace', next)} />
                     </Row>
-                    <Row title='Ambient motion' hint={MOTIONS.find((option) => option.id === motion)?.hint}>
-                        <Segmented value={motion} options={MOTIONS} on_change={set_motion} />
+                    <Row title='Ambient motion' hint={MOTIONS.find((option) => option.id === ambient)?.hint}>
+                        <Pick value={ambient} options={MOTIONS} on_change={set_motion} />
                     </Row>
                     <Row title='Nebula' hint='A slow cloud of light behind the pages, in the colours of what is playing'>
-                        <Segmented value={nebula} options={BACKDROPS} on_change={(next) => set_pref('nebula', next)} />
+                        <Pick value={nebula} options={BACKDROPS} on_change={(next) => set_pref('nebula', next)} />
                     </Row>
+                    {/* the wheel's: a finger scrolls the way the phone does */}
+                    {!phone && (
+                        <>
                     <Row title='Scrolling' hint={held ? 'Your desktop asks for reduced motion, so scrolling is left as it is' : SCROLLINGS.find((o) => o.id === scrolling)?.hint} dimmed={held}>
-                        <Segmented value={scrolling} options={SCROLLINGS} on_change={(next) => set_pref('scrolling', next)} />
+                        <Pick value={scrolling} options={SCROLLINGS} on_change={(next) => set_pref('scrolling', next)} />
                     </Row>
                     <Sub off={held || scrolling !== 'glide'}>
                         <Row title='Glide feel' hint='Gentle trails a little after the wheel stops, quick settles sooner'>
-                            <Segmented value={feel} options={FEELS} on_change={(next) => set_pref('feel', next)} />
+                            <Pick value={feel} options={FEELS} on_change={(next) => set_pref('feel', next)} />
                         </Row>
                     </Sub>
+                        </>
+                    )}
                 </Group>
 
                 <Group id='lyrics' title='Lyrics' note='The full-screen page opened from the cover or the lyrics button'>
@@ -513,7 +661,7 @@ export function SettingsPage() {
                     </Row>
                     <Sub off={!lp_lyrics}>
                         <Row title='Text size'>
-                            <Segmented value={lyrics_size} options={LYRICS_SIZES} on_change={(next) => set_pref('lyrics_size', next)} />
+                            <Pick value={lyrics_size} options={LYRICS_SIZES} on_change={(next) => set_pref('lyrics_size', next)} />
                         </Row>
                     </Sub>
                     <Row title='Wave on the lyrics page' hint='The sound rising along the foot of the page'>
@@ -526,7 +674,7 @@ export function SettingsPage() {
 
                 <Group id='search' title='Search'>
                     <Row title='Sources' hint={search_mode === 'parallel' ? 'YouTube and SoundCloud are asked at once; each tab fills as its answer lands' : 'Only the open tab is asked; the other when you switch to it'}>
-                        <Segmented value={search_mode} options={SEARCH_MODES} on_change={(next) => set_pref('search_mode', next)} />
+                        <Pick value={search_mode} options={SEARCH_MODES} on_change={(next) => set_pref('search_mode', next)} />
                     </Row>
                 </Group>
 
@@ -586,7 +734,8 @@ export function SettingsPage() {
                         </Block>
                     )}
                 </Group>
-            </div>
+            </motion.div>
         </div>
+        </PhonePages.Provider>
     )
 }

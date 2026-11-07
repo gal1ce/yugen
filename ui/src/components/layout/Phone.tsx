@@ -335,6 +335,8 @@ function useBack() {
             const s = ui.get()
             if (s.lyrics_open || s.menu || s.editing || s.retitling || s.picking || s.profile_edit || s.crop || s.info_open) return
             if (document.querySelector('[role="menu"], [role="dialog"]')) return
+            // a section of settings goes back to the list of them first
+            if (document.querySelector('[data-subpage]')) return
 
             const to = trail.pop()
             if (!to) return

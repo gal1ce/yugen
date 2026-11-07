@@ -217,7 +217,8 @@ export const ui = create_store<UiState>({
     feel: stored_pref('feel', FEELS.map((o) => o.id), 'gentle'),
     blur: stored_flag('blur', true),
     light_motion: stored_flag('light_motion', true),
-    pace: stored_pref('pace', PACES.map((o) => o.id), 'normal'),
+    // a phone answers a finger: its sheets and pages are quick unless asked otherwise
+    pace: stored_pref('pace', PACES.map((o) => o.id), window.matchMedia(PHONE).matches ? 'fast' : 'normal'),
     search_mode: stored_pref('search_mode', SEARCH_MODES.map((o) => o.id), 'parallel'),
     suggest_on: stored_flag('suggest_on', true),
     places: stored_list('places', PLACES.map((o) => o.id), DEFAULT_PLACES),
