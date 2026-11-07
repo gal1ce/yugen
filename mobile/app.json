@@ -43,7 +43,16 @@
         }
       ],
       "./plugins/with-ui-assets",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 128,
+          "backgroundColor": "#100f0e",
+          "resizeMode": "contain"
+        }
+      ]
     ]
   }
 }

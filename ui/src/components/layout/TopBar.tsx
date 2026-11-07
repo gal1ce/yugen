@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import { Check, Download, LoaderCircle, PanelLeftClose, PanelLeftOpen, PanelRightOpen, Search, Settings, User, X } from '../ui/icons'
 import { useDismiss } from '../../hooks/dismiss'
@@ -21,14 +21,42 @@ import { spring } from '../../lib/motion'
 import { tip } from '../../lib/tip'
 import { Spin } from '../ui/Spin'
 
-// the mark: one swell of a wave, the shape the sound is drawn in, beside the
-// name set in the serif of the liner notes
+// the wave the mark is cut along: one swell, a little under the middle
+const SWELL = 'M-0.5 17.05C4.45 20.45 11.05 20.45 16 17.05S27.55 13.65 32.5 17.05'
+
+// the mark: a disc of light, its lower part dim behind one swell of a wave -
+// the app's icon (mobile/assets/logo.svg), in the accent here. its ids are
+// its own, as it is drawn in the sidebar and the top bar at once
+export function Mark({ className }: { className?: string }) {
+    const id = useId()
+
+    return (
+        <svg viewBox='0 0 32 32' className={className} aria-hidden>
+            <defs>
+                <clipPath id={`${id}t`}>
+                    <path d={`${SWELL}V-1H-0.5Z`} />
+                </clipPath>
+                <clipPath id={`${id}b`}>
+                    <path d={`${SWELL}V33H-0.5Z`} />
+                </clipPath>
+                <mask id={`${id}m`} maskUnits='userSpaceOnUse' x='-1' y='-1' width='34' height='34'>
+                    <rect x='-1' y='-1' width='34' height='34' fill='#fff' />
+                    <path d={SWELL} fill='none' stroke='#000' strokeWidth='1.65' strokeLinecap='round' />
+                </mask>
+            </defs>
+            <g mask={`url(#${id}m)`} fill='currentColor'>
+                <circle cx='16' cy='16' r='15' clipPath={`url(#${id}t)`} />
+                <circle cx='16' cy='16' r='15' fillOpacity='0.38' clipPath={`url(#${id}b)`} />
+            </g>
+        </svg>
+    )
+}
+
+// the mark beside the name, set in the serif of the liner notes
 export function Brand() {
     return (
         <button type='button' onClick={() => open_view('library')} className='flex h-9 items-center gap-2 rounded-lg px-2 text-fg'>
-            <svg viewBox='0 0 32 32' className='size-5 text-accent' aria-hidden>
-                <path d='M3 17c2.8 0 3.6-8 6.5-8s3.6 14 6.5 14 3.6-10 6.5-10 2.8 4 6.5 4' fill='none' stroke='currentColor' strokeWidth='2.6' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
+            <Mark className='size-5 text-accent' />
             <span className='font-serif text-[1.25rem] leading-none font-medium'>yugen</span>
         </button>
     )

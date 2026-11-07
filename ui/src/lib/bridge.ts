@@ -112,6 +112,9 @@ export type Bridge = {
     // playlist can go on with the screen off and the page asleep. the desktop
     // has no such thing
     set_up_next?(around: string, previous: string, next: string[]): Promise<void>
+    // a phone's too: the page has its library in and drawn, and the opening
+    // screen held over it can go
+    app_ready?(): Promise<void>
     // the rate those frames were mixed at, asked for once
     get_sample_rate?(): Promise<number>
     // the display's refresh rate, on the Qt build only: see lib/frames.ts

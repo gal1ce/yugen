@@ -16,8 +16,12 @@ import { useEffect, useReducer } from 'react'
  * once, a little soft or a little heavy, and is swapped for the right one when
  * that lands. The smaller ones are cut from a bigger one when there is one,
  * which is a fraction of the work of going back to the tags.
+ *
+ * Each one made is kept on disk (lib/kept), and read back from there the next
+ * time the app comes up rather than made again.
  */
 import { workers_draw } from './engine'
+import { keep, kept } from './kept'
 import { shrink_to_blob, THUMB_EDGES, type ThumbSize } from './shrink'
 
 const THUMB_LANES = 3
@@ -31,6 +35,8 @@ const waiting: (() => void)[] = []
 const later: (() => void)[] = []
 // which of those are waiting there, so one that is asked for can be pulled out
 const parked_runs = { sm: new Map<string, () => void>(), md: new Map<string, () => void>(), lg: new Map<string, () => void>() }
+// asked for in earnest while the disk was still being looked in: not parked
+const asked = { sm: new Set<string>(), md: new Set<string>(), lg: new Set<string>() }
 let running = 0
 
 // the worker the shrinking happens in. made on the first cover, and given up
@@ -65,7 +71,7 @@ function shrinker() {
     return worker
 }
 
-async function shrink(data: string, size: ThumbSize): Promise<string> {
+async function shrink(data: string, size: ThumbSize): Promise<Blob> {
     const edge = THUMB_EDGES[size]
     // a bigger cut of the same picture, if there is one, is a cheaper start
     const from = SIZES.filter((other) => THUMB_EDGES[other] > edge)
@@ -80,10 +86,10 @@ async function shrink(data: string, size: ThumbSize): Promise<string> {
             off_thread.postMessage({ id, data: from, edge })
         })
 
-        if (blob) return URL.createObjectURL(blob)
+        if (blob) return blob
     }
 
-    return URL.createObjectURL(await shrink_to_blob(from, edge))
+    return shrink_to_blob(from, edge)
 }
 
 // a couple at a time, so a library arriving all at once does not hold the
@@ -93,6 +99,7 @@ export function thumb_of(data: string, size: ThumbSize = 'lg', { background = fa
 
     if (job) {
         // asked for in earnest while it sits at the back: it moves up front
+        if (!background) asked[size].add(data)
         const parked = parked_runs[size].get(data)
         if (parked && !background) {
             parked_runs[size].delete(data)
@@ -103,24 +110,38 @@ export function thumb_of(data: string, size: ThumbSize = 'lg', { background = fa
         return job
     }
 
-    const next = new Promise<string>((resolve) => {
-        const run = () => {
-            parked_runs[size].delete(data)
-            running++
+    // off the disk if it was made before: no lane, nothing to wait behind
+    const next = kept(data, size).then((found) => {
+        if (found) {
+            const url = URL.createObjectURL(found)
+            thumbs[size].set(data, url)
+            asked[size].delete(data)
 
-            void shrink(data, size).then((url) => {
-                thumbs[size].set(data, url)
-                resolve(url)
-
-                running--
-                ;(waiting.shift() ?? later.shift())?.()
-            })
+            return url
         }
 
-        if (background && (running >= THUMB_LANES || waiting.length)) {
-            parked_runs[size].set(data, run)
-            later.push(run)
-        } else start(run)
+        return new Promise<string>((resolve) => {
+            const run = () => {
+                parked_runs[size].delete(data)
+                asked[size].delete(data)
+                running++
+
+                void shrink(data, size).then((blob) => {
+                    void keep(data, size, blob)
+                    const url = URL.createObjectURL(blob)
+                    thumbs[size].set(data, url)
+                    resolve(url)
+
+                    running--
+                    ;(waiting.shift() ?? later.shift())?.()
+                })
+            }
+
+            if (background && !asked[size].has(data) && (running >= THUMB_LANES || waiting.length)) {
+                parked_runs[size].set(data, run)
+                later.push(run)
+            } else start(run)
+        })
     })
 
     jobs[size].set(data, next)

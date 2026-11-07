@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { glide_to, useSmoothPrefs } from './hooks/glide'
 import { art_accent } from './lib/accent'
+import { bridge } from './lib/bridge'
 import { init_frames } from './lib/frames'
 import { cap_frames, fx, hold_painters } from './lib/fx'
 import { watch_modality } from './lib/modality'
@@ -193,6 +194,60 @@ function useCoverPalette() {
     }, [cover])
 }
 
+/*
+ * A phone holds its opening screen over the page (mobile/App.tsx) until there
+ * is something to show, so the library is never seen arriving: the tags, the
+ * track that was playing, the covers' pictures off the tags - or as many as
+ * came in a second and a half - and then every cover in sight drawn from them,
+ * so the screen comes off a page whose squares are already filled. The desktop
+ * has no such screen.
+ */
+const COVERS_MS = 1500
+const DRAWN_MS = 2500
+
+async function show_when_ready(names: string[], restoring: Promise<unknown>) {
+    const ready = bridge().app_ready
+    if (!ready) return
+
+    const covers = new Promise<void>((done) => {
+        const until = performance.now() + COVERS_MS
+        const look = () => {
+            const { covers } = library.get()
+            if (names.every((name) => name in covers) || performance.now() > until) return done()
+            setTimeout(look, 100)
+        }
+        look()
+    })
+
+    await Promise.all([restoring.catch(() => {}), covers])
+    await covers_drawn(performance.now() + DRAWN_MS)
+    await new Promise((drawn) => requestAnimationFrame(() => requestAnimationFrame(drawn)))
+
+    try {
+        await ready()
+    } catch {
+        // an app with no opening screen to let go
+    }
+}
+
+// every cover on screen with its picture in (ui/Cover marks a square still
+// waiting with data-pending) and decoded, or the time is up. a tab's screen
+// kept behind the open one (inert) is not on screen, whatever its box says:
+// its lazy pictures never load
+async function covers_drawn(until: number) {
+    const seen = (el: Element) => {
+        if (el.closest('[inert]')) return false
+        const r = el.getBoundingClientRect()
+        return r.width > 0 && r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth
+    }
+    const late = () => new Promise<void>((done) => setTimeout(done, Math.max(until - performance.now(), 0)))
+
+    while (performance.now() < until && [...document.querySelectorAll('[data-pending]')].some(seen)) await new Promise((next) => setTimeout(next, 50))
+
+    const pictures = [...document.querySelectorAll('img')].filter(seen)
+    await Promise.race([Promise.all(pictures.map((img) => img.decode().catch(() => {}))), late()])
+}
+
 // everything the app reads off disk, once, on the way up
 function useStartup() {
     useEffect(() => {
@@ -208,7 +263,8 @@ function useStartup() {
             void load_favorites()
             void sync_keybinds()
 
-            void restore(scanned.names)
+            const restoring = restore(scanned.names)
+            void show_when_ready(scanned.names, restoring)
 
             // the listing that was open last time may not have survived: a
             // playlist that was deleted, an album whose files left the folder

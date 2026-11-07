@@ -1,7 +1,8 @@
-import { useEffect, useRef, type ComponentType, type Ref } from 'react'
+import { useCallback, useEffect, useRef, useState, type ComponentType, type Ref } from 'react'
 import { BackHandler, StatusBar, StyleSheet, View } from 'react-native'
 import { initialWindowMetrics } from 'react-native-safe-area-context'
 import { WebView as Bare, type WebViewMessageEvent, type WebViewProps } from 'react-native-webview'
+import { Boot } from './src/Boot'
 import { answer, type Call } from './src/bridge/host'
 import { INJECTED } from './src/bridge/inject'
 import { listen_remote } from './src/native/player'
@@ -44,8 +45,15 @@ const INSETS = `
 true;
 `
 
+// the longest the opening screen waits on the page: past this a scan still
+// going is shown going, rather than an app that seems not to open
+const BOOT_MAX = 10000
+
 function Window() {
     const view = useRef<Handle>(null)
+    const [ready, set_ready] = useState(false)
+    const [booting, set_booting] = useState(true)
+    const gone = useCallback(() => set_booting(false), [])
 
     // anything sent into the page goes as one statement, its values as json
     const send = (script: string) => view.current?.injectJavaScript(`${script};true;`)
@@ -67,7 +75,12 @@ function Window() {
             return true
         })
 
-        return () => back.remove()
+        const most = setTimeout(() => set_ready(true), BOOT_MAX)
+
+        return () => {
+            back.remove()
+            clearTimeout(most)
+        }
     }, [])
 
     const on_message = async (event: WebViewMessageEvent) => {
@@ -78,7 +91,10 @@ function Window() {
             return
         }
 
-        const [ok, value] = await answer(call)
+        // the page has its library in and drawn: the opening screen can go
+        if (call.method === 'app_ready') set_ready(true)
+
+        const [ok, value] = call.method === 'app_ready' ? [true, null] : await answer(call)
         send(`window.__yugen_reply(${call.id}, ${ok}, ${JSON.stringify(value ?? null)})`)
     }
 
@@ -109,6 +125,7 @@ function Window() {
                 webviewDebuggingEnabled
                 style={styles.page}
             />
+            {booting && <Boot ground={GROUND} ready={ready} on_gone={gone} />}
         </View>
     )
 }
