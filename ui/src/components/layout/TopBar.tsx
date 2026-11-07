@@ -247,11 +247,13 @@ export function ProfileMenu({ large = false }: { large?: boolean }) {
 
             {open && (
                 <MenuPanel className='absolute top-full right-0 mt-2 w-64 origin-top-right'>
-                    <div className='flex items-center gap-3 px-2 py-2'>
-                        <Cover data={pic} size='sm' round className='size-9' icon={16} />
+                    {/* on a phone's sheet the head is set to its rows: the same
+                        inset, and the type a step up with theirs */}
+                    <div className='flex items-center gap-3 px-2 py-2 max-sm:px-3 max-sm:pt-1 max-sm:pb-3'>
+                        <Cover data={pic} size='sm' round className='size-9 max-sm:size-11' icon={16} />
                         <div className='min-w-0'>
-                            <p className='truncate text-[0.875rem] font-medium'>{username || 'Unnamed'}</p>
-                            <p className='text-[0.75rem] text-muted'>Kept on this device</p>
+                            <p className='truncate text-[0.875rem] font-medium max-sm:text-[1rem]'>{username || 'Unnamed'}</p>
+                            <p className='text-[0.75rem] text-muted max-sm:text-[0.8125rem]'>Kept on this device</p>
                         </div>
                     </div>
                     <MenuSep />
