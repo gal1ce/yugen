@@ -40,7 +40,7 @@ export function Segmented<T extends string>({
     const id = useId()
 
     return (
-        <div role='radiogroup' className={cn('seg inline-flex rounded-(--r-control) p-1', className)}>
+        <div role='radiogroup' className={cn('seg inline-flex max-w-full overflow-x-auto rounded-(--r-control) p-1 [scrollbar-width:none]', className)}>
             {options.map((option) => (
                 <button
                     key={option.id}

@@ -1,12 +1,12 @@
 import { memo, useEffect, useReducer, useRef } from 'react'
 import { paced } from '../../lib/frames'
 import { add_painter } from '../../lib/fx'
-import { Heart as HeartIcon, Play } from '../ui/icons'
+import { Heart as HeartIcon, Play, Waveform } from '../ui/icons'
 import { cn } from '../../lib/cn'
 import { format_date, format_time } from '../../lib/format'
 import { useStore } from '../../lib/store'
 import { added_of, album_of, artist_of, library, length_of, title_of, toggle_like } from '../../state/library'
-import { play_from, player } from '../../state/player'
+import { add_to_drift, play_from, player } from '../../state/player'
 import { context, ui } from '../../state/ui'
 import { Heart } from '../ui/Controls'
 import { Cover } from '../ui/Cover'
@@ -51,6 +51,110 @@ const drag = (name: string) => COARSE ? {} : ({
         e.dataTransfer.effectAllowed = 'copy'
     },
 })
+
+/*
+ * On a phone a row carried to the right by a finger goes into the drift: past
+ * a thumb's width the mark beside it lights, and let go there the track is
+ * in. Touch events, caught before the page's scroll takes the touch (as the
+ * sheets' pull is, hooks/pull); a move that sets off more up or down than
+ * across is the page's and is left alone.
+ */
+const DRIFT_AT = 84
+
+function useSwipeDrift(name: string) {
+    const row = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        const node = row.current
+        if (!COARSE || !node) return
+
+        let start: { x: number; y: number } | null = null
+        let swiping = false
+        let dx = 0
+        let rest = 0
+
+        const down = (e: TouchEvent) => {
+            if (e.touches.length !== 1) return
+            start = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+            swiping = false
+            dx = 0
+        }
+
+        const move = (e: TouchEvent) => {
+            if (!start) return
+            const mx = e.touches[0].clientX - start.x
+            const my = e.touches[0].clientY - start.y
+
+            if (!swiping) {
+                if (Math.hypot(mx, my) < 10) return
+                if (mx <= 0 || Math.abs(my) > mx * 0.7) {
+                    start = null
+                    return
+                }
+                swiping = true
+                clearTimeout(rest)
+                node.style.transition = ''
+                // a skipped row paints only inside itself, and the mark is outside it
+                node.style.contentVisibility = 'visible'
+                node.dataset.swiping = ''
+            }
+
+            e.preventDefault()
+            // it gives less the further it goes
+            dx = mx < DRIFT_AT ? mx : DRIFT_AT + (mx - DRIFT_AT) * 0.35
+            node.style.transform = `translateX(${dx}px)`
+            if (dx >= DRIFT_AT) node.dataset.armed = ''
+            else delete node.dataset.armed
+        }
+
+        const up = () => {
+            if (!start) return
+            start = null
+            if (!swiping) return
+            swiping = false
+
+            const armed = dx >= DRIFT_AT
+            if (armed) {
+                add_to_drift(name)
+                node.dataset.done = ''
+            }
+
+            node.style.transition = 'transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1)'
+            node.style.transform = ''
+            rest = window.setTimeout(() => {
+                node.style.transition = ''
+                node.style.contentVisibility = ''
+                delete node.dataset.swiping
+                delete node.dataset.armed
+                delete node.dataset.done
+            }, armed ? 900 : 300)
+        }
+
+        node.addEventListener('touchstart', down, { passive: true })
+        node.addEventListener('touchmove', move, { passive: false })
+        node.addEventListener('touchend', up)
+        node.addEventListener('touchcancel', up)
+
+        return () => {
+            clearTimeout(rest)
+            node.removeEventListener('touchstart', down)
+            node.removeEventListener('touchmove', move)
+            node.removeEventListener('touchend', up)
+            node.removeEventListener('touchcancel', up)
+        }
+    }, [name])
+
+    return row
+}
+
+// the mark a row carried to the right uncovers at its left: the drift's wave,
+// lit once letting go would put the track in
+const SwipeMark = () => (
+    <span aria-hidden className='swipe-mark pointer-events-none absolute top-0 right-full bottom-0 hidden items-center gap-1.5 pr-4 text-[0.8125rem] whitespace-nowrap max-sm:flex'>
+        <Waveform size={18} />
+        <span className='swipe-mark-text' />
+    </span>
+)
 
 const usePlaying = (name: string) => useStore(player, (s) => (s.current === name ? (s.paused ? 'paused' : 'playing') : null))
 
@@ -231,9 +335,11 @@ const Numbered = ({ index }: { index: number }) => (
 export const TrackLine = memo(function TrackLine({ name, within, index = 0 }: TrackProps) {
     const { liked, title, artist } = useTrack(name)
     const playing = usePlaying(name)
+    const row = useSwipeDrift(name)
 
     return (
         <div
+            ref={row}
             role='button'
             tabIndex={0}
             {...drag(name)}
@@ -243,6 +349,7 @@ export const TrackLine = memo(function TrackLine({ name, within, index = 0 }: Tr
             data-hover
             className={cn('[zoom:var(--z-lists,1)] row-skip group relative flex h-(--row-line) items-center gap-3 rounded-lg px-3', playing && 'needle')}
         >
+            <SwipeMark />
             <span className='grid w-7 shrink-0 place-items-center font-mono text-[0.75rem] text-muted tabular-nums'>{playing ? <Bars still={playing === 'paused'} /> : <Numbered index={index} />}</span>
             <p className={cn('min-w-0 flex-1 truncate text-[0.875rem]', playing ? 'font-medium text-fg' : 'text-fg')}>{title}</p>
             <p className='hidden w-1/3 truncate text-[0.8125rem] text-muted md:block'>{artist}</p>
@@ -257,9 +364,11 @@ const row_grid = 'grid-cols-[2rem_minmax(0,1fr)_2rem_3.5rem] md:grid-cols-[2rem_
 export const TrackRow = memo(function TrackRow({ name, within, index = 0 }: TrackProps) {
     const { cover, liked, title, artist } = useTrack(name)
     const playing = usePlaying(name)
+    const row = useSwipeDrift(name)
 
     return (
         <div
+            ref={row}
             role='button'
             tabIndex={0}
             {...drag(name)}
@@ -269,6 +378,7 @@ export const TrackRow = memo(function TrackRow({ name, within, index = 0 }: Trac
             data-hover
             className={cn('[zoom:var(--z-lists,1)] row-skip group relative grid h-(--row) items-center gap-3 rounded-lg px-3 max-sm:-mx-2 max-sm:pr-0 max-sm:pl-2', row_grid, playing && 'needle')}
         >
+            <SwipeMark />
             <span className='grid place-items-center font-mono text-[0.75rem] text-muted tabular-nums max-sm:hidden'>{playing ? <Bars still={playing === 'paused'} /> : <Numbered index={index} />}</span>
             <div className='flex min-w-0 items-center gap-3'>
                 <Cover data={cover} size='sm' className='size-9 sm:in-[[data-density=compact]]:size-7 max-sm:size-[3.15rem]' icon={14} />

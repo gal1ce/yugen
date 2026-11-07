@@ -1,15 +1,18 @@
-import { useCallback, useEffect, useState, type PointerEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react'
 import { useDismiss } from '../../hooks/dismiss'
 import { usePhone } from '../../hooks/phone'
-import { AnimatePresence, LayoutGroup, motion, useDragControls } from 'motion/react'
+import { usePull } from '../../hooks/pull'
+import { AnimatePresence, LayoutGroup, motion, useDragControls, useMotionValue } from 'motion/react'
 import { spring } from '../../lib/motion'
 import { useSheet } from '../../hooks/sheet'
+import { useClock } from '../../lib/clock'
+import { hold_painters } from '../../lib/fx'
 import { cn } from '../../lib/cn'
 import type { LyricsSize } from '../../lib/prefs'
 import { useStore } from '../../lib/store'
 import { tip } from '../../lib/tip'
 import { album_of, artist_of, library, title_of, toggle_like } from '../../state/library'
-import { change_volume, player, skip, toggle_mute, toggle_pause } from '../../state/player'
+import { change_volume, clear_drift, player, remove_from_drift, skip, toggle_mute, toggle_pause } from '../../state/player'
 import { useQueue } from '../../state/derive'
 import { set_pref, ui, type SheetFace } from '../../state/ui'
 import { Ambient } from '../fx/Ambient'
@@ -20,7 +23,7 @@ import { LyricFlow } from '../media/LyricFlow'
 import { Button, IconButton } from '../ui/Button'
 import { Heart, Range, Segmented } from '../ui/Controls'
 import { Cover } from '../ui/Cover'
-import { CaretDoubleDown, ChevronDown, Info, ListMusic, MicVocal, Pause, Play, SkipForward, Volume1, Volume2, VolumeX, Waveform, X } from '../ui/icons'
+import { CaretDoubleDown, ChevronDown, Expand, Info, ListMusic, MicVocal, Pause, Play, SkipForward, Volume1, Volume2, VolumeX, Waveform, X } from '../ui/icons'
 import { Scroll } from '../ui/Scroll'
 
 const close = () => ui.set({ lyrics_open: false })
@@ -166,6 +169,140 @@ const face = (next: SheetFace) => ui.set({ sheet_face: next })
  * fold the record into a row at the head, beside the play and the next, so
  * the screen is theirs. The queue is the desktop's queue column.
  */
+// where a timed sheet is now: the line in force, read off the clock and
+// rendered only when it changes
+function useLineAt(lines: { at: number; text: string }[] | null) {
+    const [at, set_at] = useState(-1)
+    const last = useRef(-1)
+
+    useClock((seconds) => {
+        if (!lines) return
+        let i = -1
+        while (i + 1 < lines.length && lines[i + 1].at <= seconds) i++
+        if (i !== last.current) {
+            last.current = i
+            set_at(i)
+        }
+    })
+
+    return at
+}
+
+/*
+ * The words, a few lines of them, on a card in the cover's colour under the
+ * transport - the way the words are met on a phone: while the record plays,
+ * a glance down. The corner button opens them whole.
+ */
+function LyricsPreview() {
+    const { sheet, timed, waiting } = useSheet()
+    const at = useLineAt(timed)
+
+    const lines = timed
+        ? // the line in force, then the next ones that have words: a gap in the
+          // song is the line it is, not a row of notes down the card
+          [timed[Math.max(at, 0)], ...timed.slice(Math.max(at, 0) + 1).filter((line) => line.text.trim())]
+              .slice(0, 4)
+              .map((line, i) => ({ text: line?.text.trim() || '♪', live: i === 0 && at >= 0 }))
+        : (sheet ?? '')
+              .split('\n')
+              .filter((line) => line.trim())
+              .slice(0, 5)
+              .map((text) => ({ text, live: false }))
+
+    return (
+        <section className='lyrics-card relative overflow-hidden rounded-[calc(var(--r-cover)*2)] p-5'>
+            <div className='mb-3 flex items-center justify-between'>
+                <p className='text-[0.9375rem] font-medium text-fg'>Lyrics</p>
+                <IconButton size='sm' variant='soft' {...tip('All the words')} onClick={() => face('lyrics')} className='rounded-full text-fg'>
+                    <Expand size={16} />
+                </IconButton>
+            </div>
+            {lines.length ? (
+                <button type='button' onClick={() => face('lyrics')} className='block w-full text-left'>
+                    {lines.map((line, i) => (
+                        <p key={`${at}:${i}`} className={cn('font-serif text-[1.375rem] leading-snug font-medium transition-colors', line.live ? 'text-fg' : 'text-fg/45')}>
+                            {line.text}
+                        </p>
+                    ))}
+                </button>
+            ) : (
+                <p className='text-[0.9375rem] text-fg-2'>{waiting ? 'Looking for the words' : 'No lyrics for this one'}</p>
+            )}
+        </section>
+    )
+}
+
+// the drift, where it can be seen: what is in it, and how to put more in
+function DriftCard() {
+    const drift = useStore(player, (s) => s.drift)
+    const crossing = useStore(player, (s) => s.crossing)
+
+    return (
+        <section className='rounded-[calc(var(--r-cover)*2)] bg-[color-mix(in_oklab,var(--fg)_7%,transparent)] p-5'>
+            <div className='flex items-center gap-2'>
+                <Waveform size={16} className='text-accent' />
+                <p className='flex-1 text-[0.9375rem] font-medium text-fg'>Drift</p>
+                {drift.length > 0 && (
+                    <Button variant='ghost' size='sm' onClick={clear_drift} className='-mr-2'>
+                        Clear
+                    </Button>
+                )}
+            </div>
+            {crossing || drift.length ? (
+                <div className='mt-2'>
+                    {crossing && <p className='truncate py-1.5 text-[0.875rem] text-accent'>Now · {title_of(crossing)}</p>}
+                    {drift.map((name, i) => (
+                        <div key={name} className='flex items-center gap-2 py-1'>
+                            <p className='min-w-0 flex-1 truncate text-[0.875rem] text-fg'>{title_of(name)}</p>
+                            <IconButton size='sm' {...tip('Take it out')} onClick={() => remove_from_drift(i)} className='text-fg-2'>
+                                <X size={14} />
+                            </IconButton>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <p className='mt-1.5 text-[0.8125rem] leading-relaxed text-fg-2'>Tracks that play once, right after this one, and then leave. Swipe a track to the right, or pick Drift from its menu.</p>
+            )}
+        </section>
+    )
+}
+
+// the next few, and the way to the whole queue
+function NextCard() {
+    const queue = useQueue()
+    const current = useStore(player, (s) => s.current)
+    const at = current ? queue.indexOf(current) : -1
+    const next = (at < 0 ? queue : queue.slice(at + 1)).slice(0, 3)
+    const covers = useStore(library, (s) => s.covers)
+
+    if (!next.length) return null
+
+    return (
+        <section className='rounded-[calc(var(--r-cover)*2)] bg-[color-mix(in_oklab,var(--fg)_7%,transparent)] p-5'>
+            <div className='mb-2 flex items-center justify-between'>
+                <p className='text-[0.9375rem] font-medium text-fg'>Up next</p>
+                <Button variant='ghost' size='sm' onClick={() => face('queue')} className='-mr-2'>
+                    Open queue
+                </Button>
+            </div>
+            {next.map((name) => (
+                <div key={name} className='flex items-center gap-3 py-1.5'>
+                    <Cover data={covers[name]} size='sm' className='size-10 shrink-0' icon={14} />
+                    <div className='min-w-0'>
+                        <p className='truncate text-[0.875rem] text-fg'>{title_of(name)}</p>
+                        <p className='truncate text-[0.75rem] text-fg-2'>{artist_of(name)}</p>
+                    </div>
+                </div>
+            ))}
+        </section>
+    )
+}
+
+/*
+ * A phone's player: the record and everything that plays it fill the first
+ * screen, and under them - a scroll down, as on any phone's player - the
+ * words as they go by, the drift and what comes next, each opening whole.
+ */
 function PlayerFace() {
     return (
         <>
@@ -174,21 +311,21 @@ function PlayerFace() {
                     <ChevronDown size={22} />
                 </IconButton>
                 <p className='flex-1 text-center text-[0.8125rem] text-fg-2'>Now playing</p>
+                <IconButton size='lg' {...tip('Queue')} onPointerDown={hold} onClick={() => face('queue')} className='text-fg-2'>
+                    <ListMusic size={20} />
+                </IconButton>
                 <IconButton size='lg' {...tip('Track info')} onPointerDown={hold} onClick={() => ui.set({ info_open: true, info_face: 'about' })} className='text-fg-2'>
                     <Info size={20} />
                 </IconButton>
             </div>
-            <div className='flex min-h-0 flex-1 flex-col px-6 pt-2'>
-                <div onPointerDown={hold}>
+            <div className='min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-[calc(var(--safe-bottom)+2rem)]'>
+                <div className='flex min-h-[calc(100dvh-var(--safe-top)-6rem)] flex-col justify-center pb-6' onPointerDown={hold}>
                     <Record alone={false} phone />
                 </div>
-                <div className='mt-5 flex justify-center gap-2.5' onPointerDown={hold}>
-                    <Button variant='secondary' size='lg' icon={<MicVocal size={16} />} onClick={() => face('lyrics')}>
-                        Lyrics
-                    </Button>
-                    <Button variant='secondary' size='lg' icon={<ListMusic size={16} />} onClick={() => face('queue')}>
-                        Queue
-                    </Button>
+                <div className='space-y-3' onPointerDown={hold}>
+                    <LyricsPreview />
+                    <DriftCard />
+                    <NextCard />
                 </div>
             </div>
         </>
@@ -308,6 +445,9 @@ export function LyricsPage() {
     const sheet_face = useStore(ui, (s) => s.sheet_face)
     const phone = usePhone()
     const pull = useDragControls()
+    const sheet = useRef<HTMLDivElement>(null)
+    const pull_y = useMotionValue(0)
+    usePull(sheet, pull_y, close, { enabled: phone })
     // the queue is read, not looked at: the wave stays under the player and the words
     const waved = wave && (!phone || sheet_face !== 'queue')
 
@@ -318,13 +458,28 @@ export function LyricsPage() {
         return () => window.removeEventListener('keydown', on_key)
     }, [])
 
+    // a phone's gpu has the slide to draw and nothing else: the light and the
+    // wave start once the sheet is up
+    useEffect(() => {
+        if (!phone) return
+        hold_painters(true)
+        const timer = setTimeout(() => hold_painters(false), 480)
+        return () => {
+            clearTimeout(timer)
+            hold_painters(false)
+        }
+    }, [phone])
+
     return (
         <motion.div
             className='on-art fixed inset-0 z-55 overflow-hidden bg-bg'
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, transition: { duration: 0.28 } }}
-            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            // on a phone the whole sheet slides up and away as one layer, which
+            // a phone composites for nothing; a whole screen fading while its
+            // contents move ran at thirty frames a second there
+            initial={phone ? { y: '100%' } : { opacity: 0 }}
+            animate={phone ? { y: 0 } : { opacity: 1 }}
+            exit={phone ? { y: '100%', transition: { duration: 0.26, ease: [0.4, 0, 1, 1] } } : { opacity: 0, transition: { duration: 0.28 } }}
+            transition={phone ? spring.sheet : { duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
             onContextMenu={(e) => e.preventDefault()}
         >
             {/* the cover's light, stronger than behind the panels: here it is the
@@ -342,9 +497,9 @@ export function LyricsPage() {
 
             <motion.div
                 className='relative flex h-full flex-col'
-                initial={{ y: 48, opacity: 0 }}
+                initial={phone ? false : { y: 48, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                exit={{ y: 64, opacity: 0, transition: { duration: 0.25, ease: [0.4, 0, 1, 1] } }}
+                exit={phone ? undefined : { y: 64, opacity: 0, transition: { duration: 0.25, ease: [0.4, 0, 1, 1] } }}
                 transition={spring.sheet}
                 drag='y'
                 dragControls={pull}
@@ -356,10 +511,11 @@ export function LyricsPage() {
                 }}
             >
                 {phone ? (
-                    <div className='relative flex min-h-0 flex-1 touch-pan-y flex-col pt-[calc(var(--safe-top)+0.75rem)]' onPointerDown={(e) => pull.start(e)}>
+                    // pulled down from anywhere on it, not only the grabber (hooks/pull)
+                    <motion.div ref={sheet} style={{ y: pull_y }} className='relative flex min-h-0 flex-1 flex-col pt-[calc(var(--safe-top)+0.75rem)]'>
                         <span aria-hidden className='absolute top-[calc(var(--safe-top)+0.5rem)] left-1/2 z-10 h-1 w-10 -translate-x-1/2 rounded-full bg-line-strong' />
                         {current ? <PhoneSheet /> : <div className='grid flex-1 place-items-center text-fg-2'>Nothing is playing</div>}
-                    </div>
+                    </motion.div>
                 ) : (
                     <>
                         <header className='relative flex h-16 shrink-0 cursor-grab touch-none items-center justify-between px-5 active:cursor-grabbing' onPointerDown={(e) => pull.start(e)}>

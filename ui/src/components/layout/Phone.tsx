@@ -22,10 +22,17 @@ import { Brand, ProfileMenu, SearchBox } from './TopBar'
  */
 
 // the head of the page: the name, the look, and the profile (settings are in
-// its menu, as on the desktop). the search is a section of its own down in the tabs
-export function PhoneBar() {
+// its menu, as on the desktop). the search is a section of its own down in the
+// tabs. by default it is the top of the page and goes up with it; floating (a
+// setting) it stays, and once the page is under it a ground comes up behind it
+// - a smoke of the page's own colour, not a frost: on a phone every backdrop
+// is another pass over the screen each frame the page moves
+export function PhoneBar({ floating = false }: { floating?: boolean }) {
     return (
-        <header className='absolute inset-x-0 top-0 z-30 flex h-[calc(var(--safe-top)+4.25rem)] items-center justify-between px-3 pt-[calc(var(--safe-top)+0.5rem)]'>
+        <header
+            data-floating={floating || undefined}
+            className='phone-bar absolute inset-x-0 top-0 z-30 flex h-[calc(var(--safe-top)+4.25rem)] items-center justify-between px-3 pt-[calc(var(--safe-top)+0.5rem)]'
+        >
             <Brand />
             <div className='flex items-center gap-1'>
                 <QuickLook large />
@@ -326,7 +333,7 @@ function useBack() {
         const on_key = (e: KeyboardEvent) => {
             if (e.key !== 'Escape') return
             const s = ui.get()
-            if (s.lyrics_open || s.menu || s.editing || s.retitling || s.profile_edit || s.crop || s.info_open) return
+            if (s.lyrics_open || s.menu || s.editing || s.retitling || s.picking || s.profile_edit || s.crop || s.info_open) return
             if (document.querySelector('[role="menu"], [role="dialog"]')) return
 
             const to = trail.pop()

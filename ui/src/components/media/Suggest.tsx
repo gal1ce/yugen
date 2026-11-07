@@ -23,7 +23,6 @@ import { context, set_pref, ui } from '../../state/ui'
 import { Button, IconButton } from '../ui/Button'
 import { Empty } from '../ui/Controls'
 import { MenuItem, MenuLabel, MenuPanel } from '../ui/Menu'
-import { More } from '../ui/More'
 import { tip } from '../../lib/tip'
 import { card_grid } from './Track'
 import { Section } from './Rail'
@@ -87,9 +86,8 @@ const SuggestionCard = memo(function SuggestionCard({ track, index }: { track: S
                     )}
                 />
             </div>
-            <p className='card-text mt-2 truncate text-[0.875rem] font-medium max-sm:pr-8'>{track.title}</p>
-            <p className='card-text truncate text-[0.8125rem] text-muted max-sm:pr-8'>{state.note}</p>
-            {!state.held && <More target={{ kind: 'suggestion', track }} className='absolute right-[-0.5rem] bottom-[-0.25rem]' />}
+            <p className='card-text mt-2 truncate text-[0.875rem] font-medium'>{track.title}</p>
+            <p className='card-text truncate text-[0.8125rem] text-muted'>{state.note}</p>
         </div>
     )
 })
@@ -114,7 +112,6 @@ const SuggestionRow = memo(function SuggestionRow({ track, index, tight }: { tra
                     <p className='truncate text-[0.75rem] text-muted'>{state.note}</p>
                 </div>
                 <Badge track={track} {...state} className='size-8 text-muted hover:text-fg' />
-                {!state.held && <More target={{ kind: 'suggestion', track }} className='-mr-1 size-9' />}
             </div>
         )
     }
@@ -123,7 +120,7 @@ const SuggestionRow = memo(function SuggestionRow({ track, index, tight }: { tra
         <div
             data-hover
             className={cn(
-                '[zoom:var(--z-lists,1)] group relative grid h-16 animate-rise grid-cols-[2rem_minmax(0,1fr)_auto_2rem] items-center gap-3 rounded-lg px-3 max-sm:grid-cols-[minmax(0,1fr)_auto_2rem] max-sm:px-2',
+                '[zoom:var(--z-lists,1)] group relative grid h-16 animate-rise grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-3 max-sm:grid-cols-[minmax(0,1fr)_auto] max-sm:px-2',
                 state.here && 'opacity-55',
             )}
             style={{ animationDelay: `${Math.min(index, 6) * 50}ms` }}
@@ -154,7 +151,6 @@ const SuggestionRow = memo(function SuggestionRow({ track, index, tight }: { tra
             >
                 {state.here ? 'In library' : state.busy ? 'Getting' : 'Get'}
             </Button>
-            {state.held ? <span /> : <More target={{ kind: 'suggestion', track }} className='-mr-1' />}
         </div>
     )
 })

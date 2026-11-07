@@ -27,6 +27,19 @@ let up = ''
 let finished = false
 // what the page last asked for; a change it did not ask for came from outside
 let wanted_playing = false
+// a command from the page sets the playlist moving - cleared, loaded, started -
+// and for a moment its reports are of that, not of anything outside: a
+// track just asked for was read as paused while it loaded, the page was told
+// "pause", and the track stopped as it began. so for a while after each
+// command nothing is reported, and after that a change has to hold for two
+// reports in a row before it counts as the lock screen's
+const QUIET_MS = 1500
+let quiet_until = 0
+let held = 0
+const hush = () => {
+    quiet_until = Date.now() + QUIET_MS
+    held = 0
+}
 let on_remote: (cmd: string, arg: number) => void = () => {}
 let on_track: (path: string) => void = () => {}
 
@@ -53,10 +66,16 @@ async function the_voice() {
         const ended = !status.playing && status.currentIndex >= paths.length - 1 && status.duration > 0 && status.currentTime >= status.duration - 0.5
         if (ended) return void (finished = true)
 
-        if (status.isLoaded && status.playing !== wanted_playing && !finished) {
-            wanted_playing = status.playing
-            on_remote(status.playing ? 'play' : 'pause', 0)
+        if (!status.isLoaded || status.isBuffering || finished || Date.now() < quiet_until || status.playing === wanted_playing) {
+            held = 0
+            return
         }
+
+        if (++held < 2) return
+
+        held = 0
+        wanted_playing = status.playing
+        on_remote(status.playing ? 'play' : 'pause', 0)
     })
 
     voice.addListener('trackChanged', () => moved())
@@ -123,6 +142,7 @@ export async function play(path: string, title: string, artist: string, album: s
     const list = await the_voice()
     finished = false
     wanted_playing = true
+    hush()
 
     // the page asked for it, so the move is not reported back to the page
     up = path
@@ -206,18 +226,21 @@ export async function set_up_next(around: string, _previous: string, next: strin
 export async function resume() {
     const list = await the_voice()
     wanted_playing = true
+    hush()
     list.play()
 }
 
 export async function stop() {
     const list = await the_voice()
     wanted_playing = false
+    hush()
     list.pause()
 }
 
 export async function seek(position: number) {
     const list = await the_voice()
     finished = false
+    hush()
     await list.seekTo(position)
 }
 

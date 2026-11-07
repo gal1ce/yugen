@@ -1,20 +1,21 @@
 import { useEffect } from 'react'
-import { DotsThree, FolderOpen, Info, LoaderCircle, MicVocal, Pause, Play, Shuffle } from '../ui/icons'
+import { DotsThree, FolderOpen, Heart, Info, ListMusic, LoaderCircle, MicVocal, Pause, Play, Shuffle } from '../ui/icons'
 import { tip } from '../../lib/tip'
 import { Wave } from '../fx/Wave'
 import { format_date, format_span } from '../../lib/format'
 import { useStore } from '../../lib/store'
-import { arrivals_of, span_of, useAlbums, useArtists, useFavoriteSongs, useLikedSongs, useQueue } from '../../state/derive'
+import { arrivals_of, playlist_names_of, span_of, useAlbums, useArtists, useFavoriteSongs, useLikedSongs, useQueue } from '../../state/derive'
 import { added_of, album_of, artist_of, library, title_of } from '../../state/library'
 import { play_listing, play_music, player, shuffle_into, toggle_pause } from '../../state/player'
 import { want_similar } from '../../state/suggest'
-import { context, open_lyrics, open_menu, open_page, open_view, ui } from '../../state/ui'
+import { context, open_group, open_lyrics, open_menu, open_page, open_playlist, open_view, ui } from '../../state/ui'
 import { Button, IconButton } from '../ui/Button'
 import { Empty } from '../ui/Controls'
 import { Cover } from '../ui/Cover'
 import { SeeAll, Shelf } from '../media/Rail'
 import { DiscoverShelf } from '../media/Suggest'
 import { Bars, TrackCard } from '../media/Track'
+import { GroupCard } from '../media/Group'
 import { Spin } from '../ui/Spin'
 
 const SHELF = 12
@@ -102,7 +103,7 @@ function Hero() {
      * floor of that frame and fading out at both ends.
      */
     return (
-        <section className='@container relative mb-14 overflow-hidden rounded-(--r-panel) border border-line p-6 pb-20 max-sm:mt-2 max-sm:mb-10 max-sm:p-4 max-sm:pb-10'>
+        <section className='hero-card @container relative mb-14 overflow-hidden rounded-(--r-panel) border border-line p-6 pb-20 max-sm:mt-2 max-sm:mb-6 max-sm:p-4 max-sm:pb-10'>
             {wave && (
                 <Wave
                     gain={0.95}
@@ -192,15 +193,93 @@ function UpNext({ name }: { name: string }) {
     )
 }
 
+// a phone's first stop, the way a phone's music app opens: the collections
+// and playlists you go back to, two to a line, each a press away
+function QuickTiles() {
+    const liked = useLikedSongs()
+    const liked_art = useStore(library, (s) => s.view_covers.liked)
+    const playlists = useStore(library, (s) => s.playlists)
+    const sleeves = useStore(library, (s) => s.playlist_covers)
+    const covers = useStore(library, (s) => s.covers)
+    const pins = useStore(ui, (s) => s.pins)
+    const names = playlist_names_of(playlists, pins).slice(0, liked.length ? 5 : 6)
+
+    if (!names.length && !liked.length) return null
+
+    const tile = (key: string, label: string, art: React.ReactNode, go: () => void) => (
+        <button key={key} type='button' onClick={go} className='phone-tile flex h-14 min-w-0 items-center gap-2.5 overflow-hidden rounded-xl pr-2.5 text-left transition-transform active:scale-[0.97]'>
+            {art}
+            <span className='line-clamp-2 min-w-0 text-[0.8125rem] leading-tight font-medium'>{label}</span>
+        </button>
+    )
+
+    return (
+        <div className='mb-9 grid grid-cols-2 gap-2 sm:hidden'>
+            {liked.length > 0 &&
+                tile(
+                    'liked',
+                    'Liked songs',
+                    liked_art ? (
+                        <Cover data={liked_art} size='sm' className='size-14 shrink-0 rounded-none' />
+                    ) : (
+                        <span className='grid size-14 shrink-0 place-items-center bg-[color-mix(in_oklab,var(--accent)_26%,transparent)]'>
+                            <Heart size={20} className='fill-current text-accent' />
+                        </span>
+                    ),
+                    () => open_view('liked'),
+                )}
+            {names.map((name) => {
+                const art = sleeves[name] || covers[playlists[name]?.[0] ?? '']
+
+                return tile(
+                    name,
+                    name,
+                    art ? (
+                        <Cover data={art} size='sm' className='size-14 shrink-0 rounded-none' />
+                    ) : (
+                        <span className='grid size-14 shrink-0 place-items-center bg-surface-3 text-muted'>
+                            <ListMusic size={20} />
+                        </span>
+                    ),
+                    () => open_playlist(name),
+                )
+            })}
+        </div>
+    )
+}
+
+// the biggest groups in the library first: the albums and the artists most
+// of it is made of
+const biggest = (groups: Map<string, string[]>, unknown: string) =>
+    [...groups.entries()]
+        .filter(([name]) => name !== unknown && name !== 'Unknown')
+        .sort((a, b) => b[1].length - a[1].length)
+        .slice(0, SHELF)
+
 function Shelves() {
     const favorites = useFavoriteSongs()
     const liked = useLikedSongs()
     const songs = useStore(library, (s) => s.songs)
     const meta = useStore(library, (s) => s.meta)
+    const current = useStore(player, (s) => s.current)
+    const recent_all = useStore(player, (s) => s.recent)
+    const albums = biggest(useAlbums(), 'Unknown album')
+    const artists = biggest(useArtists(), 'Unknown artist')
     const arrivals = arrivals_of(songs, meta)
+    // what is still here, and not the one playing - that is the card above
+    const here = new Set(songs)
+    const recent = recent_all.filter((name) => here.has(name) && name !== current).slice(0, SHELF)
 
     return (
         <>
+            {recent.length >= 2 && (
+                <Shelf title='Recently played' note='Where you left off'>
+                    {recent.map((name, i) => (
+                        <TrackCard key={name} name={name} within={recent} index={i} />
+                    ))}
+                </Shelf>
+            )}
+
             {favorites.length > 0 && (
                 <Shelf title='Favorites' note='The ones you starred' action={<SeeAll on_click={() => open_page('profile')} />}>
                     {favorites.slice(0, SHELF).map((name, i) => (
@@ -224,6 +303,22 @@ function Shelves() {
                     ))}
                 </Shelf>
             )}
+
+            {albums.length >= 2 && (
+                <Shelf title='Albums' note='The records most of your library is' action={<SeeAll on_click={() => open_view('albums')} />}>
+                    {albums.map(([name, tracks]) => (
+                        <GroupCard key={name} name={name} tracks={tracks} on_open={() => open_group('albums', name)} />
+                    ))}
+                </Shelf>
+            )}
+
+            {artists.length >= 2 && (
+                <Shelf title='Artists' note='Who you keep the most of' action={<SeeAll on_click={() => open_view('artists')} />}>
+                    {artists.map(([name, tracks]) => (
+                        <GroupCard key={name} name={name} tracks={tracks} round on_open={() => open_group('artists', name)} />
+                    ))}
+                </Shelf>
+            )}
         </>
     )
 }
@@ -244,6 +339,7 @@ export function HomePage() {
         <>
             <Head />
             <Hero />
+            <QuickTiles />
 
             {songs ? (
                 <>

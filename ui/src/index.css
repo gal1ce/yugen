@@ -987,6 +987,81 @@
         0 0.25rem 0.5rem -0.25rem color-mix(in oklab, var(--mode-shadow) 60%, transparent);
 }
 
+/* the mark a phone's row uncovers as it is carried right (media/Track): the
+   drift's wave, what letting go would do, and once done, that it is done */
+.swipe-mark {
+    opacity: 0;
+    color: var(--muted);
+    transition: color 0.15s ease;
+}
+
+[data-swiping] > .swipe-mark {
+    opacity: 1;
+}
+
+[data-armed] > .swipe-mark,
+[data-done] > .swipe-mark {
+    color: var(--accent);
+}
+
+.swipe-mark-text::after {
+    content: 'Drift';
+}
+
+[data-armed] > .swipe-mark .swipe-mark-text::after {
+    content: 'Let go to drift';
+}
+
+[data-done] > .swipe-mark .swipe-mark-text::after {
+    content: 'In the drift';
+}
+
+/* a phone's home: what is playing as a card of its own - the cover's colour
+   through a tint of the page, lit along its top edge and in at the sides,
+   darker at the foot, on a soft shadow. drawn rather than frosted: behind it
+   is only the room, which a blur would not change, and every backdrop on a
+   phone is another pass a frame */
+@media (max-width: 639.98px) {
+    .hero-card {
+        border-color: transparent;
+        background:
+            linear-gradient(color-mix(in oklab, var(--edge, var(--fg)) 7%, transparent), transparent 40%),
+            color-mix(in oklab, var(--accent) 16%, color-mix(in oklab, var(--fg) 6%, transparent));
+        box-shadow:
+            inset 0 1px 0.5px color-mix(in oklab, var(--edge, var(--fg)) 24%, transparent),
+            inset 0 0 0 1px color-mix(in oklab, var(--edge, var(--fg)) 7%, transparent),
+            inset 8px 0 14px -12px color-mix(in oklab, var(--edge, var(--fg)) 22%, transparent),
+            inset -8px 0 14px -12px color-mix(in oklab, var(--edge, var(--fg)) 22%, transparent),
+            inset 0 -6px 14px -8px color-mix(in oklab, var(--bg) 55%, transparent),
+            0 18px 36px -24px var(--mode-shadow);
+    }
+
+    /* home's shortcuts: a step of the text colour with the sleeve flush at the left */
+    .phone-tile {
+        background: color-mix(in oklab, var(--fg) 8%, transparent);
+    }
+}
+
+/* the words' card on a phone's player: the cover's colour, deepened so the
+   words read on it whatever the cover is. it lives in the player, which is
+   always dark (.on-art), so one rule serves every theme */
+.lyrics-card {
+    background: color-mix(in oklab, var(--accent) 34%, color-mix(in oklab, var(--bg) 70%, black));
+}
+
+/* ---------- a phone's bar, floating ----------
+   it stays over the page; once anything is under it (the frame's
+   [data-scrolled], App) a ground of the page's colour fades up behind it
+   with a hairline under, and goes again at the top */
+.phone-bar[data-floating] {
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-scrolled] > .phone-bar[data-floating] {
+    background: color-mix(in oklab, var(--bg) 96%, transparent);
+    box-shadow: 0 1px 0 color-mix(in oklab, var(--fg) 8%, transparent);
+}
+
 /* ---------- settings: the section picked from the index ----------
    for a moment the others step back and its card is ringed in the accent
    (pages/Settings spotlight), then everything settles again */

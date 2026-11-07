@@ -17,6 +17,7 @@ import { column_css, COLUMNS, saved_playback, ui, type Column } from './state/ui
 import { CORNERS, PACES, REGIONS, SWATCHES, radius_css, save_pref, scale_factor } from './lib/prefs'
 import { cn } from './lib/cn'
 import { Scroll } from './components/ui/Scroll'
+import { PlaylistPicker } from './components/dialogs/PlaylistPicker'
 import { TipLayer } from './components/ui/Tip'
 import { ContextMenu } from './components/layout/ContextMenu'
 import { Keys } from './components/layout/Keys'
@@ -391,10 +392,10 @@ function Page({ phone = false }: { phone?: boolean }) {
                 and the cloud is the page's. it fades out down the page, so the
                 lists below are read on the panel alone */}
             {drawn && <Nebula strength={home ? 0.9 : 0.55} className='[mask-image:linear-gradient(#000,#000_25%,transparent_80%)]' />}
-            <Scroll box={scroller} className='relative h-full'>
+            <Scroll box={scroller} className={cn('relative h-full', phone && 'overflow-x-hidden')}>
                 {/* by default the bar is the top of the page and goes up with it;
                     floating, it stays over the page (a setting) */}
-                {phone ? <PhoneBar /> : !floating && <PageBar floating={false} />}
+                {phone ? !floating && <PhoneBar /> : !floating && <PageBar floating={false} />}
                 <motion.div
                     key={`${page}:${view}:${selection}`}
                     // a phone's tabs swap at once, the way a phone's apps do: a
@@ -408,7 +409,7 @@ function Page({ phone = false }: { phone?: boolean }) {
                     {body}
                 </motion.div>
             </Scroll>
-            {floating && !phone && <PageBar floating />}
+            {floating && (phone ? <PhoneBar floating /> : <PageBar floating />)}
         </div>
     )
 }
@@ -433,6 +434,7 @@ function Room() {
 function Overlays() {
     const editing = useStore(ui, (s) => s.editing)
     const retitling = useStore(ui, (s) => s.retitling)
+    const picking = useStore(ui, (s) => s.picking)
     const profile_edit = useStore(ui, (s) => s.profile_edit)
     const crop = useStore(ui, (s) => !!s.crop)
     const info_open = useStore(ui, (s) => s.info_open)
@@ -452,6 +454,7 @@ function Overlays() {
             <AnimatePresence>{lyrics_open && <LyricsPage key='lyrics' />}</AnimatePresence>
             {editing && <PlaylistDialog key={editing} name={editing} />}
             {retitling && <TitleDialog key={retitling} name={retitling} />}
+            {picking && <PlaylistPicker key={picking} song={picking} />}
             {profile_edit && <ProfileDialog />}
             {info_open && <TrackInfo />}
             {/* over the dialog that asked for it */}

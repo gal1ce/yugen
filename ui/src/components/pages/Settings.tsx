@@ -16,6 +16,7 @@ import { tip } from '../../lib/tip'
 import { Button } from '../ui/Button'
 import { Range, Segmented, Switch } from '../ui/Controls'
 import { glide_to } from '../../hooks/glide'
+import { usePhone } from '../../hooks/phone'
 import { HoverGlass } from '../ui/HoverGlass'
 
 /*
@@ -41,12 +42,15 @@ function Group({ id, title, note, children }: { id: string; title: string; note?
 
 function Row({ title, hint, dimmed, children }: { title: ReactNode; hint?: ReactNode; dimmed?: boolean; children?: ReactNode }) {
     return (
-        <div className={cn('grid min-h-15 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-8 py-3 transition-opacity', dimmed && 'opacity-45')}>
-            <div className='min-w-0'>
+        // the words take the line and the control sits beside them while there
+        // is room; on a phone a wide control (four choices) goes under them
+        // instead of crushing them into a word a line
+        <div className={cn('flex min-h-15 flex-wrap items-center gap-x-8 gap-y-2.5 py-3 transition-opacity', dimmed && 'opacity-45')}>
+            <div className='min-w-0 flex-[1_1_14rem]'>
                 <p className='text-[0.875rem]'>{title}</p>
                 {hint && <p className='mt-0.5 text-[0.8125rem] text-muted'>{hint}</p>}
             </div>
-            <div className='flex items-center justify-end gap-3'>{children}</div>
+            <div className='ml-auto flex max-w-full items-center justify-end gap-3'>{children}</div>
         </div>
     )
 }
@@ -399,6 +403,8 @@ export function SettingsPage() {
     const suggest_on = useStore(ui, (s) => s.suggest_on)
     const places = useStore(ui, (s) => s.places)
     const share = useStore(ui, (s) => s.share_dc)
+    const keyboard = useStore(ui, (s) => s.keyboard)
+    const phone = usePhone()
     const folder = useStore(library, (s) => s.folder)
     const songs = useStore(library, (s) => s.songs.length)
     const loading = useStore(library, (s) => s.loading)
@@ -541,6 +547,8 @@ export function SettingsPage() {
                     </Sub>
                 </Group>
 
+                {/* a phone has no discord client to show it on */}
+                {!phone && (
                 <Group id='sharing' title='Sharing'>
                     <Row title='Discord activity' hint='Shows the track you are playing on your Discord profile'>
                         <Switch
@@ -553,6 +561,7 @@ export function SettingsPage() {
                         />
                     </Row>
                 </Group>
+                )}
 
                 <Group id='library' title='Library'>
                     <Row title='Music folder' hint={folder || '~/Music'}>
@@ -563,10 +572,19 @@ export function SettingsPage() {
                     </Row>
                 </Group>
 
+                {/* a phone has keys only once a keyboard is plugged in or paired:
+                    until it is said to be, there is nothing here to set */}
                 <Group id='keys' title='Keyboard shortcuts'>
-                    <Block title='Shortcuts'>
-                        <KeybindEditor />
-                    </Block>
+                    {phone && (
+                        <Row title='A keyboard is connected' hint={keyboard ? 'Its shortcuts are below' : 'Turn on with a keyboard plugged in or paired, to set its shortcuts'}>
+                            <Switch on={keyboard} label='A keyboard is connected' on_toggle={() => set_pref('keyboard', !keyboard)} />
+                        </Row>
+                    )}
+                    {(!phone || keyboard) && (
+                        <Block title='Shortcuts'>
+                            <KeybindEditor />
+                        </Block>
+                    )}
                 </Group>
             </div>
         </div>

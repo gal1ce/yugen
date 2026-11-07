@@ -101,9 +101,16 @@ function SongMenu({ song, within }: { song: string; within?: string[] }) {
                 </MenuItem>
             )}
 
-            <Submenu icon={<ListPlus size={16} />} label='Add to playlist'>
-                <PlaylistTargets song={song} />
-            </Submenu>
+            {/* a phone gives it a page of its own; a pointer, the menu beside */}
+            {phone ? (
+                <MenuItem icon={<ListPlus size={16} />} onClick={() => ui.set({ menu: null, picking: song })}>
+                    Add to playlist
+                </MenuItem>
+            ) : (
+                <Submenu icon={<ListPlus size={16} />} label='Add to playlist'>
+                    <PlaylistTargets song={song} />
+                </Submenu>
+            )}
 
             {phone && (
                 <>

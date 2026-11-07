@@ -130,6 +130,9 @@ export type UiState = {
     // the page's bar stays over the page, torn off the top as it scrolls,
     // rather than scrolling away with it
     bar_float: boolean
+    // a phone: whether a keyboard is plugged in or paired, which is what
+    // brings its shortcuts into settings
+    keyboard: boolean
     share_dc: boolean
     sort: Sort
     layouts: Record<LayoutKey, Layout>
@@ -150,6 +153,8 @@ export type UiState = {
     editing: string | null
     // the track being given a title of its own
     retitling: string | null
+    // a phone: the track whose playlists are being picked, on a page of its own
+    picking: string | null
     profile_edit: boolean
     crop: { src: string; for: CropFor } | null
     crop_busy: boolean
@@ -220,6 +225,7 @@ export const ui = create_store<UiState>({
     lp_wave: stored_flag('lp_wave', true),
     home_wave: stored_flag('home_wave', true),
     bar_float: stored_flag('bar_float', true),
+    keyboard: stored_flag('keyboard', false),
     share_dc: stored_flag('share_dc', true),
     sort: stored_pref('sort', SORTS.map((s) => s.id), 'title'),
     layouts: {
@@ -243,6 +249,7 @@ export const ui = create_store<UiState>({
     menu: null,
     editing: null,
     retitling: null,
+    picking: null,
     profile_edit: false,
     crop: null,
     crop_busy: false,
