@@ -3,7 +3,10 @@ import { album_tag, artist_tag, collate } from '../lib/names'
 import type { LayoutKey, Sort, View } from '../lib/prefs'
 import { memo_last, useStore } from '../lib/store'
 import { added_of, album_of, artist_of, length_of, library, title_of } from './library'
+import { mix_named, mixes_now, useMixes } from './mixes'
 import { player } from './player'
+import { most_played, useMostPlayed } from './plays'
+import { useWhere } from './where'
 import { ui } from './ui'
 
 /*
@@ -86,21 +89,43 @@ const listed_memo = memo_last(
     },
 )
 
+// what was played lately that is still here
+const played_of = memo_last((recent: string[], songs: string[]) => {
+    const on_disk = new Set(songs)
+    return recent.filter((name) => on_disk.has(name))
+})
+
+const NONE: string[] = []
+
+// the listener's own listings keep the order they were made in, whatever the
+// sort: a mix as it was dealt, the most played by count, the latest played first
+export const own_order = (view: View) => view === 'mix' || view === 'top' || view === 'played'
+
 export function listed_now() {
     const { view, selection, sort } = ui.get()
     const { songs, meta, liked, playlists } = library.get()
+
+    if (view === 'mix') return mix_named(mixes_now(), selection)?.tracks ?? NONE
+    if (view === 'top') return most_played()
+    if (view === 'played') return played_of(player.get().recent, songs)
 
     return listed_memo(view, selection, sort, songs, meta, liked, playlists)
 }
 
 export function useListed() {
-    const view = useStore(ui, (s) => s.view)
-    const selection = useStore(ui, (s) => s.selection)
+    const { view, selection } = useWhere()
     const sort = useStore(ui, (s) => s.sort)
     const songs = useStore(library, (s) => s.songs)
     const meta = useStore(library, (s) => s.meta)
     const liked = useStore(library, (s) => s.liked)
     const playlists = useStore(library, (s) => s.playlists)
+    const mixes = useMixes()
+    const top = useMostPlayed()
+    const recent = useStore(player, (s) => s.recent)
+
+    if (view === 'mix') return mix_named(mixes, selection)?.tracks ?? NONE
+    if (view === 'top') return top
+    if (view === 'played') return played_of(recent, songs)
 
     return listed_memo(view, selection, sort, songs, meta, liked, playlists)
 }

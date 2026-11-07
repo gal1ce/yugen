@@ -67,6 +67,8 @@ export type MenuTarget =
     // section of its own rather than the listing on screen - see play_from
     | { kind: 'song'; song: string; within?: string[] }
     | { kind: 'playlist'; playlist: string }
+    // an album, an artist or a mix: a name and the tracks it holds
+    | { kind: 'group'; title: string; tracks: string[] }
     | { kind: 'sidebar' }
     | { kind: 'suggestion'; track: Suggestion }
 
@@ -285,6 +287,11 @@ export function open_playlist(name: string) {
 
 export function open_group(kind: 'albums' | 'artists', name: string) {
     ui.set({ page: null, view: kind, selection: name })
+}
+
+// the listener's own listings (state/mixes, state/plays): a mix by its name, the most and latest played
+export function open_own(view: 'mix' | 'top' | 'played', name: string | null = null) {
+    ui.set({ page: null, view, selection: name })
 }
 
 // the words of what is playing over the whole window. on a desktop that page

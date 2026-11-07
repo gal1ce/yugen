@@ -1,4 +1,4 @@
-import { memo, useEffect, useReducer, useRef } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import { paced } from '../../lib/frames'
 import { add_painter } from '../../lib/fx'
 import { Heart as HeartIcon, Play, Waveform } from '../ui/icons'
@@ -10,7 +10,7 @@ import { add_to_drift, play_from, player } from '../../state/player'
 import { context, ui } from '../../state/ui'
 import { Heart } from '../ui/Controls'
 import { Cover } from '../ui/Cover'
-import { palette_of } from '../../lib/palette'
+import { useTone } from '../../hooks/tone'
 import { useThumb } from '../../lib/thumbs'
 import { More } from '../ui/More'
 
@@ -189,26 +189,6 @@ export function Bars({ still, className }: { still?: boolean; className?: string
     )
 }
 
-// the strongest colour of a sleeve, read once from its shrunk copy and kept:
-// what a card's label is tinted with
-const tones = new Map<string, string>()
-const asked = new Set<string>()
-
-function useTone(src?: string | null) {
-    const [, landed] = useReducer((count: number) => count + 1, 0)
-
-    useEffect(() => {
-        if (!src || tones.has(src) || asked.has(src)) return
-        asked.add(src)
-        void palette_of(src).then((colours) => {
-            tones.set(src, colours[0] ?? '')
-            landed()
-        })
-    }, [src])
-
-    return src ? tones.get(src) || undefined : undefined
-}
-
 /*
  * A card, made the way a record is: the sleeve fills the top of it edge to
  * edge, and under it a label - the title, the artist, the length - on a strip
@@ -219,7 +199,8 @@ function useTone(src?: string | null) {
  * takes more of its colour, the edge catches the light, the sleeve darkens
  * toward its foot and the play button comes up out of it; the heart waits
  * there too. A liked track says so beside its title, and the one playing is
- * ringed in the accent. A phone keeps the bare card - a sleeve and two lines.
+ * ringed in the accent. A phone draws the same card, its dots in the label's
+ * corner where the length would be.
  */
 function SleeveCard({ name, within, className }: TrackProps & { className?: string }) {
     const { cover, liked, title, artist } = useTrack(name)
@@ -231,16 +212,11 @@ function SleeveCard({ name, within, className }: TrackProps & { className?: stri
         <div className={cn('group relative min-w-0', className)} {...drag(name)} onContextMenu={context({ kind: 'song', song: name, within })}>
             <button
                 type='button'
-                className={cn('card-sleeve relative block w-full text-left transition-[scale] active:scale-[0.985]', playing && 'sm:outline sm:outline-offset-2 sm:outline-[color-mix(in_oklab,var(--accent)_70%,transparent)]')}
+                className={cn('card-sleeve relative block w-full text-left transition-[scale] active:scale-[0.985]', playing && 'outline outline-offset-2 outline-[color-mix(in_oklab,var(--accent)_70%,transparent)]')}
                 style={tone ? ({ '--tone': tone } as React.CSSProperties) : undefined}
                 onClick={() => void play_from(name, within ?? null)}
             >
-                <div
-                    className={cn(
-                        'relative aspect-square overflow-hidden bg-surface-2 max-sm:rounded-(--r-cover) max-sm:shadow-[0_14px_28px_-18px_rgb(0_0_0/0.7)]',
-                        playing && 'max-sm:outline max-sm:outline-offset-2 max-sm:outline-[color-mix(in_oklab,var(--accent)_70%,transparent)]',
-                    )}
-                >
+                <div className='relative aspect-square overflow-hidden bg-surface-2'>
                     <Cover data={cover} size='md' icon={28} className='size-full rounded-none' />
                     <span aria-hidden className='pointer-events-none absolute inset-0 bg-linear-to-t from-black/50 via-black/5 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100' />
 
@@ -254,24 +230,24 @@ function SleeveCard({ name, within, className }: TrackProps & { className?: stri
                     </span>
                 </div>
 
-                <div className='sm:px-3 sm:pt-2.5 sm:pb-3 max-sm:mt-2.5'>
-                    <p className={cn('card-text flex items-center gap-1.5 text-[0.875rem] font-medium max-sm:pr-8', playing ? 'text-accent' : 'text-fg')}>
+                <div className='px-3 pt-2.5 pb-3 max-sm:pr-9'>
+                    <p className={cn('card-text flex items-center gap-1.5 text-[0.875rem] font-medium', playing ? 'text-accent' : 'text-fg')}>
                         <span className='truncate'>{title}</span>
                         {liked && <HeartIcon size={12} aria-label='Liked' className='shrink-0 fill-current text-accent' />}
                     </p>
-                    <p className='card-text flex items-baseline gap-2 text-[0.8125rem] text-muted max-sm:pr-8'>
+                    <p className='card-text flex items-baseline gap-2 text-[0.8125rem] text-muted'>
                         <span className='min-w-0 flex-1 truncate'>{artist}</span>
                         <span className='shrink-0 font-mono text-[0.6875rem] tabular-nums max-sm:hidden'>{format_time(length_of(name))}</span>
                     </p>
                 </div>
             </button>
-            <More target={{ kind: 'song', song: name, within }} className='absolute right-[-0.5rem] bottom-[-0.25rem]' />
+            <More target={{ kind: 'song', song: name, within }} className='absolute right-0 bottom-1' />
 
             {/* outside the main button, so buttons are not nested */}
             <Heart
                 liked={liked}
                 on_toggle={() => void toggle_like(name)}
-                size={15}
+                size={16}
                 className='absolute top-2.5 right-2.5 size-8 rounded-full! bg-black/40 text-white! opacity-0 backdrop-blur-md transition-opacity group-hover:opacity-100 hover:bg-black/60 max-sm:hidden'
             />
         </div>

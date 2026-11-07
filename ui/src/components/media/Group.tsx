@@ -5,9 +5,11 @@ import { useStore } from '../../lib/store'
 import { span_of } from '../../state/derive'
 import { artist_of, library } from '../../state/library'
 import { Cover } from '../ui/Cover'
+import { Card } from './Card'
 
 // an album or an artist: a cover off the first track that has one, a name, and
-// how much is in it. an artist is a face, so it is round
+// how much is in it, in the card settings picked (media/Card). an artist is a
+// face, so it is round
 export const GroupCard = memo(function GroupCard({
     name,
     tracks,
@@ -25,20 +27,15 @@ export const GroupCard = memo(function GroupCard({
     })
 
     return (
-        <button
-            type='button'
-            onClick={on_open}
-            className='group min-w-0 text-left'
-        >
-            <div className={cn('relative aspect-square overflow-hidden bg-surface-2 shadow-[0_8px_20px_-12px_rgb(0_0_0/0.55)]', round ? 'rounded-full' : 'rounded-(--r-cover)')}>
-                <Cover data={art} size='md' icon={28} round={round} className={cn('size-full', !round && 'rounded-none')} />
-                <div className='absolute inset-0 bg-black/20 opacity-0 transition-opacity group-hover:opacity-100' />
-            </div>
-            <p className={cn('card-text mt-2 truncate text-[0.875rem] font-medium', round && 'text-center')}>{name}</p>
-            <p className={cn('card-text truncate text-[0.8125rem] text-muted', round && 'text-center')}>
-                {tracks.length} {tracks.length === 1 ? 'track' : 'tracks'}
-            </p>
-        </button>
+        <Card
+            picture={<Cover data={art} size='md' icon={28} round={round} className={cn('size-full', !round && 'rounded-none')} />}
+            tone_of={art}
+            title={name}
+            sub={`${tracks.length} ${tracks.length === 1 ? 'track' : 'tracks'}`}
+            round={round}
+            menu={{ kind: 'group', title: name, tracks }}
+            on_open={on_open}
+        />
     )
 })
 

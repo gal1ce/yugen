@@ -5,6 +5,7 @@ import {
     ArrowsOutSimple as PhArrowsOutSimple,
     Article as PhArticle,
     Camera as PhCamera,
+    ChartBar as PhChartBar,
     CaretDoubleDown as PhCaretDoubleDown,
     CaretDoubleLeft as PhCaretDoubleLeft,
     CaretDown as PhCaretDown,
@@ -13,6 +14,7 @@ import {
     CaretUp as PhCaretUp,
     Check as PhCheck,
     CircleNotch as PhCircleNotch,
+    ClockCounterClockwise as PhClockCounterClockwise,
     DiscordLogo as PhDiscordLogo,
     DownloadSimple as PhDownloadSimple,
     FolderOpen as PhFolderOpen,
@@ -77,6 +79,27 @@ import type { Icon as PhIcon, IconWeight } from '@phosphor-icons/react'
  * read anything. A `fill-current` class still means "solid", which is how a
  * heart that is on says so wherever it is drawn.
  */
+/*
+ * How big, by what the icon is doing - four steps and no others, so two
+ * icons side by side are never a pixel or two apart:
+ *
+ * - meta 12: a mark inside a line of small text (pinned, liked), read as
+ *   part of the words;
+ * - inline 16: beside a label, in a button, a menu row, a chip - the label
+ *   says what it is, the icon only helps find it;
+ * - action 20: an icon on its own that is pressed (back, close, search, the
+ *   dots, queue, a row's leading glyph in settings), always in a 44px target;
+ * - primary 24: the few that are the screen's reason - the tabs, play and
+ *   pause, the skip beside it.
+ *
+ * Covers and empty places draw a glyph in proportion to their box instead;
+ * that is a picture, not a control. Colour goes with the role: fg for what is
+ * pressed, fg-2 for what is beside it, muted for what is only read, accent
+ * for what is on. Carets and the dots are thin shapes, so as an action they
+ * are drawn bold, to weigh what the glyphs beside them weigh.
+ */
+export const ICON = { meta: 12, inline: 16, action: 20, primary: 24 } as const
+
 type Props = { size?: number; className?: string; weight?: IconWeight }
 
 const make = (Glyph: PhIcon, fallback: IconWeight = 'regular') =>
@@ -158,6 +181,8 @@ export const Discord = make(PhDiscordLogo)
 export const DotsThree = make(PhDotsThree)
 export const ArrowsDownUp = make(PhArrowsDownUp)
 export const Rows = make(PhRows)
+export const MostPlayed = make(PhChartBar)
+export const LatePlayed = make(PhClockCounterClockwise)
 export const DotsThreeVertical = make(PhDotsThreeVertical, 'bold')
 
 // the right panel's own toggle is the sidebar mark turned around

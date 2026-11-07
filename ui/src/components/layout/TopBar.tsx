@@ -224,7 +224,8 @@ export function SearchBox({ inline = false }: { inline?: boolean }) {
     )
 }
 
-export function ProfileMenu() {
+// `large` is a phone's: the picture a size a thumb finds, in a target of 44px
+export function ProfileMenu({ large = false }: { large?: boolean }) {
     const [open, set_open] = useState(false)
     const username = useStore(library, (s) => s.username)
     const pic = useStore(library, (s) => s.profile_pic)
@@ -238,9 +239,10 @@ export function ProfileMenu() {
                 type='button'
                 {...tip('Profile and settings')}
                 onClick={() => set_open(!open)}
-                className={cn('rounded-full outline-2 outline-offset-2 transition-[outline-color,scale] active:scale-95', open ? 'outline-line-strong' : 'outline-transparent hover:outline-line')}
+                aria-label='Profile and settings'
+                className={cn(large ? 'grid size-11 place-items-center rounded-full active:scale-95 transition-[scale]' : 'rounded-full outline-2 outline-offset-2 transition-[outline-color,scale] active:scale-95', !large && (open ? 'outline-line-strong' : 'outline-transparent hover:outline-line'))}
             >
-                <Cover data={pic} size='sm' round className='size-8' icon={16} />
+                <Cover data={pic} size='sm' round className={large ? 'size-9' : 'size-8'} icon={16} />
             </button>
 
             {open && (

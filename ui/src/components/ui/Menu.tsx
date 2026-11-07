@@ -130,13 +130,13 @@ export function MenuItem({ icon, checked, danger, hint, more, className, childre
             )}
             {...rest}
         >
-            {icon && <span className={cn('grid w-4 shrink-0 place-items-center', !danger && 'text-muted')}>{icon}</span>}
+            {icon && <span className={cn('grid w-4 shrink-0 place-items-center max-sm:w-5 max-sm:[&_svg]:size-5', !danger && 'text-muted')}>{icon}</span>}
             <span className='min-w-0 flex-1 truncate'>
                 {children}
                 {hint && <span className='ml-2 text-muted'>{hint}</span>}
             </span>
-            {checked && <Check size={14} className='shrink-0 text-accent' />}
-            {more && <ChevronRight size={14} className='shrink-0 text-muted' />}
+            {checked && <Check size={16} className='shrink-0 text-accent' />}
+            {more && <ChevronRight size={16} className='shrink-0 text-muted' />}
         </button>
     )
 }

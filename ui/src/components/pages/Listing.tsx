@@ -5,18 +5,21 @@ import { cn } from '../../lib/cn'
 import { format_span } from '../../lib/format'
 import { LAYOUTS, SORTS } from '../../lib/prefs'
 import { shallow, useStore } from '../../lib/store'
-import { album_runs_of, group_art, layout_key, playlist_art, span_of, useListed } from '../../state/derive'
+import { album_runs_of, group_art, layout_key, own_order, playlist_art, span_of, useListed } from '../../state/derive'
 import { pick_image } from '../../state/images'
 import { library, type ViewCover } from '../../state/library'
-import { play_listing, play_music, player, shuffle_into } from '../../state/player'
+import { play_from, play_listing, play_music, player, shuffle_into } from '../../state/player'
+import { mix_line, mix_named, useMixes } from '../../state/mixes'
 import { nearby_key_of, nearby_named, show_nearby } from '../../state/suggest'
-import { open_group, open_page, set_layout, set_pref, ui } from '../../state/ui'
+import { open_group, set_layout, set_pref, ui } from '../../state/ui'
+import { useActive, useWhere } from '../../state/where'
 import { Button, IconButton } from '../ui/Button'
 import { Empty } from '../ui/Controls'
 import { Cover } from '../ui/Cover'
 import { MenuItem, MenuLabel, MenuPanel, MenuSep } from '../ui/Menu'
 import { tip } from '../../lib/tip'
 import { GroupCard, GroupRow } from '../media/Group'
+import { Stack } from '../media/Mix'
 import { NearbyShelf } from '../media/Suggest'
 import { HoverGlass } from '../ui/HoverGlass'
 import { TrackCard, TrackLine, TrackRow, TrackRowHead, card_grid, tile_grid } from '../media/Track'
@@ -24,8 +27,7 @@ import { TrackCard, TrackLine, TrackRow, TrackRowHead, card_grid, tile_grid } fr
 function SortMenu() {
     const [open, set_open] = useState(false)
     const sort = useStore(ui, (s) => s.sort)
-    const view = useStore(ui, (s) => s.view)
-    const selection = useStore(ui, (s) => s.selection)
+    const { view, selection } = useWhere()
     const key = layout_key(view, selection)
     const layout = useStore(ui, (s) => s.layouts[key])
     const close = useCallback(() => set_open(false), [])
@@ -86,20 +88,27 @@ function ViewTile({ view }: { view: ViewCover }) {
 
 // the head of a listing: what it is, what it holds, and the way to play it
 function Head({ listed }: { listed: string[] }) {
-    const view = useStore(ui, (s) => s.view)
-    const selection = useStore(ui, (s) => s.selection)
+    const { view, selection } = useWhere()
     useStore(library, (s) => [s.covers, s.playlist_covers, s.playlists], shallow)
     const span = span_of(listed)
 
-    const kind = view === 'playlist' ? 'Playlist' : view === 'albums' ? 'Album' : view === 'artists' ? 'Artist' : view === 'liked' ? 'Collection' : 'Library'
-    const title = selection ?? (view === 'liked' ? 'Liked songs' : 'All songs')
+    const mix = mix_named(useMixes(), view === 'mix' ? selection : null)
+    const own = own_order(view)
+
+    const kind =
+        view === 'playlist' ? 'Playlist' : view === 'albums' ? 'Album' : view === 'artists' ? 'Artist' : view === 'mix' ? 'Mix' : view === 'liked' || own ? 'Collection' : 'Library'
+    const title = view === 'top' ? 'Most played' : view === 'played' ? 'History' : (selection ?? (view === 'liked' ? 'Liked songs' : 'All songs'))
     const art = view === 'playlist' && selection ? playlist_art(selection) : selection ? group_art(listed) : ''
     const editable = view === 'playlist' && !!selection
     const artist = view === 'artists'
+    // the most and the latest played are the first three of them, stacked the way a mix is
+    const faces = mix?.faces ?? (own ? [listed.slice(0, 1), listed.slice(1, 2), listed.slice(2, 3)] : null)
 
     const sleeve =
         view === 'liked' || view === 'songs' ? (
             <ViewTile view={view} />
+        ) : faces ? (
+            <Stack faces={faces} className={cn(tile, 'overflow-hidden')} />
         ) : (
             <button
                 type='button'
@@ -119,12 +128,6 @@ function Head({ listed }: { listed: string[] }) {
 
     return (
         <section className='mb-10 max-sm:mb-6'>
-            {/* a phone reaches a playlist, an album or an artist from its library, and goes back there */}
-            {selection && (
-                <button type='button' onClick={() => open_page('library')} className='-mt-2 mb-3 hidden h-10 items-center gap-1.5 text-[0.875rem] text-fg-2 max-sm:flex'>
-                    <ArrowLeft size={18} /> Your library
-                </button>
-            )}
             {selection && (view === 'albums' || view === 'artists') && (
                 <button type='button' onClick={() => ui.set({ selection: null })} className='mb-4 flex h-8 items-center gap-1.5 rounded-md text-[0.8125rem] text-muted transition-colors hover:text-fg max-sm:hidden'>
                     <ArrowLeft size={16} /> All {view}
@@ -134,14 +137,15 @@ function Head({ listed }: { listed: string[] }) {
                 {sleeve}
                 <div className='min-w-0 flex-1 pb-1'>
                     <p className='text-[0.8125rem] text-muted'>{kind}</p>
-                    <h1 className='mt-1 truncate font-serif text-[2.75rem] leading-[1.08] font-medium max-sm:text-[2rem]'>{title}</h1>
+                    <h1 className='mt-1 truncate font-serif text-[2.75rem] leading-[1.08] font-medium max-sm:line-clamp-2 max-sm:text-[1.75rem] max-sm:whitespace-normal'>{title}</h1>
                     <p className='mt-2 text-[0.8125rem] text-muted'>
                         <span className='font-mono text-fg-2 tabular-nums'>{listed.length}</span> {listed.length === 1 ? 'track' : 'tracks'}
                         {span > 0 && <> · {format_span(span)}</>}
                     </p>
+                    {mix && <p className='mt-1 truncate text-[0.8125rem] text-muted'>{mix_line(mix)}</p>}
 
                     <div className='mt-6 flex flex-wrap items-center gap-2 max-sm:hidden'>
-                        <Button size='lg' disabled={!listed.length} icon={<Play size={16} />} onClick={() => void play_listing(listed)}>
+                        <Button size='lg' disabled={!listed.length} icon={<Play size={16} />} onClick={() => void (own ? play_from(listed[0], listed) : play_listing(listed))}>
                             Play
                         </Button>
                         <Button
@@ -162,7 +166,7 @@ function Head({ listed }: { listed: string[] }) {
                 </div>
             </div>
             <div className='mt-5 hidden grid-cols-2 gap-2 max-sm:grid'>
-                <Button size='lg' disabled={!listed.length} icon={<Play size={16} />} onClick={() => void play_listing(listed)} className='w-full'>
+                <Button size='lg' disabled={!listed.length} icon={<Play size={16} />} onClick={() => void (own ? play_from(listed[0], listed) : play_listing(listed))} className='w-full'>
                     Play
                 </Button>
                 <Button size='lg' variant='secondary' disabled={!listed.length} icon={<Shuffle size={16} />} onClick={() => void shuffle_listing()} className='w-full'>
@@ -181,12 +185,15 @@ async function shuffle_listing() {
 }
 
 function Tracks({ listed }: { listed: string[] }) {
-    const view = useStore(ui, (s) => s.view)
-    const selection = useStore(ui, (s) => s.selection)
+    const { view, selection } = useWhere()
     const sort = useStore(ui, (s) => s.sort)
-    const layout = useStore(ui, (s) => s.layouts[layout_key(s.view, s.selection)])
+    const layout = useStore(ui, (s) => s.layouts[layout_key(view, selection)])
     const meta = useStore(library, (s) => s.meta)
-    const runs = album_runs_of(listed, sort, view, selection, meta)
+    const own = own_order(view)
+    const runs = own ? null : album_runs_of(listed, sort, view, selection, meta)
+    // the listener's own listings change as they are played from, so a track
+    // started in one plays on through the list as it stood when it was pressed
+    const within = own ? listed : undefined
 
     // sorted by album, a listing is the albums themselves
     if (runs) {
@@ -211,7 +218,7 @@ function Tracks({ listed }: { listed: string[] }) {
         return (
             <div className={tile_grid}>
                 {listed.map((name, i) => (
-                    <TrackCard key={name} name={name} index={i} />
+                    <TrackCard key={name} name={name} within={within} index={i} />
                 ))}
             </div>
         )
@@ -222,7 +229,7 @@ function Tracks({ listed }: { listed: string[] }) {
             <div className='relative space-y-0.5'>
                 <HoverGlass className='rounded-[min(var(--r-control),1.25rem)]' />
                 {listed.map((name, i) => (
-                    <TrackLine key={name} name={name} index={i} />
+                    <TrackLine key={name} name={name} within={within} index={i} />
                 ))}
             </div>
         )
@@ -233,7 +240,7 @@ function Tracks({ listed }: { listed: string[] }) {
             <HoverGlass className='rounded-[min(var(--r-control),1.25rem)]' />
             <TrackRowHead />
             {listed.map((name, i) => (
-                <TrackRow key={name} name={name} index={i} />
+                <TrackRow key={name} name={name} within={within} index={i} />
             ))}
         </div>
     )
@@ -241,8 +248,8 @@ function Tracks({ listed }: { listed: string[] }) {
 
 export function ListingPage() {
     const listed = useListed()
-    const view = useStore(ui, (s) => s.view)
-    const selection = useStore(ui, (s) => s.selection)
+    const { view, selection } = useWhere()
+    const active = useActive()
     const loading = useStore(library, (s) => s.loading)
     // the shelf's places are a setting, read through the key below
     useStore(ui, (s) => s.suggest_on)
@@ -251,9 +258,10 @@ export function ListingPage() {
 
     // the shelf at the foot belongs to this listing: one already drawn for it
     // comes back, and only a listing with none yet costs a pass
+    // (a phone's listing kept behind another screen asks once it is in front again)
     useEffect(() => {
-        show_nearby(nearby_key, listed.length > 0)
-    }, [nearby_key, listed.length])
+        if (active) show_nearby(nearby_key, listed.length > 0)
+    }, [nearby_key, listed.length, active])
 
     return (
         <>
@@ -262,15 +270,23 @@ export function ListingPage() {
             {listed.length > 0 && (
                 <div className='mb-2 flex items-center justify-between'>
                     <h2 className='text-[0.8125rem] text-muted'>Tracks</h2>
-                    <SortMenu />
+                    {!own_order(view) && <SortMenu />}
                 </div>
             )}
 
             {listed.length ? (
                 <Tracks listed={listed} />
             ) : (
-                <Empty icon={view === 'liked' ? <Heart size={20} /> : <Music2 size={20} />} title={loading ? 'Scanning your library' : view === 'liked' ? 'No liked songs yet' : view === 'playlist' ? 'This playlist is empty' : 'Nothing here yet'}>
-                    {view === 'liked' ? 'Press the heart on any track and it lands here.' : view === 'playlist' ? 'Right-click a track and pick Add to playlist.' : null}
+                <Empty icon={view === 'liked' ? <Heart size={20} /> : <Music2 size={20} />} title={loading ? 'Scanning your library' : view === 'liked' ? 'No liked songs yet' : view === 'playlist' ? 'This playlist is empty' : view === 'top' || view === 'played' ? 'Nothing played yet' : view === 'mix' ? 'This mix is gone' : 'Nothing here yet'}>
+                    {view === 'liked'
+                        ? 'Press the heart on any track and it lands here.'
+                        : view === 'playlist'
+                          ? 'Right-click a track and pick Add to playlist.'
+                          : view === 'top'
+                            ? 'A track counts once it has played for half a minute.'
+                            : view === 'mix'
+                              ? 'Mixes are dealt again each day.'
+                              : null}
                 </Empty>
             )}
 

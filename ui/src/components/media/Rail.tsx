@@ -23,9 +23,9 @@ export function Section({ title, note, action, children, className }: { title: R
 }
 
 export const SeeAll = ({ on_click }: { on_click: () => void }) => (
-    <button type='button' onClick={on_click} className='flex h-8 items-center gap-1 rounded-md px-2 text-[0.8125rem] text-muted transition-colors hover:text-fg'>
+    <button type='button' onClick={on_click} className='flex h-8 items-center gap-1 rounded-md px-2 text-[0.8125rem] text-muted transition-colors hover:text-fg max-sm:-mr-2 max-sm:h-11'>
         See all
-        <ChevronRight size={14} />
+        <ChevronRight size={16} />
     </button>
 )
 

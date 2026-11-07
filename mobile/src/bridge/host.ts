@@ -1,3 +1,4 @@
+import { BackHandler } from 'react-native'
 import * as lastfm from '../native/lastfm'
 import * as library from '../native/library'
 import * as player from '../native/player'
@@ -96,6 +97,11 @@ export const HANDLERS: Record<string, Handler> = {
     // last.fm, with the desktop's key (src/native/lastfm)
     get_similar: (path: string, limit: number) => lastfm.similar(path, limit),
     get_info: (artist: string, track: string) => lastfm.info(artist, track),
+
+    // back with nothing behind it: android's own back, which on 12 and later
+    // puts a launcher's app in the background rather than ending it, so the
+    // player's service keeps the music going
+    leave: async () => BackHandler.exitApp(),
 }
 
 export type Call = { id: number; method: string; args: unknown[] }

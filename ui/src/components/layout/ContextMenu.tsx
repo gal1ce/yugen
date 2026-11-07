@@ -1,11 +1,11 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
-import { Disc3, Download, Heart, Mic2, ImagePlus, ListEnd, ListMusic, ListPlus, ListStart, Minus, Pencil, Pin, PinOff, Play, Plus, Star, Trash2, Waveform } from '../ui/icons'
+import { Disc3, Download, Heart, Mic2, ImagePlus, ListEnd, ListMusic, ListPlus, ListStart, Minus, Pencil, Pin, PinOff, Play, Plus, Shuffle, Star, Trash2, Waveform } from '../ui/icons'
 import { useDismiss } from '../../hooks/dismiss'
 import { useStore } from '../../lib/store'
 import { playlist_names_of } from '../../state/derive'
 import { choose_track_cover } from '../../state/images'
 import { add_to_playlist, album_of, artist_of, is_favorite, library, remove_from_playlist, title_of, toggle_favorite, toggle_like } from '../../state/library'
-import { add_to_drift, add_to_queue, play_from, play_next, remove_song } from '../../state/player'
+import { add_to_drift, add_to_queue, play_from, play_next, queue_all, remove_song } from '../../state/player'
 import { delete_playlist, new_playlist } from '../../state/playlists'
 import { download_suggestion } from '../../state/suggest'
 import { open_group, toggle_pin, ui } from '../../state/ui'
@@ -139,6 +139,16 @@ function SongMenu({ song, within }: { song: string; within?: string[] }) {
     )
 }
 
+// a group played in an order of its own, drawn once, as the shuffle of a mix
+function shuffle_group(tracks: string[]) {
+    const order = [...tracks]
+    for (let i = order.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[order[i], order[j]] = [order[j], order[i]]
+    }
+    return play_from(order[0], order)
+}
+
 export function ContextMenu() {
     const menu = useStore(ui, (s) => s.menu)
     const pins = useStore(ui, (s) => s.pins)
@@ -193,6 +203,24 @@ export function ContextMenu() {
                     <MenuSep />
                     <MenuItem danger icon={<Trash2 size={16} />} onClick={() => void delete_playlist(menu.playlist)}>
                         Delete playlist
+                    </MenuItem>
+                </>
+            )}
+
+            {menu.kind === 'group' && (
+                <>
+                    <MenuLabel>{menu.title}</MenuLabel>
+                    <MenuItem icon={<Play size={16} />} onClick={() => void play_from(menu.tracks[0], menu.tracks)}>
+                        Play
+                    </MenuItem>
+                    <MenuItem icon={<Shuffle size={16} />} onClick={() => void shuffle_group(menu.tracks)}>
+                        Shuffle
+                    </MenuItem>
+                    <MenuItem icon={<ListStart size={16} />} onClick={() => queue_all(menu.tracks, true)}>
+                        Play next
+                    </MenuItem>
+                    <MenuItem icon={<ListEnd size={16} />} onClick={() => queue_all(menu.tracks, false)}>
+                        Add to queue
                     </MenuItem>
                 </>
             )}

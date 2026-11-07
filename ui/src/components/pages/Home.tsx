@@ -10,12 +10,16 @@ import { play_listing, play_music, player, shuffle_into, toggle_pause } from '..
 import { want_similar } from '../../state/suggest'
 import { context, open_group, open_lyrics, open_menu, open_page, open_playlist, open_view, ui } from '../../state/ui'
 import { Button, IconButton } from '../ui/Button'
+import { More } from '../ui/More'
 import { Empty } from '../ui/Controls'
 import { Cover } from '../ui/Cover'
 import { SeeAll, Shelf } from '../media/Rail'
 import { DiscoverShelf } from '../media/Suggest'
 import { Bars, TrackCard } from '../media/Track'
 import { GroupCard } from '../media/Group'
+import { MixCard } from '../media/Mix'
+import { useMixes } from '../../state/mixes'
+import { usePhone } from '../../hooks/phone'
 import { Spin } from '../ui/Spin'
 
 const SHELF = 12
@@ -137,18 +141,20 @@ function Hero() {
                 </div>
 
                 <div className='col-start-2 row-start-2 mt-6 flex items-center gap-2 max-sm:col-span-2 max-sm:col-start-1 max-sm:mt-4 max-sm:gap-1.5'>
-                    <Button size='lg' icon={paused ? <Play size={16} /> : <Pause size={16} />} onClick={() => void toggle_pause()} className='max-sm:h-10 max-sm:px-4'>
+                    <Button size='lg' icon={paused ? <Play size={16} /> : <Pause size={16} />} onClick={() => void toggle_pause()} className='max-sm:h-11 max-sm:px-5'>
                         {paused ? 'Resume' : 'Pause'}
                     </Button>
-                    <Button size='lg' variant='secondary' icon={<MicVocal size={16} />} onClick={() => open_lyrics()} className='max-sm:h-10 max-sm:px-4'>
+                    <Button size='lg' variant='secondary' icon={<MicVocal size={16} />} onClick={() => open_lyrics()} className='max-sm:h-11 max-sm:px-5'>
                         Lyrics
                     </Button>
-                    <IconButton size='lg' variant='soft' {...tip('Track info')} onClick={() => ui.set({ info_open: true, info_face: 'about' })} className='max-sm:size-10'>
+                    {/* a phone keeps two words and the dots: the track's info is the
+                        player's, a press on the sleeve away, and its menu is the sheet */}
+                    <IconButton size='lg' variant='soft' {...tip('Track info')} onClick={() => ui.set({ info_open: true, info_face: 'about' })} className='max-sm:hidden'>
                         <Info size={18} />
                     </IconButton>
                     <IconButton
                         size='lg'
-                        className='max-sm:size-10'
+                        className='max-sm:hidden'
                         variant='soft'
                         {...tip('More')}
                         onClick={(e) => {
@@ -159,6 +165,7 @@ function Hero() {
                     >
                         <DotsThree size={18} />
                     </IconButton>
+                    <More target={{ kind: 'song', song: current }} className='-mr-2 ml-auto text-fg-2' />
                 </div>
 
                 {next.length > 0 && (
@@ -269,6 +276,10 @@ function Shelves() {
     // what is still here, and not the one playing - that is the card above
     const here = new Set(songs)
     const recent = recent_all.filter((name) => here.has(name) && name !== current).slice(0, SHELF)
+    const mixes = useMixes()
+    // a phone's home is what to play, the albums and the artists are its library's;
+    // a desktop keeps them here, with the library's own columns beside them
+    const phone = usePhone()
 
     return (
         <>
@@ -276,6 +287,14 @@ function Shelves() {
                 <Shelf title='Recently played' note='Where you left off'>
                     {recent.map((name, i) => (
                         <TrackCard key={name} name={name} within={recent} index={i} />
+                    ))}
+                </Shelf>
+            )}
+
+            {mixes.length > 0 && (
+                <Shelf title='Your mixes' note='Who you play most, with who you play them beside'>
+                    {mixes.map((mix) => (
+                        <MixCard key={mix.name} mix={mix} />
                     ))}
                 </Shelf>
             )}
@@ -304,7 +323,7 @@ function Shelves() {
                 </Shelf>
             )}
 
-            {albums.length >= 2 && (
+            {!phone && albums.length >= 2 && (
                 <Shelf title='Albums' note='The records most of your library is' action={<SeeAll on_click={() => open_view('albums')} />}>
                     {albums.map(([name, tracks]) => (
                         <GroupCard key={name} name={name} tracks={tracks} on_open={() => open_group('albums', name)} />
@@ -312,7 +331,7 @@ function Shelves() {
                 </Shelf>
             )}
 
-            {artists.length >= 2 && (
+            {!phone && artists.length >= 2 && (
                 <Shelf title='Artists' note='Who you keep the most of' action={<SeeAll on_click={() => open_view('artists')} />}>
                     {artists.map(([name, tracks]) => (
                         <GroupCard key={name} name={name} tracks={tracks} round on_open={() => open_group('artists', name)} />

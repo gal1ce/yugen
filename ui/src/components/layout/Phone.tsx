@@ -3,50 +3,22 @@ import { animate, motion, useMotionValue, useTransform } from 'motion/react'
 import { useClock } from '../../lib/clock'
 import { cn } from '../../lib/cn'
 import { spring } from '../../lib/motion'
+import { bridge } from '../../lib/bridge'
 import { useStore } from '../../lib/store'
 import { useQueue } from '../../state/derive'
 import { artist_of, library, title_of } from '../../state/library'
-import { next_shuffle, player, shuffle_into, skip, toggle_pause } from '../../state/player'
-import { SHUFFLES } from '../../lib/prefs'
+import { player, skip, toggle_pause } from '../../state/player'
 import { open_lyrics, open_page, open_view, ui } from '../../state/ui'
 import { IconButton } from '../ui/Button'
 import { Cover } from '../ui/Cover'
-import { Heart, Home, LayoutGrid, Music2, Pause, Play, Search, Shuffle, SkipBack, SkipForward } from '../ui/icons'
-import { QuickLook } from './Look'
-import { Brand, ProfileMenu, SearchBox } from './TopBar'
+import { Heart, Home, LayoutGrid, Music2, Pause, Play, Search, SkipForward } from '../ui/icons'
+import { root_of, to_top } from '../../state/screens'
 
 /*
  * The window on a phone: one page, and floating over its foot the player and
  * the sections, each a piece of the same glass as the desktop's dock. The
  * page runs on under them, so what scrolls by is seen through them.
  */
-
-// the head of the page: the name, the look, and the profile (settings are in
-// its menu, as on the desktop). the search is a section of its own down in the
-// tabs. by default it is the top of the page and goes up with it. floating (a
-// setting) it does what the desktop's bar does: once the page is under it, it
-// comes away from the top edge as a capsule of the same glass as the dock and
-// the tabs - drawn in from the sides, rounded off, dropped a little - and at
-// the top of the page it goes back into the edge
-export function PhoneBar({ floating = false }: { floating?: boolean }) {
-    const glass = useStore(ui, (s) => s.glass)
-
-    return (
-        <header
-            data-floating={floating || undefined}
-            className='phone-bar absolute inset-x-0 top-0 z-30 h-[calc(var(--safe-top)+4.25rem)] pt-[calc(var(--safe-top)+0.5rem)]'
-        >
-            {floating && <div aria-hidden className={cn('phone-bar-body pointer-events-none absolute', glass ? 'float thin lens-glass' : 'float')} />}
-            <div className='phone-bar-row relative flex h-full items-center justify-between px-3'>
-                <Brand />
-                <div className='flex items-center gap-1'>
-                    <QuickLook large />
-                    <ProfileMenu />
-                </div>
-            </div>
-        </header>
-    )
-}
 
 // how far into the track, as a hairline along the dock's floor: written into
 // the dom by the clock, never a render - and only when it has moved a whole
@@ -143,7 +115,6 @@ export function Dock() {
     const glass = useStore(ui, (s) => s.glass)
     const current = useStore(player, (s) => s.current)
     const paused = useStore(player, (s) => s.paused)
-    const shuffle = useStore(player, (s) => s.shuffle_mode)
     const cover = useStore(library, (s) => (current ? s.covers[current] : undefined))
     useStore(library, (s) => (current ? s.meta[current] : undefined))
     const queue = useQueue()
@@ -175,25 +146,14 @@ export function Dock() {
                     <span className='block truncate text-[0.75rem] text-fg-2'>{artist_of(current)}</span>
                 </span>
             </motion.div>
-            <IconButton
-                size='md'
-                aria-label={SHUFFLES.find((o) => o.id === shuffle)?.label}
-                aria-pressed={shuffle !== 'off'}
-                disabled={!queue.length}
-                onClick={() => void shuffle_into(next_shuffle())}
-                className={cn('relative', shuffle !== 'off' ? 'text-accent' : 'text-fg-2')}
-            >
-                <Shuffle size={17} />
-                {shuffle === 'all' && <span className='absolute bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full bg-accent' />}
+            {/* play and the next track, as every phone's mini player has it: the
+                rest of the transport is a swipe away (sideways, the dock skips)
+                or a tap away (the player) */}
+            <IconButton size='lg' aria-label={paused ? 'Play' : 'Pause'} onClick={() => void toggle_pause()} className='text-fg'>
+                {paused ? <Play size={24} /> : <Pause size={24} />}
             </IconButton>
-            <IconButton size='md' aria-label='Previous' disabled={!queue.length} onClick={() => skip(-1)} className='text-fg'>
-                <SkipBack size={18} />
-            </IconButton>
-            <IconButton size='md' aria-label={paused ? 'Play' : 'Pause'} onClick={() => void toggle_pause()} className='text-fg'>
-                {paused ? <Play size={20} /> : <Pause size={20} />}
-            </IconButton>
-            <IconButton size='md' aria-label='Next' disabled={!queue.length} onClick={() => skip(1)} className='text-fg'>
-                <SkipForward size={18} />
+            <IconButton size='lg' aria-label='Next' disabled={!queue.length} onClick={() => skip(1)} className='text-fg'>
+                <SkipForward size={20} />
             </IconButton>
             <DockProgress />
         </div>
@@ -215,7 +175,8 @@ const TABS: Tab[] = [
 const SEARCH = 1
 
 // which tab the page on screen belongs to; a playlist, an album or an artist
-// is reached from the library, so it lights the library. settings and the
+// is reached from the library, so it lights the library (a mix, from home,
+// lights home). settings and the
 // profile belong to none
 function useTab() {
     return useStore(ui, (s) => {
@@ -225,6 +186,8 @@ function useTab() {
         if (s.view === 'songs') return 3
         if (s.view === 'liked') return 4
         if (s.view === 'library' && !s.selection) return 0
+        // a mix is home's
+        if (s.view === 'mix') return 0
         return 2
     })
 }
@@ -236,26 +199,33 @@ function useTab() {
  * travels towards on the quick spring, the one it leaves on the slow one, so
  * on the way it is drawn out long and then pulls itself in.
  */
+// the two edges' curves, as a css transition: a spring of motion's was a
+// script writing both edges into the style some thirty times over the half
+// second after a press (seen on the phone), each one a frame of style and
+// layout begun from script. the pace scales a transition as it does a spring
+const LEAD = 0.26
+const TRAIL = 0.5
+const SPRING = 'cubic-bezier(0.3, 1.25, 0.5, 1)'
+const SETTLE = 'cubic-bezier(0.25, 1, 0.4, 1)'
+
 export function TabBar() {
     const glass = useStore(ui, (s) => s.glass)
-    const shown = useTab()
-    // the tab pressed, ahead of the page: the glass sets off under the finger
-    // in the frame of the press, and the page is built in the one after
-    const [pressed, set_pressed] = useState<number | null>(null)
-    const at = pressed ?? shown
-    useEffect(() => set_pressed(null), [shown])
+    const at = useTab()
 
-    const go = (i: number) => {
-        set_pressed(i)
-        requestAnimationFrame(() => setTimeout(TABS[i].go, 0))
+    // the screens are kept (layout/Screens), so a tab is gone to in the frame
+    // of the press: no frame held back for the glass to set off first. the
+    // tab already open, pressed again, goes back to its top
+    const go = (i: number) => (i === at ? to_top() : TABS[i].go())
+    // which way the piece last went: the tab before is kept as state and
+    // moved on during the render that sees a new one
+    const [last, set_last] = useState(at)
+    const [towards, set_towards] = useState(0)
+    if (at >= 0 && at !== last) {
+        if (last >= 0) set_towards(Math.sign(at - last))
+        set_last(at)
     }
-    const last = useRef(at)
-    const towards = at >= 0 && last.current >= 0 ? Math.sign(at - last.current) : 0
-    if (at >= 0) last.current = at
 
     const share = 100 / TABS.length
-    const lead = spring.snappy
-    const trail = spring.sheet
 
     return (
         <nav
@@ -267,11 +237,15 @@ export function TabBar() {
         >
             <div className='relative grid h-full grid-cols-5'>
                 {at >= 0 && (
-                    <motion.span
+                    <span
                         aria-hidden
-                        initial={false}
-                        animate={{ left: `${at * share}%`, right: `${(TABS.length - 1 - at) * share}%` }}
-                        transition={{ left: towards > 0 ? trail : lead, right: towards > 0 ? lead : trail }}
+                        style={{
+                            left: `${at * share}%`,
+                            right: `${(TABS.length - 1 - at) * share}%`,
+                            transitionProperty: 'left, right',
+                            transitionDuration: towards > 0 ? `${TRAIL}s, ${LEAD}s` : `${LEAD}s, ${TRAIL}s`,
+                            transitionTimingFunction: towards > 0 ? `${SETTLE}, ${SPRING}` : `${SPRING}, ${SETTLE}`,
+                        }}
                         className='btn btn-fill pointer-events-none absolute inset-y-0 rounded-full bg-[color-mix(in_oklab,var(--fg)_10%,transparent)]'
                     />
                 )}
@@ -296,23 +270,17 @@ export function TabBar() {
     )
 }
 
-export { PhoneLibrary as LibraryPage } from '../pages/PhoneLibrary'
-
-export function SearchPage() {
-    return (
-        <div>
-            <h1 className='mb-5 font-serif text-[2.25rem] leading-tight font-medium'>Search</h1>
-            <SearchBox inline />
-        </div>
-    )
-}
-
 /*
  * Android's back, which the app sends as escape: what is open over the page
  * closes first (a sheet, a dialog, the player - each listens for escape on
  * its own), and with nothing open the page goes back to the one before it,
  * as a phone's back does everywhere. Run in capture, before those close
  * themselves, so it sees whether anything was open.
+ *
+ * The tabs are not a history (Material's bottom navigation, and Spotify's and
+ * YouTube Music's own): a tab is where the way back starts again, back on a
+ * tab other than home goes home, and back on home leaves - the app goes to
+ * the background, as Android puts a launcher's app away, and the music plays on.
  */
 type Place = { page: string | null; view: string; selection: string | null }
 
@@ -331,7 +299,8 @@ function useBack() {
             const s = ui.get()
             const now = { page: s.page, view: s.view, selection: s.selection }
             if (now.page === last.page && now.view === last.view && now.selection === last.selection) return
-            if (!going_back) trail.push(last)
+            if (root_of(s)) trail.length = 0
+            else if (!going_back) trail.push(last)
             if (trail.length > 50) trail.shift()
             last = now
         })
@@ -345,9 +314,10 @@ function useBack() {
             if (document.querySelector('[data-subpage]')) return
 
             const to = trail.pop()
-            if (!to) return
+            // nothing before this screen: home, or out of the app from home itself
+            if (!to && root_of(s) === 'home') return void bridge().leave?.()
             going_back = true
-            ui.set({ page: to.page as never, view: to.view as never, selection: to.selection })
+            ui.set(to ? { page: to.page as never, view: to.view as never, selection: to.selection } : { page: null, view: 'library', selection: null })
             going_back = false
         }
 

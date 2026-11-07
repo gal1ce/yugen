@@ -35,7 +35,8 @@ export const stored_theme = (): Theme => {
     return THEMES.includes(value as Theme) ? (value as Theme) : 'system'
 }
 
-export const VIEWS = ['library', 'songs', 'liked', 'albums', 'artists', 'playlist'] as const
+// mix, top and played are the listener's own: a day's mix, the most played, the latest played
+export const VIEWS = ['library', 'songs', 'liked', 'albums', 'artists', 'playlist', 'mix', 'top', 'played'] as const
 export type View = (typeof VIEWS)[number]
 
 /*

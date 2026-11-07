@@ -308,7 +308,7 @@ function PlayerFace() {
         <>
             <div className='flex h-16 shrink-0 items-center gap-1 px-3'>
                 <IconButton size='lg' {...tip('Close')} onPointerDown={hold} onClick={close} className='text-fg-2'>
-                    <ChevronDown size={22} />
+                    <ChevronDown size={20} weight='bold' />
                 </IconButton>
                 <p className='flex-1 text-center text-[0.8125rem] text-fg-2'>Now playing</p>
                 <IconButton size='lg' {...tip('Queue')} onPointerDown={hold} onClick={() => face('queue')} className='text-fg-2'>
@@ -345,7 +345,7 @@ function WordsFace() {
         <>
             <div className='flex h-16 shrink-0 items-center gap-2.5 pr-3 pl-2' onPointerDown={hold}>
                 <IconButton size='lg' {...tip('Back to the player')} onClick={() => face('player')} className='text-fg-2'>
-                    <ChevronDown size={22} />
+                    <ChevronDown size={20} weight='bold' />
                 </IconButton>
                 <button type='button' onClick={() => face('player')} className='flex min-w-0 flex-1 items-center gap-3 text-left'>
                     <Cover data={cover} size='sm' className='size-12 shrink-0 shadow-[0_10px_22px_-10px_rgb(0_0_0/0.8)]' icon={16} />
@@ -358,7 +358,7 @@ function WordsFace() {
                     <SkipForward size={20} />
                 </IconButton>
                 <IconButton size='lg' variant='soft' {...tip(paused ? 'Play' : 'Pause')} onClick={() => void toggle_pause()} className='rounded-full text-fg'>
-                    {paused ? <Play size={18} /> : <Pause size={18} />}
+                    {paused ? <Play size={20} /> : <Pause size={20} />}
                 </IconButton>
             </div>
             <div className='px-5 pt-2' onPointerDown={hold}>

@@ -12,6 +12,7 @@ import { thumb_of } from './lib/thumbs'
 import { sync_keybinds } from './state/keys'
 import { fetch_songs, library, load_favorites, sync_liked, sync_playlists, sync_profile, sync_view_covers } from './state/library'
 import { adopt, mpris_command, player, restore, start_player } from './state/player'
+import { start_plays } from './state/plays'
 import { cover_input_ref, pick_image, track_cover_target } from './state/images'
 import { column_css, COLUMNS, saved_playback, ui, type Column } from './state/ui'
 import { CORNERS, PACES, REGIONS, SWATCHES, radius_css, save_pref, scale_factor } from './lib/prefs'
@@ -25,7 +26,8 @@ import { NowPanel } from './components/layout/NowPanel'
 import { PlayerBar } from './components/layout/PlayerBar'
 import { Sidebar } from './components/layout/Sidebar'
 import { PageBar } from './components/layout/TopBar'
-import { Dock, LibraryPage, PhoneBar, SearchPage, TabBar, Back } from './components/layout/Phone'
+import { Dock, TabBar, Back } from './components/layout/Phone'
+import { PhonePage } from './components/layout/Screens'
 import { usePhone } from './hooks/phone'
 import { set_scroll } from './state/bar'
 import { Ambient } from './components/fx/Ambient'
@@ -196,6 +198,7 @@ function useStartup() {
     useEffect(() => {
         void init_frames()
         const stop = start_player()
+        const stop_plays = start_plays()
 
         void (async () => {
             const [scanned, lists] = await Promise.all([fetch_songs(), sync_playlists()])
@@ -229,6 +232,7 @@ function useStartup() {
 
         return () => {
             stop()
+            stop_plays()
             delete window.__yugen_mpris
             delete window.__yugen_now
         }
@@ -326,10 +330,11 @@ function useNarrow() {
     return narrow
 }
 
-function Page({ phone = false }: { phone?: boolean }) {
+// a desktop's page; a phone's screens are layout/Screens
+function Page() {
     // the library and search pages are a phone's tabs; on a desktop the
     // sidebar and the bar are those, and the page under them is home
-    const page = useStore(ui, (s) => (!phone && (s.page === 'library' || s.page === 'search') ? null : s.page))
+    const page = useStore(ui, (s) => (s.page === 'library' || s.page === 'search' ? null : s.page))
     const view = useStore(ui, (s) => s.view)
     const selection = useStore(ui, (s) => s.selection)
     const nebula = useStore(ui, (s) => s.nebula)
@@ -365,11 +370,7 @@ function Page({ phone = false }: { phone?: boolean }) {
     const home = !page && view === 'library' && !selection
 
     const body =
-        page === 'library' ? (
-            <LibraryPage />
-        ) : page === 'search' ? (
-            <SearchPage />
-        ) : page === 'settings' ? (
+        page === 'settings' ? (
             <SettingsPage />
         ) : page === 'profile' ? (
             <ProfilePage />
@@ -386,30 +387,27 @@ function Page({ phone = false }: { phone?: boolean }) {
     const drawn = !page && (nebula === 'everywhere' || (nebula === 'home' && home))
 
     return (
-        <div ref={frame} className={phone ? 'relative h-full min-h-0 overflow-hidden' : 'panel relative min-h-0 min-w-0 overflow-hidden rounded-(--r-panel)'}>
+        <div ref={frame} className='panel relative min-h-0 min-w-0 overflow-hidden rounded-(--r-panel)'>
             {/* behind the page's own content and inside its panel, under the
                 cover's light rather than over it: the room stays the cover's,
                 and the cloud is the page's. it fades out down the page, so the
                 lists below are read on the panel alone */}
             {drawn && <Nebula strength={home ? 0.9 : 0.55} className='[mask-image:linear-gradient(#000,#000_25%,transparent_80%)]' />}
-            <Scroll box={scroller} className={cn('relative h-full', phone && 'overflow-x-hidden')}>
+            <Scroll box={scroller} className='relative h-full'>
                 {/* by default the bar is the top of the page and goes up with it;
                     floating, it stays over the page (a setting) */}
-                {phone ? !floating && <PhoneBar /> : !floating && <PageBar floating={false} />}
+                {!floating && <PageBar floating={false} />}
                 <motion.div
                     key={`${page}:${view}:${selection}`}
-                    // a phone's tabs swap at once, the way a phone's apps do: a
-                    // page rising out of nothing read as a page arriving late
-                    initial={phone ? false : { opacity: 0, y: 8 }}
+                    initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={spring.smooth}
-                    // on a phone the foot of the page is left clear for the dock and the tabs
-                    className={phone ? 'px-4 pt-[calc(var(--safe-top)+4.75rem)] pb-[calc(var(--safe-bottom)+10.5rem)]' : 'mx-auto max-w-[1480px] px-8 pt-20 pb-16'}
+                    className='mx-auto max-w-[1480px] px-8 pt-20 pb-16'
                 >
                     {body}
                 </motion.div>
             </Scroll>
-            {floating && (phone ? <PhoneBar floating /> : <PageBar floating />)}
+            {floating && <PageBar floating />}
         </div>
     )
 }
@@ -549,7 +547,7 @@ export default function App() {
             <MotionConfig reducedMotion='user'>
                 <div className='relative h-full' onContextMenu={(e) => e.preventDefault()}>
                     <Room />
-                    <Page phone />
+                    <PhonePage />
                     <Dock />
                     <TabBar />
                     <Back />

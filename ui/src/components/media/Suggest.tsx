@@ -7,6 +7,7 @@ import { SUGGESTION_VIEWS } from '../../lib/prefs'
 import { shallow, useStore } from '../../lib/store'
 import { library } from '../../state/library'
 import { player } from '../../state/player'
+import { plays } from '../../state/plays'
 import {
     download_suggestion,
     load_queue_suggestions,
@@ -145,7 +146,7 @@ const SuggestionRow = memo(function SuggestionRow({ track, index, tight }: { tra
                 variant='secondary'
                 size='sm'
                 disabled={state.held}
-                icon={state.here ? <Check size={14} /> : state.busy ? <Spin><LoaderCircle size={14} /></Spin> : <Download size={14} />}
+                icon={state.here ? <Check size={16} /> : state.busy ? <Spin><LoaderCircle size={16} /></Spin> : <Download size={16} />}
                 onClick={() => void download_suggestion(track)}
                 className='disabled:opacity-70'
             >
@@ -209,6 +210,7 @@ export function DiscoverShelf() {
     const busy = useStore(suggest, (s) => s.similar_busy)
     const shown = useStore(suggest, (s) => s.cards_shown)
     const view = useStore(ui, (s) => s.suggestion_view)
+    const played = useStore(plays, (s) => Object.keys(s.counts).length > 0)
     const on_screen = similar.slice(0, shown)
 
     const body = () => {
@@ -256,7 +258,7 @@ export function DiscoverShelf() {
     return (
         <Section
             title='Not in your library yet'
-            note={busy && !similar.length ? 'Asking last.fm' : 'Tracks last.fm puts next to the ones you like and star'}
+            note={busy && !similar.length ? 'Asking last.fm' : played ? 'Tracks last.fm puts next to the ones you play most, like and star' : 'Tracks last.fm puts next to the ones you like and star'}
             action={
                 <>
                     <Button variant='ghost' size='sm' disabled={busy} icon={<Spin on={busy}><RefreshCw size={16} /></Spin>} {...tip('Ask again, for different tracks')} onClick={() => void load_similar('again')}>

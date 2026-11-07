@@ -19,6 +19,8 @@ export type Bridge = {
     get_lyrics(title: string, artist: string): Promise<string>
     set_activity(state: boolean): Promise<void>
     get_activity(): Promise<boolean>
+    // a phone's: put the app away, as back on its first screen does
+    leave?(): Promise<void>
     play_music(path: string, title: string, artist: string, album: string): Promise<void>
     get_position(): Promise<number>
     get_length(): Promise<number>

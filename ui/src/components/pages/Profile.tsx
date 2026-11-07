@@ -34,7 +34,8 @@ export function ProfilePage() {
 
     return (
         <>
-            <button type='button' onClick={leave_page} className='mb-6 flex h-8 items-center gap-1.5 rounded-md text-[0.8125rem] text-muted transition-colors hover:text-fg'>
+            {/* a phone's way back is its bar's (layout/Screens) */}
+            <button type='button' onClick={leave_page} className='mb-6 flex h-8 items-center gap-1.5 rounded-md text-[0.8125rem] text-muted transition-colors hover:text-fg max-sm:hidden'>
                 <ArrowLeft size={16} /> Back
             </button>
 

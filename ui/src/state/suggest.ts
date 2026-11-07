@@ -24,6 +24,7 @@ import { create_store, memo_last } from '../lib/store'
 import { listed_now } from './derive'
 import { add_to_playlist, artist_of, fetch_songs, library, sync_liked, tag_title_of } from './library'
 import { fetch_source, owns } from './search'
+import { most_played } from './plays'
 import { ui } from './ui'
 
 /*
@@ -103,13 +104,16 @@ export const nearby_key_of = (view: View, selection: string | null) => {
     if (view === 'liked') return places.includes('liked') ? 'liked' : ''
     if (view === 'songs') return places.includes('songs') ? 'songs' : ''
     if ((view === 'albums' || view === 'artists') && selection) return places.includes('groups') ? `${view}:${selection}` : ''
+    if (view === 'mix' && selection) return places.includes('groups') ? `mix:${selection}` : ''
+    // what the listener plays most is the closest thing there is to their taste: it gets home's shelf
+    if (view === 'top') return places.includes('home') ? 'top' : ''
 
     return ''
 }
 
 // what the shelf says it is based on
 export const nearby_named = (view: View, selection: string | null) =>
-    view === 'liked' ? 'your liked songs' : view === 'songs' ? 'your whole library' : selection ?? 'this listing'
+    view === 'liked' ? 'your liked songs' : view === 'songs' ? 'your whole library' : view === 'top' ? 'what you play most' : selection ?? 'this listing'
 
 // what a suggestion is measured against: something already on disk is not one.
 // the tags and the file name both count - a download names the file after the
@@ -156,13 +160,21 @@ export const seed_pools = () => {
     return seed_pools_of(songs, liked, favorites, playlists)
 }
 
+/*
+ * Once there is a history, what is played most leads: half of the close
+ * seeds are drawn from it (the ones listened to, not only the ones marked),
+ * and the marked ones and the rest of the folder share the remainder.
+ */
 function pick_seeds() {
     const { marked, rest } = seed_pools()
     const wanted = between(SEEDS)
     const wide = Math.min(Math.round(wanted * WIDER_SHARE), rest.length)
-    const close = sample(marked, wanted - wide)
+    const played = sample(most_played(), Math.round((wanted - wide) / 2))
+    const taken = new Set(played)
+    const close = [...played, ...sample(marked.filter((name) => !taken.has(name)), wanted - wide - played.length)]
+    for (const name of close) taken.add(name)
 
-    return [...close, ...sample(rest, wanted - close.length)]
+    return [...close, ...sample(rest.filter((name) => !taken.has(name)), wanted - close.length)]
 }
 
 /*

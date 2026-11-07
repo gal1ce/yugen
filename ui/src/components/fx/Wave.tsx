@@ -3,6 +3,7 @@ import { BANDS, spectrum, step_audio } from '../../lib/audio'
 import { add_painter, fx, reduced } from '../../lib/fx'
 import { useStore } from '../../lib/store'
 import { player } from '../../state/player'
+import { useActive } from '../../state/where'
 
 /*
  * The sound as a wave: three soft hills of light standing on the floor of
@@ -76,6 +77,10 @@ export function Wave({ className, gain = 1, overlay = false }: Props) {
     const ref = useRef<HTMLCanvasElement>(null)
     const motion = useStore(fx, (s) => s.motion)
     const palette = useStore(fx, (s) => s.palette)
+    // on a phone's screen kept behind another, the wave holds still (state/where)
+    const active = useActive()
+    const shown = useRef(active)
+    const gate = useRef<(() => void) | null>(null)
 
     useEffect(() => {
         const canvas = ref.current
@@ -92,19 +97,20 @@ export function Wave({ className, gain = 1, overlay = false }: Props) {
             accent = rgb_of(getComputedStyle(canvas).getPropertyValue('--accent').trim()) ?? accent
         }
 
-        const resize = () => {
-            const box = canvas.getBoundingClientRect()
+        // the size from the observer, which hands it over once layout is done
+        // anyway (and first right after observing), rather than asked of the
+        // page here, inside whatever committed the effect: after a tap that
+        // was a forced layout inside the tap
+        const sized = new ResizeObserver(([entry]) => {
+            const box = entry.contentRect
+            if (box.width === width && box.height === height) return
             width = box.width
             height = box.height
             canvas.width = Math.max(1, Math.round(width * dpr))
             canvas.height = Math.max(1, Math.round(height * dpr))
-        }
-
-        resize()
-        read_accent()
-
-        const sized = new ResizeObserver(resize)
+        })
         sized.observe(canvas)
+        read_accent()
 
         const target = new Float32Array(POINTS)
         const springs: Spring[] = LAYERS.map(() => ({ pos: new Float32Array(POINTS), vel: new Float32Array(POINTS) }))
@@ -243,7 +249,7 @@ export function Wave({ className, gain = 1, overlay = false }: Props) {
         }
 
         // ninety a second: smooth on a fast screen, and half the work of every frame at 165 Hz
-        let stop: (() => void) | null = add_painter(90, draw, { page: !overlay })
+        let stop: (() => void) | null = shown.current ? add_painter(90, draw, { page: !overlay }) : null
 
         function sleep() {
             stop?.()
@@ -252,16 +258,25 @@ export function Wave({ className, gain = 1, overlay = false }: Props) {
 
         const wake = () => {
             const { current, paused } = player.get()
-            if (!stop && current && !paused) stop = add_painter(90, draw, { page: !overlay })
+            if (shown.current && !stop && current && !paused) stop = add_painter(90, draw, { page: !overlay })
         }
         const off = player.subscribe(wake)
+        gate.current = () => (shown.current ? wake() : sleep())
 
         return () => {
             off()
             sleep()
             sized.disconnect()
+            gate.current = null
         }
     }, [motion, palette, gain, overlay])
+
+    // a screen going behind another or coming back only stops or starts the
+    // painter; the canvas, its size and its springs stay as they were
+    useEffect(() => {
+        shown.current = active
+        gate.current?.()
+    }, [active])
 
     return <canvas ref={ref} aria-hidden className={`pointer-events-none ${className ?? ''}`} />
 }

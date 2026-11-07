@@ -51,7 +51,7 @@ export type PlayerState = {
 
 // the history is this machine's own, like the layout: kept in the page's storage
 const RECENT_KEY = 'yugen.recent'
-const RECENT_MAX = 24
+const RECENT_MAX = 50
 
 function stored_recent(): string[] {
     try {
@@ -347,6 +347,16 @@ export function add_to_queue(name: string) {
     if (!current) return void play_from(name, null)
 
     player.set({ manual_queue: [...(manual_queue ?? [current]), name] })
+}
+
+// a whole album or mix after the one playing, or at the end, in its own
+// order; with nothing playing it simply plays
+export function queue_all(names: string[], next: boolean) {
+    if (!names.length) return
+    if (!player.get().current) return void play_from(names[0], names)
+
+    if (next) for (const name of [...names].reverse()) play_next(name)
+    else for (const name of names) add_to_queue(name)
 }
 
 export function remove_from_queue(index: number) {

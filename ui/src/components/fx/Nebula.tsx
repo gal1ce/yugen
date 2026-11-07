@@ -122,7 +122,9 @@ function compile(gl: WebGL2RenderingContext, type: number, source: string) {
     return shader
 }
 
-export function Nebula({ className, strength = 1, dimmed = true }: { className?: string; strength?: number; dimmed?: boolean }) {
+// `shown` off keeps the program and the canvas and draws nothing: a phone's
+// cloud stands behind every screen and is only seen behind some (PhonePage)
+export function Nebula({ className, strength = 1, dimmed = true, shown = true }: { className?: string; strength?: number; dimmed?: boolean; shown?: boolean }) {
     const ref = useRef<HTMLCanvasElement>(null)
     const motion = useStore(fx, (s) => s.motion)
     const palette = useStore(fx, (s) => s.palette)
@@ -130,7 +132,7 @@ export function Nebula({ className, strength = 1, dimmed = true }: { className?:
     // window then draws nothing at all, where it drew the cloud sixty times a second
     const playing = useStore(player, (s) => !!s.current && !s.paused)
     // starts and stops the drawing without setting the program up again
-    const run = useRef<(moving: boolean) => void>(() => {})
+    const run = useRef<(moving: boolean | null) => void>(() => {})
     // the cloud's clock outlives the canvas being set up again, so a change of
     // motion setting carries on from where it was
     const clock = useRef(8)
@@ -220,10 +222,12 @@ export function Nebula({ className, strength = 1, dimmed = true }: { className?:
 
         let stop = () => {}
 
-        run.current = (moving: boolean) => {
+        // moving, held still, or (null) put away: hidden, nothing to draw for
+        run.current = (moving: boolean | null) => {
             stop()
             stop = () => {}
 
+            if (moving === null) return
             if (!moving) return draw(clock.current)
 
             const calm = fx.get().motion === 'calm'
@@ -248,10 +252,13 @@ export function Nebula({ className, strength = 1, dimmed = true }: { className?:
     }, [dimmed])
 
     // set after the program above, which it starts and stops
-    useEffect(() => run.current(playing && motion !== 'off' && !reduced()), [playing, motion, dimmed])
+    useEffect(() => {
+        if (shown) run.current(playing && motion !== 'off' && !reduced())
+        else run.current(null)
+    }, [playing, motion, dimmed, shown])
 
     // a new track: new colours, the same cloud
     useEffect(() => tint.current(palette), [palette])
 
-    return <canvas ref={ref} aria-hidden className={`pointer-events-none absolute inset-0 size-full ${className ?? ''}`} style={{ opacity: strength }} />
+    return <canvas ref={ref} aria-hidden className={`pointer-events-none absolute inset-0 size-full ${className ?? ''}`} style={{ opacity: strength, visibility: shown ? undefined : 'hidden' }} />
 }

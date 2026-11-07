@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
-import { ArrowLeft, ChevronLeft, ChevronRight, FolderOpen, Keyboard, LayoutGrid, MicVocal, Palette as PaletteIcon, RefreshCw, Search, Sparkles, Sun, Waveform } from '../ui/icons'
+import { ArrowLeft, ChevronRight, FolderOpen, Keyboard, LayoutGrid, MicVocal, Palette as PaletteIcon, RefreshCw, Search, Sparkles, Sun, Waveform } from '../ui/icons'
 import { useDark, usePalette, useSystemDark } from '../../hooks/dark'
 import { motion } from 'motion/react'
 import { spring } from '../../lib/motion'
@@ -475,13 +475,13 @@ function PhoneIndex({ on_open }: { on_open: (id: string) => void }) {
                 {PHONE_SECTIONS.map(({ id, label, hint, icon: Glyph }) => (
                     <button key={id} type='button' onClick={() => on_open(id)} className='flex w-full items-center gap-3.5 px-4 py-3 text-left active:bg-surface-3'>
                         <span className='grid size-9 shrink-0 place-items-center rounded-[0.625rem] bg-[color-mix(in_oklab,var(--accent)_18%,transparent)] text-accent'>
-                            <Glyph size={18} />
+                            <Glyph size={20} />
                         </span>
                         <span className='min-w-0 flex-1'>
                             <span className='block text-[0.9375rem] text-fg'>{label}</span>
                             <span className='block truncate text-[0.8125rem] text-muted'>{hint}</span>
                         </span>
-                        <ChevronRight size={18} className='shrink-0 text-muted' />
+                        <ChevronRight size={16} className='shrink-0 text-muted' />
                     </button>
                 ))}
             </div>
@@ -551,11 +551,9 @@ export function SettingsPage() {
             they go by under the bar. on a phone, one section's page */}
         <div data-subpage={phone || undefined} className='mx-auto max-w-[86rem] lg:grid lg:grid-cols-[11rem_minmax(0,72rem)] lg:gap-x-10'>
             {phone ? (
+                // the way back to the list of sections is the bar's (layout/Screens): back, here, is that list
                 <motion.div initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} transition={spring.snappy} className='mb-5'>
-                    <button type='button' onClick={() => set_section(null)} className='-ml-1.5 flex h-10 items-center gap-1 rounded-lg pr-2 text-[0.9375rem] text-fg-2 active:bg-surface-2'>
-                        <ChevronLeft size={20} /> Settings
-                    </button>
-                    <h1 className='mt-2 font-serif text-[2rem] leading-tight font-medium'>{PHONE_SECTIONS.find((o) => o.id === section)?.label}</h1>
+                    <h1 className='mt-1 font-serif text-[2rem] leading-tight font-medium'>{PHONE_SECTIONS.find((o) => o.id === section)?.label}</h1>
                 </motion.div>
             ) : (
             <div className='lg:sticky lg:top-20 lg:self-start'>
