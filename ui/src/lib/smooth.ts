@@ -34,9 +34,10 @@ import type { Feel, Scrolling } from './prefs'
  */
 
 // how fast the box closes on its place, per second: the share left after t
-// seconds is e^(-rate * t). gentle is 95% there in about 0.3 s, standard -
-// a browser's own scroll animation - in about 0.13 s
-const RATE: Record<Feel | 'standard', number> = { gentle: 10, quick: 15, standard: 23 }
+// seconds is e^(-rate * t). gentle is 95% there in about 0.23 s, quick in
+// 0.15 s, standard - a browser's own scroll animation - in about 0.13 s.
+// gentle was 0.3 s, which trailed the wheel enough to read as lag
+const RATE: Record<Feel | 'standard', number> = { gentle: 13, quick: 20, standard: 23 }
 // a notch in pixels, for wheels that count in lines or pages
 const LINE = 40
 

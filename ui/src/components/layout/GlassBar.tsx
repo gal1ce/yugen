@@ -1,10 +1,7 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import { cancel_frame, next_frame } from '../../lib/frames'
 import { paced } from '../../lib/motion'
-import { useStore } from '../../lib/store'
-import { lens_filter } from '../../lib/lens'
 import { bar } from '../../state/bar'
-import { ui } from '../../state/ui'
 
 /*
  * The body of the bar over the page: nothing at the top of a page, one bar
@@ -24,13 +21,14 @@ import { ui } from '../../state/ui'
  *   (metaball) filter, a blur cut at a hard alpha threshold, so wherever they
  *   are close they join with a smooth neck, and as they part it thins and
  *   breaks. That SVG, as a data url, is the glass element's mask;
- * - the same shape on black is the height map of the lens (#bar-lens): blurred
- *   into a bevel, its slope worked out with two Sobel kernels into a
- *   displacement map, so what is behind the glass is bent at the rim - in
- *   three passes a little apart, one per colour, which splits the colours
- *   where the bend is steepest - and lit by a specular light from the top
- *   left, which draws the bright rim. The map is read from a data url
- *   because chromium's feImage will not render an element of the page;
+ * - with liquid glass the body frosts what is behind it - a blur, nothing
+ *   more. It used to bend it too, through an SVG lens (a displacement map
+ *   worked out of the shape, three passes a colour, a specular light) as the
+ *   backdrop filter; but a backdrop is filtered again every frame the page
+ *   moves under it, and that lens was 15 ms of every frame of a scroll - the
+ *   whole budget twice over at 165 Hz, and the stutter in every glide. The
+ *   light it drew along the rim does not depend on what is behind, so it is
+ *   drawn once instead, as a rim laid over the floating bar;
  * - the shadow is the same shape again, blurred, dropped and cut out of
  *   itself, as the mask of a layer of the theme's shadow colour - a
  *   box-shadow would be cut off by the mask;
@@ -100,27 +98,6 @@ function shade_svg(pieces: Rect[], width: number, height: number) {
     return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
 }
 
-// the lens, once, in a hidden svg of its own; its map is set per shape
-let lens: { filter: SVGFilterElement; image: SVGFEImageElement } | null = null
-
-function make_lens() {
-    if (lens) return lens
-
-    const ns = 'http://www.w3.org/2000/svg'
-    const svg = document.createElementNS(ns, 'svg')
-    svg.setAttribute('width', '0')
-    svg.setAttribute('height', '0')
-    svg.setAttribute('aria-hidden', 'true')
-    svg.style.position = 'absolute'
-    svg.innerHTML = lens_filter('bar-lens')
-    document.body.appendChild(svg)
-
-    const filter = svg.querySelector('filter')!
-    lens = { filter, image: filter.querySelector('feImage')! }
-
-    return lens
-}
-
 // the pieces at a moment of the tear: p 0 is one with the top edge, 1 floating.
 // p runs a little past both ends on the spring; the drop follows it, the rest
 // is held to the ends
@@ -146,9 +123,9 @@ function pieces(p: number, width: number, height: number): Rect[] {
 }
 
 export function GlassBar({ row }: { row: RefObject<HTMLElement | null> }) {
-    const glass = useStore(ui, (s) => s.glass)
     const body = useRef<HTMLDivElement>(null)
     const shade = useRef<HTMLDivElement>(null)
+    const rim = useRef<HTMLDivElement>(null)
     // from the edge: a bar turned on below the top of a page tears off, rather than being there
     const motion = useRef({ p: 0, v: 0, frame: 0, last: 0, target: 0, follow: false, rest: 0 })
     // the box the shape is drawn in, and how tall the bar is at rest
@@ -157,9 +134,9 @@ export function GlassBar({ row }: { row: RefObject<HTMLElement | null> }) {
     useEffect(() => {
         const node = body.current
         const under = shade.current
-        if (!node || !under) return
+        const edge = rim.current
+        if (!node || !under || !edge) return
 
-        const lens = make_lens()
         const m = motion.current
         const less = window.matchMedia('(prefers-reduced-motion: reduce)')
 
@@ -191,13 +168,12 @@ export function GlassBar({ row }: { row: RefObject<HTMLElement | null> }) {
             under.style.maskImage = drop
             under.style.setProperty('-webkit-mask-image', drop)
 
-            if (glass) {
-                lens.filter.setAttribute('width', `${width}`)
-                lens.filter.setAttribute('height', `${DEPTH}`)
-                lens.image.setAttribute('width', `${width}`)
-                lens.image.setAttribute('height', `${DEPTH}`)
-                lens.image.setAttribute('href', shape_svg(shapes, width, DEPTH, true))
-            }
+            // the rim, once the bar is off the edge and its own shape
+            edge.style.opacity = `${smooth(0.7, 1, q)}`
+            edge.style.transform = `translate(${body.x.toFixed(2)}px, ${body.y.toFixed(2)}px)`
+            edge.style.width = `${body.w.toFixed(2)}px`
+            edge.style.height = `${body.h.toFixed(2)}px`
+            edge.style.borderRadius = `${body.r.toFixed(2)}px`
         }
 
         // the bar's box: as wide as the page, as tall as the header above it
@@ -292,12 +268,13 @@ export function GlassBar({ row }: { row: RefObject<HTMLElement | null> }) {
             cancel_frame(m.frame)
             m.frame = 0
         }
-    }, [glass, row])
+    }, [row])
 
     return (
         <>
             <div ref={shade} aria-hidden className='bar-shade pointer-events-none absolute inset-x-0 top-0 opacity-0' style={{ height: DEPTH }} />
             <div ref={body} aria-hidden className='bar-glass pointer-events-none absolute inset-x-0 top-0 opacity-0' style={{ height: DEPTH }} />
+            <div ref={rim} aria-hidden className='bar-rim pointer-events-none absolute top-0 left-0 opacity-0' />
         </>
     )
 }

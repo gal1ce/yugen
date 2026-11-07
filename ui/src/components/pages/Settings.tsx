@@ -34,7 +34,7 @@ function Group({ id, title, note, children }: { id: string; title: string; note?
         <section id={`settings-${id}`} data-section={id} className='mb-10 scroll-mt-24'>
             <h2 className='text-[1.125rem] font-medium'>{title}</h2>
             {note && <p className='mt-1 text-[0.8125rem] text-muted'>{note}</p>}
-            <div className='mt-3 divide-y divide-line rounded-(--r-menu) bg-surface-2 px-5 shadow-[inset_0_0_0_1px_var(--line)]'>{children}</div>
+            <div className='settings-card mt-3 flow-root divide-y divide-line rounded-(--r-menu) bg-surface-2 px-5 shadow-[inset_0_0_0_1px_var(--line)]'>{children}</div>
         </section>
     )
 }
@@ -244,6 +244,26 @@ const SECTIONS = [
     ['keys', 'Shortcuts'],
 ] as const
 
+// a section picked from the index is lit for a moment and the others step
+// back - the answer to "which of these am I changing", also when it was
+// already the one in front of you
+let unlit = 0
+
+function spotlight(target: HTMLElement) {
+    const page = target.parentElement
+    if (!page) return
+
+    window.clearTimeout(unlit)
+    page.querySelectorAll('[data-lit]').forEach((node) => node.removeAttribute('data-lit'))
+    page.dataset.spot = ''
+    target.dataset.lit = ''
+
+    unlit = window.setTimeout(() => {
+        delete page.dataset.spot
+        delete target.dataset.lit
+    }, 1600)
+}
+
 // the index down the left, the section in view marked as the page goes by
 function Index() {
     const [here, set_here] = useState<string>(SECTIONS[0][0])
@@ -276,7 +296,12 @@ function Index() {
                     onClick={(e) => {
                         const target = document.getElementById(`settings-${id}`)
                         const box = e.currentTarget.closest<HTMLElement>('.overflow-y-auto')
-                        if (target && box) glide_to(box, target.offsetTop - 72)
+                        if (!target || !box) return
+
+                        // measured on screen, so no positioned box in between can throw it off
+                        glide_to(box, target.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 72)
+                        set_here(id)
+                        spotlight(target)
                     }}
                     className={cn(
                         'relative flex h-8 w-full items-center rounded-[min(var(--r-control),1.25rem)] px-3 text-left text-[0.8125rem] transition-colors',
