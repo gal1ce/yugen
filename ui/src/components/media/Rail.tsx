@@ -183,7 +183,7 @@ export function Shelf({ title, note, action, children }: { title: ReactNode; not
                     phone
                         ? // under the thumb it scrolls on its own momentum and comes to rest on a card, edge to edge of the screen
                           '-mx-4 -mt-2 flex snap-x snap-mandatory scroll-px-4 gap-3.5 overflow-x-auto overscroll-x-contain px-4 pt-2 pb-4 [&>*]:w-[calc(9.25rem*var(--z-cards,1))] [&>*]:shrink-0 [&>*]:snap-start'
-                        : '-mx-2 -mt-2 flex gap-4 overflow-hidden px-2 pt-2 pb-4 [&>*]:w-[calc(11.5rem*var(--z-cards,1))] [&>*]:shrink-0'
+                        : '-mx-2 -mt-2 flex gap-4 overflow-hidden px-2 pt-2 pb-4 [&>*]:w-[calc(10.5rem*var(--z-cards,1))] [&>*]:shrink-0'
                 }
             >
                 {children}
