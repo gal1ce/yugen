@@ -122,7 +122,7 @@ function SleeveCard({ name, within, className }: TrackProps & { className?: stri
         <div className={cn('group relative min-w-0', className)} {...drag(name)} onContextMenu={context({ kind: 'song', song: name, within })}>
             <button
                 type='button'
-                className={cn('card-sleeve relative block w-full text-left transition-[scale] active:scale-[0.985]', playing && 'outline-2 outline-offset-2 outline-accent')}
+                className={cn('card-sleeve relative block w-full text-left transition-[scale] active:scale-[0.985]', playing && 'outline outline-offset-2 outline-[color-mix(in_oklab,var(--accent)_70%,transparent)]')}
                 style={tone ? ({ '--tone': tone } as React.CSSProperties) : undefined}
                 onClick={() => void play_from(name, within ?? null)}
             >

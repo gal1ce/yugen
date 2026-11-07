@@ -1049,8 +1049,8 @@
     pointer-events: none;
     transition: box-shadow 0.2s ease;
     box-shadow:
-        inset 0 0 0 1px color-mix(in oklab, var(--fg) 12%, transparent),
-        inset 0 1px 0 color-mix(in oklab, var(--fg) 6%, transparent);
+        inset 0 0 0 1px color-mix(in oklab, var(--fg) 6%, transparent),
+        inset 0 1px 0 color-mix(in oklab, var(--fg) 4%, transparent);
 }
 
 /* under the pointer the card answers itself: the label takes more of
@@ -1066,8 +1066,8 @@
 
 .group:hover > .card-sleeve::after {
     box-shadow:
-        inset 0 0 0 1px color-mix(in oklab, var(--fg) 22%, transparent),
-        inset 0 1px 0 color-mix(in oklab, var(--fg) 16%, transparent);
+        inset 0 0 0 1px color-mix(in oklab, var(--fg) 11%, transparent),
+        inset 0 1px 0 color-mix(in oklab, var(--fg) 9%, transparent);
 }
 
 /* ---------- the bar over the page ----------
@@ -1107,11 +1107,11 @@
 :root[data-glass] .bar-rim {
     display: block;
     box-shadow:
-        inset 0 1px 0.5px color-mix(in oklab, var(--edge) 26%, transparent),
-        inset 0 0 0 1px color-mix(in oklab, var(--edge) 7%, transparent),
-        inset 8px 0 12px -10px color-mix(in oklab, var(--edge) 22%, transparent),
-        inset -8px 0 12px -10px color-mix(in oklab, var(--edge) 22%, transparent),
-        inset 0 -3px 6px -3px color-mix(in oklab, var(--g) 60%, transparent);
+        inset 0 1px 0.5px color-mix(in oklab, var(--edge) 14%, transparent),
+        inset 0 0 0 1px color-mix(in oklab, var(--edge) 4%, transparent),
+        inset 8px 0 12px -10px color-mix(in oklab, var(--edge) 12%, transparent),
+        inset -8px 0 12px -10px color-mix(in oklab, var(--edge) 12%, transparent),
+        inset 0 -3px 6px -3px color-mix(in oklab, var(--g) 40%, transparent);
 }
 
 /* paper is lit from in front: a lighter smoke would let a cover going under
