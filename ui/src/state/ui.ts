@@ -191,12 +191,11 @@ export const ui = create_store<UiState>({
 
     theme: stored_theme(),
     cover_accent: stored_flag('cover_accent', true),
-    aura_on: stored_flag('aura_on', true),
-    aura: stored_number('aura', 50, LIGHT_RANGE),
+    aura_on: stored_flag('aura_on', false),
+    aura: stored_number('aura', 60, LIGHT_RANGE),
     radii: stored_radii(),
-    swatch: stored_pref('swatch', ['theme', ...SWATCHES.map((o) => o.id)] as Swatch[], 'theme'),
-    // a phone's tabs and dock are glass from the start; a desktop's panels wait to be asked
-    glass: stored_flag('glass', window.matchMedia(PHONE).matches),
+    swatch: stored_pref('swatch', ['theme', ...SWATCHES.map((o) => o.id)] as Swatch[], 'indigo'),
+    glass: stored_flag('glass', true),
     sizes: stored_sizes(),
     density: stored_pref('density', DENSITIES.map((o) => o.id), 'comfortable'),
     nebula: stored_backdrop(),
@@ -212,7 +211,7 @@ export const ui = create_store<UiState>({
     lp_lyrics: stored_flag('lp_lyrics', true),
     lp_wave: stored_flag('lp_wave', true),
     home_wave: stored_flag('home_wave', true),
-    bar_float: stored_flag('bar_float', false),
+    bar_float: stored_flag('bar_float', true),
     share_dc: stored_flag('share_dc', true),
     sort: stored_pref('sort', SORTS.map((s) => s.id), 'title'),
     layouts: {
