@@ -7,7 +7,7 @@ import { format_date, format_time } from '../../lib/format'
 import { useStore } from '../../lib/store'
 import { added_of, album_of, artist_of, library, length_of, title_of, toggle_like } from '../../state/library'
 import { play_from, player } from '../../state/player'
-import { context } from '../../state/ui'
+import { context, ui } from '../../state/ui'
 import { Heart } from '../ui/Controls'
 import { Cover } from '../ui/Cover'
 import { palette_of } from '../../lib/palette'
@@ -103,23 +103,23 @@ function useTone(src?: string | null) {
 /*
  * A card, made the way a record is: the sleeve fills the top of it edge to
  * edge, and under it a label - the title, the artist, the length - on a strip
- * of the card tinted with the sleeve's own strongest colour. One object with
- * one hairline round all of it, so a black sleeve and a white one both have
- * an edge, and nothing under it: no shadow, no bleed. Under the pointer it
- * stands on the glass the rows are hovered with, the sleeve darkens toward
- * its foot and the play button comes up out of it; the heart waits there too.
- * A liked track says so beside its title, and the one playing is ringed in
- * the accent.
+ * of the card tinted with the sleeve's own strongest colour (or the theme's
+ * plain one, in settings). One object with one hairline round all of it, so
+ * a black sleeve and a white one both have an edge, and nothing under it: no
+ * shadow, no bleed. Under the pointer the card itself answers - the label
+ * takes more of its colour, the edge catches the light, the sleeve darkens
+ * toward its foot and the play button comes up out of it; the heart waits
+ * there too. A liked track says so beside its title, and the one playing is
+ * ringed in the accent.
  */
-export const TrackCard = memo(function TrackCard({ name, within, className }: TrackProps & { className?: string }) {
+function SleeveCard({ name, within, className }: TrackProps & { className?: string }) {
     const { cover, liked, title, artist } = useTrack(name)
     const playing = usePlaying(name)
-    const tone = useTone(useThumb(cover, 'sm'))
+    const by_cover = useStore(ui, (s) => s.card_tone === 'cover')
+    const tone = useTone(useThumb(by_cover ? cover : undefined, 'sm'))
 
     return (
         <div className={cn('group relative min-w-0', className)} {...drag(name)} onContextMenu={context({ kind: 'song', song: name, within })}>
-            <span aria-hidden className='hover-glass pointer-events-none absolute -inset-1.5 rounded-[calc(var(--r-card)+0.375rem)] opacity-0 transition-opacity duration-200 group-hover:opacity-100' />
-
             <button
                 type='button'
                 className={cn('card-sleeve relative block w-full text-left transition-[scale] active:scale-[0.985]', playing && 'outline-2 outline-offset-2 outline-accent')}
@@ -130,7 +130,7 @@ export const TrackCard = memo(function TrackCard({ name, within, className }: Tr
                     className='relative aspect-square overflow-hidden bg-surface-2'
                 >
                     <Cover data={cover} size='md' icon={28} className='size-full rounded-none' />
-                    <span aria-hidden className='pointer-events-none absolute inset-0 bg-linear-to-t from-black/55 via-black/10 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100' />
+                    <span aria-hidden className='pointer-events-none absolute inset-0 bg-linear-to-t from-black/50 via-black/5 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100' />
 
                     <span
                         className={cn(
@@ -163,6 +163,51 @@ export const TrackCard = memo(function TrackCard({ name, within, className }: Tr
             />
         </div>
     )
+}
+
+// the first way a card was drawn, kept for whoever prefers it: the sleeve on
+// its own, two lines under it, the heart on the picture once a track is liked
+function ClassicCard({ name, within, className }: TrackProps & { className?: string }) {
+    const { cover, liked, title, artist } = useTrack(name)
+    const playing = usePlaying(name)
+
+    return (
+        <div className={cn('group relative min-w-0', className)} {...drag(name)} onContextMenu={context({ kind: 'song', song: name, within })}>
+            <button type='button' className='block w-full text-left' onClick={() => void play_from(name, within ?? null)}>
+                <div className='relative aspect-square overflow-hidden rounded-(--r-cover) bg-surface-2 shadow-[0_14px_28px_-18px_rgb(0_0_0/0.7)]'>
+                    <Cover data={cover} size='md' icon={28} className='size-full rounded-none' />
+                    <div className='absolute inset-0 bg-black/25 opacity-0 transition-opacity group-hover:opacity-100' />
+
+                    <span
+                        className={cn(
+                            'absolute right-2 bottom-2 grid size-9 place-items-center rounded-full bg-accent text-accent-fg transition-opacity',
+                            playing ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+                        )}
+                    >
+                        {playing ? <Bars still={playing === 'paused'} className='on-accent' /> : <Play size={16} className='ml-0.5' />}
+                    </span>
+                </div>
+
+                <p className='mt-2 truncate text-[0.875rem] font-medium text-fg'>{title}</p>
+                <p className='truncate text-[0.8125rem] text-muted'>{artist}</p>
+            </button>
+
+            {/* outside the main button, so buttons are not nested */}
+            <Heart
+                liked={liked}
+                on_toggle={() => void toggle_like(name)}
+                size={16}
+                className={cn('absolute top-2 right-2 size-8 bg-black/55 text-white hover:text-white', liked ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}
+            />
+        </div>
+    )
+}
+
+// a track as a card, in whichever of the two ways settings picked
+export const TrackCard = memo(function TrackCard(props: TrackProps & { className?: string }) {
+    const style = useStore(ui, (s) => s.card_style)
+
+    return style === 'classic' ? <ClassicCard {...props} /> : <SleeveCard {...props} />
 })
 
 // a row's place in the list, and under the pointer what a click on it does

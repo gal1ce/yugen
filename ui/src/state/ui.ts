@@ -1,6 +1,8 @@
 import { default_keybinds, type Bind } from '../lib/keys'
 import type { Suggestion } from '../lib/lastfm'
 import {
+    CARD_STYLES,
+    CARD_TONES,
     DENSITIES,
     LIGHT_RANGE,
     FEELS,
@@ -37,6 +39,8 @@ import {
     type Radius,
     type Region,
     type PrefValue,
+    type CardStyle,
+    type CardTone,
     type Density,
     type Feel,
     type Backdrop,
@@ -95,6 +99,8 @@ export type UiState = {
     glass: boolean
     scale: Scale
     density: Density
+    card_style: CardStyle
+    card_tone: CardTone
     // where the nebula is drawn behind the pages (fx/Nebula)
     nebula: Backdrop
     lyrics_size: LyricsSize
@@ -191,6 +197,8 @@ export const ui = create_store<UiState>({
     glass: stored_flag('glass', true),
     scale: stored_pref('scale', SCALES.map((o) => o.id), 'medium'),
     density: stored_pref('density', DENSITIES.map((o) => o.id), 'comfortable'),
+    card_style: stored_pref('card_style', CARD_STYLES.map((o) => o.id), 'sleeve'),
+    card_tone: stored_pref('card_tone', CARD_TONES.map((o) => o.id), 'cover'),
     nebula: stored_backdrop(),
     lyrics_size: stored_pref('lyrics_size', LYRICS_SIZES.map((o) => o.id), 'medium'),
     scrolling: stored_scrolling(),
