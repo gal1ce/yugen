@@ -8,13 +8,14 @@ import { arrivals_of, span_of, useAlbums, useArtists, useFavoriteSongs, useLiked
 import { added_of, album_of, artist_of, library, title_of } from '../../state/library'
 import { play_listing, play_music, player, shuffle_into, toggle_pause } from '../../state/player'
 import { want_similar } from '../../state/suggest'
-import { context, open_menu, open_page, open_view, ui } from '../../state/ui'
+import { context, open_group, open_menu, open_page, open_view, ui } from '../../state/ui'
 import { Button, IconButton } from '../ui/Button'
 import { Empty } from '../ui/Controls'
 import { Cover } from '../ui/Cover'
 import { SeeAll, Shelf } from '../media/Rail'
 import { DiscoverShelf } from '../media/Suggest'
 import { Bars, TrackCard } from '../media/Track'
+import { GroupCard } from '../media/Group'
 import { Spin } from '../ui/Spin'
 
 const SHELF = 12
@@ -188,15 +189,38 @@ function UpNext({ name }: { name: string }) {
     )
 }
 
+// the biggest groups in the library first: the albums and the artists most
+// of it is made of
+const biggest = (groups: Map<string, string[]>, unknown: string) =>
+    [...groups.entries()]
+        .filter(([name]) => name !== unknown && name !== 'Unknown')
+        .sort((a, b) => b[1].length - a[1].length)
+        .slice(0, SHELF)
+
 function Shelves() {
     const favorites = useFavoriteSongs()
     const liked = useLikedSongs()
     const songs = useStore(library, (s) => s.songs)
     const meta = useStore(library, (s) => s.meta)
+    const current = useStore(player, (s) => s.current)
+    const recent_all = useStore(player, (s) => s.recent)
+    const albums = biggest(useAlbums(), 'Unknown album')
+    const artists = biggest(useArtists(), 'Unknown artist')
     const arrivals = arrivals_of(songs, meta)
+    // what is still here, and not the one playing - that is the card above
+    const here = new Set(songs)
+    const recent = recent_all.filter((name) => here.has(name) && name !== current).slice(0, SHELF)
 
     return (
         <>
+            {recent.length >= 2 && (
+                <Shelf title='Recently played' note='Where you left off'>
+                    {recent.map((name, i) => (
+                        <TrackCard key={name} name={name} within={recent} index={i} />
+                    ))}
+                </Shelf>
+            )}
+
             {favorites.length > 0 && (
                 <Shelf title='Favorites' note='The ones you starred' action={<SeeAll on_click={() => open_page('profile')} />}>
                     {favorites.slice(0, SHELF).map((name, i) => (
@@ -217,6 +241,22 @@ function Shelves() {
                 <Shelf title='New arrivals' note={`Last added ${format_date(added_of(arrivals[0])).toLowerCase()}`} action={<SeeAll on_click={() => open_view('songs')} />}>
                     {arrivals.map((name, i) => (
                         <TrackCard key={name} name={name} within={arrivals} index={i} />
+                    ))}
+                </Shelf>
+            )}
+
+            {albums.length >= 2 && (
+                <Shelf title='Albums' note='The records most of your library is' action={<SeeAll on_click={() => open_view('albums')} />}>
+                    {albums.map(([name, tracks]) => (
+                        <GroupCard key={name} name={name} tracks={tracks} on_open={() => open_group('albums', name)} />
+                    ))}
+                </Shelf>
+            )}
+
+            {artists.length >= 2 && (
+                <Shelf title='Artists' note='Who you keep the most of' action={<SeeAll on_click={() => open_view('artists')} />}>
+                    {artists.map(([name, tracks]) => (
+                        <GroupCard key={name} name={name} tracks={tracks} round on_open={() => open_group('artists', name)} />
                     ))}
                 </Shelf>
             )}

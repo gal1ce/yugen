@@ -41,12 +41,15 @@ function Group({ id, title, note, children }: { id: string; title: string; note?
 
 function Row({ title, hint, dimmed, children }: { title: ReactNode; hint?: ReactNode; dimmed?: boolean; children?: ReactNode }) {
     return (
-        <div className={cn('grid min-h-15 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-8 py-3 transition-opacity', dimmed && 'opacity-45')}>
-            <div className='min-w-0'>
+        // the words take the line and the control sits beside them while there
+        // is room; in a narrow window a wide control (four choices) goes under
+        // them instead of crushing them into a word a line
+        <div className={cn('flex min-h-15 flex-wrap items-center gap-x-8 gap-y-2.5 py-3 transition-opacity', dimmed && 'opacity-45')}>
+            <div className='min-w-0 flex-[1_1_14rem]'>
                 <p className='text-[0.875rem]'>{title}</p>
                 {hint && <p className='mt-0.5 text-[0.8125rem] text-muted'>{hint}</p>}
             </div>
-            <div className='flex items-center justify-end gap-3'>{children}</div>
+            <div className='ml-auto flex max-w-full items-center justify-end gap-3'>{children}</div>
         </div>
     )
 }

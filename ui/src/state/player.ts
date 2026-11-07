@@ -45,7 +45,33 @@ export type PlayerState = {
     crossing: string | null
     drift_return: string | null
     drifted: string[]
+    // what was played lately, the latest first: home's "recently played"
+    recent: string[]
 }
+
+// the history is this machine's own, like the layout: kept in the page's storage
+const RECENT_KEY = 'yugen.recent'
+const RECENT_MAX = 24
+
+function stored_recent(): string[] {
+    try {
+        const value = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]')
+        return Array.isArray(value) ? value.filter((name) => typeof name === 'string').slice(0, RECENT_MAX) : []
+    } catch {
+        return []
+    }
+}
+
+function remember(name: string) {
+    const recent = [name, ...player.get().recent.filter((other) => other !== name)].slice(0, RECENT_MAX)
+    player.set({ recent })
+    try {
+        localStorage.setItem(RECENT_KEY, JSON.stringify(recent))
+    } catch {
+        // storage unavailable: the history lasts the session
+    }
+}
+
 
 export const player = create_store<PlayerState>({
     current: null,
@@ -64,6 +90,7 @@ export const player = create_store<PlayerState>({
     crossing: null,
     drift_return: null,
     drifted: [],
+    recent: stored_recent(),
 })
 
 // two runs that hold the same names in the same order. sections are rebuilt
@@ -103,6 +130,7 @@ export async function play_music(name: string) {
 
     set_position(0)
     player.set({ current: name, paused: false })
+    remember(name)
 }
 
 // playing out of a section pins it: the bar, the queue and the shuffle walk
