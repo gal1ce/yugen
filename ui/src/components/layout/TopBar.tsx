@@ -14,7 +14,8 @@ import { Cover } from '../ui/Cover'
 import { Segmented } from '../ui/Controls'
 import { MenuItem, MenuPanel, MenuSep } from '../ui/Menu'
 import { Scroll } from '../ui/Scroll'
-import { QuickLook } from './Look'
+import { LookControls, QuickLook } from './Look'
+import { usePhone } from '../../hooks/phone'
 import { GlassBar } from './GlassBar'
 import { spring } from '../../lib/motion'
 import { tip } from '../../lib/tip'
@@ -229,6 +230,7 @@ export function ProfileMenu({ large = false }: { large?: boolean }) {
     const [open, set_open] = useState(false)
     const username = useStore(library, (s) => s.username)
     const pic = useStore(library, (s) => s.profile_pic)
+    const phone = usePhone()
     const close = useCallback(() => set_open(false), [])
 
     useDismiss(open, close)
@@ -257,6 +259,14 @@ export function ProfileMenu({ large = false }: { large?: boolean }) {
                         </div>
                     </div>
                     <MenuSep />
+                    {/* a phone's bar has no room for the look's own button,
+                        so the look is here, one tap from any tab */}
+                    {phone && (
+                        <>
+                            <LookControls large />
+                            <MenuSep />
+                        </>
+                    )}
                     <MenuItem icon={<User size={16} />} onClick={() => (close(), open_page('profile'))}>
                         Profile
                     </MenuItem>

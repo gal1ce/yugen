@@ -12,13 +12,14 @@ import { MenuLabel, MenuPanel, MenuSep } from '../ui/Menu'
 
 /*
  * How the window looks, within reach: the theme, glass, the cover's light and
- * the corners, from a button in the top bar, without going to settings. The
- * cover's light also has a button of its own in the player, the way master
- * had it: a click turns it on or off, a right-click sets how strong it is.
+ * the corners, from a button in the top bar (on a phone, the profile
+ * sheet), without going to settings. The cover's light also has a button of
+ * its own in the player, the way master had it: a click turns it on or off,
+ * a right-click sets how strong it is.
  */
 
 // a theme as a dot of its own colours: its ground, and its accent on it
-function ThemeDot({ id, label, current, swatch }: { id: Theme; label: string; current: Theme; swatch?: [string, string, string] }) {
+function ThemeDot({ id, label, current, swatch, large }: { id: Theme; label: string; current: Theme; swatch?: [string, string, string]; large?: boolean }) {
     return (
         <button
             type='button'
@@ -26,31 +27,28 @@ function ThemeDot({ id, label, current, swatch }: { id: Theme; label: string; cu
             aria-checked={current === id}
             {...tip(label)}
             onClick={() => set_pref('theme', id)}
-            className={cn('grid size-8 place-items-center rounded-full transition-[box-shadow]', current === id ? 'shadow-[inset_0_0_0_1.5px_var(--fg-2)]' : 'hover:shadow-[inset_0_0_0_1px_var(--line-strong)]')}
+            className={cn('grid place-items-center rounded-full transition-[box-shadow]', large ? 'size-11' : 'size-8', current === id ? 'shadow-[inset_0_0_0_1.5px_var(--fg-2)]' : 'hover:shadow-[inset_0_0_0_1px_var(--line-strong)]')}
         >
             {swatch ? (
-                <span className='grid size-5 place-items-center rounded-full shadow-[inset_0_0_0_1px_rgb(128_128_128/0.35)]' style={{ background: swatch[0] }}>
-                    <span className='size-2 rounded-full' style={{ background: swatch[2] }} />
+                <span className={cn('grid place-items-center rounded-full shadow-[inset_0_0_0_1px_rgb(128_128_128/0.35)]', large ? 'size-7' : 'size-5')} style={{ background: swatch[0] }}>
+                    <span className={cn('rounded-full', large ? 'size-2.5' : 'size-2')} style={{ background: swatch[2] }} />
                 </span>
             ) : (
-                <Monitor size={16} className='text-fg-2' />
+                <Monitor size={large ? 20 : 16} className='text-fg-2' />
             )}
         </button>
     )
 }
 
 // the cover's light: on or off, and how much of it reaches the room
-export function LightControls() {
+export function LightControls({ large = false }: { large?: boolean }) {
     const on = useStore(ui, (s) => s.aura_on)
     const light = useStore(ui, (s) => s.aura)
 
     return (
-        <div className='px-2 py-1.5'>
-            <div className='flex h-8 items-center justify-between'>
-                <span className='text-[0.8125rem]'>Cover light</span>
-                <Switch on={on} label='Cover light' on_toggle={() => set_pref('aura_on', !on)} />
-            </div>
-            <div className={cn('flex h-8 items-center gap-3 transition-opacity', !on && 'opacity-40')}>
+        <div className={large ? 'px-3 py-1' : 'px-2 py-1.5'}>
+            <Toggle large={large} label='Cover light' on={on} on_toggle={() => set_pref('aura_on', !on)} inset={false} />
+            <div className={cn('flex items-center gap-3 transition-opacity', large ? 'h-11' : 'h-8', !on && 'opacity-40')}>
                 <Range
                     value={light}
                     min={LIGHT_RANGE[0]}
@@ -64,52 +62,72 @@ export function LightControls() {
                     onKeyUp={() => save_pref('aura', ui.get().aura)}
                     className='flex-1'
                 />
-                <span className='w-9 text-right font-mono text-[0.6875rem] text-muted tabular-nums'>{light}%</span>
+                <span className={cn('w-9 text-right font-mono text-muted tabular-nums', large ? 'text-[0.75rem]' : 'text-[0.6875rem]')}>{light}%</span>
             </div>
         </div>
     )
 }
 
-// `large` is a phone's: the same popover behind a button the size of a thumb
-export function QuickLook({ large = false }: { large?: boolean }) {
-    const [open, set_open] = useState(false)
+/*
+ * A switch on a row. On a phone's sheet the row is a thumb's height and the
+ * whole of it flips the switch, not only the knob at its end; the switch
+ * stays the control a screen reader is given.
+ */
+function Toggle({ label, on, on_toggle, large, inset = true }: { label: string; on: boolean; on_toggle: () => void; large: boolean; inset?: boolean }) {
+    return (
+        <div onClick={large ? on_toggle : undefined} className={cn('flex items-center justify-between', large ? 'h-12' : inset ? 'h-10' : 'h-8', inset && (large ? 'px-3' : 'px-2'))}>
+            <span className={large ? 'text-[0.9375rem]' : 'text-[0.8125rem]'}>{label}</span>
+            <span onClick={(e) => large && e.stopPropagation()}>
+                <Switch on={on} label={label} on_toggle={on_toggle} />
+            </span>
+        </div>
+    )
+}
+
+// the look itself: the quick look's popover on a desktop, the head of the
+// profile sheet on a phone (layout/TopBar), where it is one tap from any tab
+export function LookControls({ large = false }: { large?: boolean }) {
     const theme = useStore(ui, (s) => s.theme)
     const glass = useStore(ui, (s) => s.glass)
     const blur = useStore(ui, (s) => s.blur)
     const radii = useStore(ui, (s) => s.radii)
+
+    return (
+        <>
+            <MenuLabel>Theme</MenuLabel>
+            <div role='radiogroup' className={cn('flex items-center', large ? 'flex-wrap gap-0.5 px-2 pb-1' : 'gap-1 px-2 pb-1.5')}>
+                <ThemeDot id='system' label='System' current={theme} large={large} />
+                {PALETTES.map((p) => (
+                    <ThemeDot key={p.id} id={p.id} label={p.label} current={theme} swatch={p.swatch} large={large} />
+                ))}
+            </div>
+            <MenuSep />
+            <LightControls large={large} />
+            <MenuSep />
+            <Toggle large={large} label='Blur' on={blur} on_toggle={() => set_pref('blur', !blur)} />
+            <Toggle large={large} label='Liquid glass' on={glass} on_toggle={() => set_pref('glass', !glass)} />
+            <div className={cn('flex items-center justify-between gap-3', large ? 'h-14 px-3' : 'h-10 px-2')}>
+                <span className={large ? 'text-[0.9375rem]' : 'text-[0.8125rem]'}>Corners</span>
+                <Segmented value={(common_radius(radii) ?? '') as Corners} options={CORNERS} on_change={set_all_radii} />
+            </div>
+        </>
+    )
+}
+
+export function QuickLook() {
+    const [open, set_open] = useState(false)
     const close = useCallback(() => set_open(false), [])
 
     useDismiss(open, close)
 
     return (
         <div className='relative' onClick={(e) => e.stopPropagation()}>
-            <IconButton size={large ? 'lg' : 'sm'} {...tip('Look')} aria-expanded={open} onClick={() => set_open(!open)} className={open ? 'bg-surface-2 text-fg' : ''}>
-                <Palette size={large ? 22 : 16} />
+            <IconButton size='sm' {...tip('Look')} aria-expanded={open} onClick={() => set_open(!open)} className={open ? 'bg-surface-2 text-fg' : ''}>
+                <Palette size={16} />
             </IconButton>
             {open && (
                 <MenuPanel className='absolute top-full right-0 mt-2 w-72 origin-top-right'>
-                    <MenuLabel>Theme</MenuLabel>
-                    <div role='radiogroup' className='flex items-center gap-1 px-2 pb-1.5'>
-                        <ThemeDot id='system' label='System' current={theme} />
-                        {PALETTES.map((p) => (
-                            <ThemeDot key={p.id} id={p.id} label={p.label} current={theme} swatch={p.swatch} />
-                        ))}
-                    </div>
-                    <MenuSep />
-                    <LightControls />
-                    <MenuSep />
-                    <div className='flex h-10 items-center justify-between px-2'>
-                        <span className='text-[0.8125rem]'>Blur</span>
-                        <Switch on={blur} label='Blur' on_toggle={() => set_pref('blur', !blur)} />
-                    </div>
-                    <div className='flex h-10 items-center justify-between px-2'>
-                        <span className='text-[0.8125rem]'>Liquid glass</span>
-                        <Switch on={glass} label='Liquid glass' on_toggle={() => set_pref('glass', !glass)} />
-                    </div>
-                    <div className='flex h-10 items-center justify-between gap-3 px-2'>
-                        <span className='text-[0.8125rem]'>Corners</span>
-                        <Segmented value={(common_radius(radii) ?? '') as Corners} options={CORNERS} on_change={set_all_radii} />
-                    </div>
+                    <LookControls />
                 </MenuPanel>
             )}
         </div>
