@@ -1016,24 +1016,14 @@
     content: 'In the drift';
 }
 
-/* a phone's home: what is playing as a card of its own - the cover's colour
-   through a tint of the page, lit along its top edge and in at the sides,
-   darker at the foot, on a soft shadow. drawn rather than frosted: behind it
-   is only the room, which a blur would not change, and every backdrop on a
-   phone is another pass a frame */
+/* a phone's home: what is playing on the hairline card it always was, with
+   liquid glass on the page behind it frosted a little, so it reads as glass
+   rather than a frame drawn on the page. glass off, it is the plain card */
 @media (max-width: 639.98px) {
-    .hero-card {
-        border-color: transparent;
-        background:
-            linear-gradient(color-mix(in oklab, var(--edge, var(--fg)) 7%, transparent), transparent 40%),
-            color-mix(in oklab, var(--accent) 16%, color-mix(in oklab, var(--fg) 6%, transparent));
-        box-shadow:
-            inset 0 1px 0.5px color-mix(in oklab, var(--edge, var(--fg)) 24%, transparent),
-            inset 0 0 0 1px color-mix(in oklab, var(--edge, var(--fg)) 7%, transparent),
-            inset 8px 0 14px -12px color-mix(in oklab, var(--edge, var(--fg)) 22%, transparent),
-            inset -8px 0 14px -12px color-mix(in oklab, var(--edge, var(--fg)) 22%, transparent),
-            inset 0 -6px 14px -8px color-mix(in oklab, var(--bg) 55%, transparent),
-            0 18px 36px -24px var(--mode-shadow);
+    :root[data-glass] .hero-card {
+        background: color-mix(in oklab, var(--fg) 3%, transparent);
+        -webkit-backdrop-filter: blur(14px) saturate(1.4);
+        backdrop-filter: blur(14px) saturate(1.4);
     }
 
     /* home's shortcuts: a step of the text colour with the sleeve flush at the left */
