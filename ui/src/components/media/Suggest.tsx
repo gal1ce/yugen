@@ -28,6 +28,7 @@ import { tip } from '../../lib/tip'
 import { card_grid } from './Track'
 import { Section } from './Rail'
 import { Spin } from '../ui/Spin'
+import { HoverGlass } from '../ui/HoverGlass'
 
 // where a suggestion stands, read for one card. what it reads changes only
 // when a download starts or lands, so the shelf is not rendered for it
@@ -93,22 +94,67 @@ const SuggestionCard = memo(function SuggestionCard({ track, index }: { track: S
     )
 })
 
-const SuggestionRow = memo(function SuggestionRow({ track, index }: { track: Suggestion; index: number }) {
+// two sizes of row: on a page, two to a line, the way a track list reads -
+// its place, a cover big enough to tell apart, the two lines and a button
+// that says what it does - and tight in the queue's narrow column
+const SuggestionRow = memo(function SuggestionRow({ track, index, tight }: { track: Suggestion; index: number; tight?: boolean }) {
     const state = useSuggestionState(track)
+
+    if (tight) {
+        return (
+            <div
+                data-hover
+                className={cn('[zoom:var(--z-lists,1)] group relative flex h-12 animate-rise items-center gap-3 rounded-lg px-2', state.here && 'opacity-55')}
+                style={{ animationDelay: `${Math.min(index, 6) * 50}ms` }}
+                onContextMenu={(e) => !state.held && context({ kind: 'suggestion', track })(e)}
+            >
+                <img src={track.image} alt='' loading='lazy' decoding='async' className='size-8 shrink-0 rounded-md bg-surface-3 object-cover' />
+                <div className='min-w-0 flex-1'>
+                    <p className='truncate text-[0.8125rem]'>{track.title}</p>
+                    <p className='truncate text-[0.75rem] text-muted'>{state.note}</p>
+                </div>
+                <Badge track={track} {...state} className='size-8 text-muted hover:text-fg' />
+                {!state.held && <More target={{ kind: 'suggestion', track }} className='-mr-1 size-9' />}
+            </div>
+        )
+    }
 
     return (
         <div
-            className={cn('[zoom:var(--z-lists,1)] group flex h-(--row) animate-rise items-center gap-3 rounded-lg px-3 transition-colors hover:bg-surface-2', state.here && 'opacity-55')}
+            data-hover
+            className={cn(
+                '[zoom:var(--z-lists,1)] group relative grid h-16 animate-rise grid-cols-[2rem_minmax(0,1fr)_auto_2rem] items-center gap-3 rounded-lg px-3 max-sm:grid-cols-[minmax(0,1fr)_auto_2rem] max-sm:px-2',
+                state.here && 'opacity-55',
+            )}
             style={{ animationDelay: `${Math.min(index, 6) * 50}ms` }}
             onContextMenu={(e) => !state.held && context({ kind: 'suggestion', track })(e)}
         >
-            <img src={track.image} alt='' loading='lazy' decoding='async' className='size-9 shrink-0 rounded-md bg-surface-3 object-cover' />
-            <div className='min-w-0 flex-1'>
-                <p className='truncate text-[0.875rem]'>{track.title}</p>
-                <p className='truncate text-[0.8125rem] text-muted'>{state.note}</p>
+            <span className='text-center font-mono text-[0.75rem] text-muted tabular-nums max-sm:hidden'>{index + 1}</span>
+            <div className='flex min-w-0 items-center gap-3'>
+                <img
+                    src={track.image}
+                    alt=''
+                    loading='lazy'
+                    decoding='async'
+                    onError={(e) => (e.currentTarget.style.visibility = 'hidden')}
+                    className='size-11 shrink-0 rounded-md bg-surface-3 object-cover shadow-[0_6px_14px_-8px_rgb(0_0_0/0.6)]'
+                />
+                <div className='min-w-0'>
+                    <p className='truncate text-[0.9375rem] text-fg'>{track.title}</p>
+                    <p className='truncate text-[0.8125rem] text-muted'>{state.note}</p>
+                </div>
             </div>
-            <Badge track={track} {...state} className='size-8 text-muted hover:bg-surface-3 hover:text-fg' />
-            {!state.held && <More target={{ kind: 'suggestion', track }} className='-mr-2' />}
+            <Button
+                variant='secondary'
+                size='sm'
+                disabled={state.held}
+                icon={state.here ? <Check size={14} /> : state.busy ? <Spin><LoaderCircle size={14} /></Spin> : <Download size={14} />}
+                onClick={() => void download_suggestion(track)}
+                className='disabled:opacity-70'
+            >
+                {state.here ? 'In library' : state.busy ? 'Getting' : 'Get'}
+            </Button>
+            {state.held ? <span /> : <More target={{ kind: 'suggestion', track }} className='-mr-1' />}
         </div>
     )
 })
@@ -122,10 +168,11 @@ const skeleton_cards = (count: number) =>
         </div>
     ))
 
-const skeleton_rows = (count: number) =>
+const skeleton_rows = (count: number, tight?: boolean) =>
     Array.from({ length: count }, (_, i) => (
-        <div key={i} className='flex h-(--row) items-center gap-3 px-3' aria-hidden>
-            <div className='size-9 rounded-md bg-surface-2' />
+        <div key={i} className={cn('flex items-center gap-3', tight ? 'h-12 px-2' : 'h-16 px-3')} aria-hidden>
+            {!tight && <div className='w-8 max-sm:hidden' />}
+            <div className={cn('rounded-md bg-surface-2', tight ? 'size-8' : 'size-11')} />
             <div className='flex-1'>
                 <div className='h-3 w-2/5 rounded-sm bg-surface-2' />
                 <div className='mt-2 h-2.5 w-1/5 rounded-sm bg-surface-2' />
@@ -169,7 +216,13 @@ export function DiscoverShelf() {
     const on_screen = similar.slice(0, shown)
 
     const body = () => {
-        if (view === 'list') return <div className='grid gap-0.5 md:grid-cols-2'>{on_screen.map((track, i) => <SuggestionRow key={track.key} track={track} index={i} />)}</div>
+        if (view === 'list')
+            return (
+                <div className='relative grid gap-x-4 md:grid-cols-2'>
+                    <HoverGlass className='rounded-[min(var(--r-control),1.25rem)]' />
+                    {on_screen.map((track, i) => <SuggestionRow key={track.key} track={track} index={i} />)}
+                </div>
+            )
 
         if (view === 'artist') {
             const groups = new Map<string, Suggestion[]>()
@@ -256,7 +309,8 @@ export function NearbyShelf({ named }: { named: string }) {
         >
             {nearby.length ? (
                 <>
-                    <div className='grid gap-0.5 md:grid-cols-2'>
+                    <div className='relative grid gap-x-4 md:grid-cols-2'>
+                        <HoverGlass className='rounded-[min(var(--r-control),1.25rem)]' />
                         {nearby.slice(0, shown).map((track, i) => <SuggestionRow key={track.key} track={track} index={i} />)}
                     </div>
                     <div className='mt-5 flex justify-center'>
@@ -266,7 +320,7 @@ export function NearbyShelf({ named }: { named: string }) {
                     </div>
                 </>
             ) : busy ? (
-                <div className='grid gap-0.5 md:grid-cols-2'>{skeleton_rows(4)}</div>
+                <div className='grid gap-x-4 md:grid-cols-2'>{skeleton_rows(4)}</div>
             ) : (
                 <Empty title='Nothing came back this time'>Ask again for a different set.</Empty>
             )}
@@ -289,7 +343,14 @@ export function QueueSuggestions() {
     return (
         <div className='mt-6'>
             <p className='mb-1 px-2 text-[0.8125rem] text-muted'>{busy ? 'Asking last.fm' : 'You might add'}</p>
-            {busy ? skeleton_rows(3) : tracks.map((track, i) => <SuggestionRow key={track.key} track={track} index={i} />)}
+            {busy ? (
+                skeleton_rows(3, true)
+            ) : (
+                <div className='relative'>
+                    <HoverGlass className='rounded-[min(var(--r-control),1.25rem)]' />
+                    {tracks.map((track, i) => <SuggestionRow key={track.key} track={track} index={i} tight />)}
+                </div>
+            )}
         </div>
     )
 }

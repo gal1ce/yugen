@@ -17,6 +17,7 @@ import { tip } from '../../lib/tip'
 import { LyricFlow } from '../media/LyricFlow'
 import { QueueSuggestions } from '../media/Suggest'
 import { TRACK_DRAG } from '../media/Track'
+import { HoverGlass } from '../ui/HoverGlass'
 import { Scroll } from '../ui/Scroll'
 
 /*
@@ -53,7 +54,7 @@ function QueueRow({ name, index, manual, last }: { name: string; index: number; 
     const cover = useStore(library, (s) => s.covers[name])
 
     return (
-        <div className='[zoom:var(--z-lists,1)] group flex h-12 items-center gap-3 rounded-lg px-2 transition-colors hover:bg-surface-2' onContextMenu={context({ kind: 'song', song: name })}>
+        <div data-hover className='[zoom:var(--z-lists,1)] group relative flex h-12 items-center gap-3 rounded-lg px-2' onContextMenu={context({ kind: 'song', song: name })}>
             <Cover data={cover} size='sm' className='size-8' icon={14} />
             <button type='button' onClick={() => void play_music(name)} className='min-w-0 flex-1 text-left'>
                 <p className='truncate text-[0.8125rem]'>{title_of(name)}</p>
@@ -88,7 +89,8 @@ function DriftRow({ name, index, crossing }: { name: string; index: number; cros
             // leaving the fence: it drifts off to the side and is gone
             exit={{ opacity: 0, x: 40, transition: { duration: 0.35 } }}
             transition={spring.smooth}
-            className={cn('group relative flex h-11 items-center gap-3 rounded-lg px-2', crossing ? 'needle bg-surface-2' : 'hover:bg-surface-2')}
+            data-hover={crossing ? undefined : ''}
+            className={cn('group relative flex h-11 items-center gap-3 rounded-lg px-2', crossing && 'needle bg-surface-2')}
             onContextMenu={context({ kind: 'song', song: name })}
         >
             <Cover data={cover} size='sm' className='size-7' icon={12} />
@@ -160,12 +162,15 @@ function Drift() {
                 )}
             </div>
 
-            <AnimatePresence initial={false} mode='popLayout'>
-                {crossing && <DriftRow key={`crossing:${crossing}`} name={crossing} index={-1} crossing />}
-                {drift.map((name, i) => (
-                    <DriftRow key={`drift:${name}`} name={name} index={i} />
-                ))}
-            </AnimatePresence>
+            <div className='relative'>
+                <HoverGlass className='rounded-[min(var(--r-control),1.25rem)]' />
+                <AnimatePresence initial={false} mode='popLayout'>
+                    {crossing && <DriftRow key={`crossing:${crossing}`} name={crossing} index={-1} crossing />}
+                    {drift.map((name, i) => (
+                        <DriftRow key={`drift:${name}`} name={name} index={i} />
+                    ))}
+                </AnimatePresence>
+            </div>
 
             {!count && (
                 <p className='px-2 pt-1 pb-2 text-[0.75rem] leading-relaxed text-muted'>
@@ -221,7 +226,10 @@ export function Queue() {
                     </div>
 
                     {upcoming.length ? (
-                        upcoming.map((name, i) => <QueueRow key={`${name}:${i}`} name={name} index={at + i + 1} manual={!!manual} last={queue.length - 1} />)
+                        <div className='relative'>
+                            <HoverGlass className='rounded-[min(var(--r-control),1.25rem)]' />
+                            {upcoming.map((name, i) => <QueueRow key={`${name}:${i}`} name={name} index={at + i + 1} manual={!!manual} last={queue.length - 1} />)}
+                        </div>
                     ) : (
                         <p className='px-2 py-4 text-[0.8125rem] text-muted'>That was the last one</p>
                     )}
