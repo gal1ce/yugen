@@ -306,17 +306,21 @@ function NextCard() {
 function PlayerFace() {
     return (
         <>
-            <div className='flex h-16 shrink-0 items-center gap-1 px-3'>
+            {/* three columns, the outer two of one width, so the words sit on
+                the screen's middle however many buttons the right holds */}
+            <div className='grid h-16 shrink-0 grid-cols-[1fr_auto_1fr] items-center px-3'>
                 <IconButton size='lg' {...tip('Close')} onPointerDown={hold} onClick={close} className='text-fg-2'>
                     <ChevronDown size={20} weight='bold' />
                 </IconButton>
-                <p className='flex-1 text-center text-[0.8125rem] text-fg-2'>Now playing</p>
-                <IconButton size='lg' {...tip('Queue')} onPointerDown={hold} onClick={() => face('queue')} className='text-fg-2'>
-                    <ListMusic size={20} />
-                </IconButton>
-                <IconButton size='lg' {...tip('Track info')} onPointerDown={hold} onClick={() => ui.set({ info_open: true, info_face: 'about' })} className='text-fg-2'>
-                    <Info size={20} />
-                </IconButton>
+                <p className='text-[0.8125rem] text-fg-2'>Now playing</p>
+                <div className='flex justify-end gap-1'>
+                    <IconButton size='lg' {...tip('Queue')} onPointerDown={hold} onClick={() => face('queue')} className='text-fg-2'>
+                        <ListMusic size={20} />
+                    </IconButton>
+                    <IconButton size='lg' {...tip('Track info')} onPointerDown={hold} onClick={() => ui.set({ info_open: true, info_face: 'about' })} className='text-fg-2'>
+                        <Info size={20} />
+                    </IconButton>
+                </div>
             </div>
             <div className='min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-[calc(var(--safe-bottom)+2rem)]'>
                 <div className='flex min-h-[calc(100dvh-var(--safe-top)-6rem)] flex-col justify-center pb-6' onPointerDown={hold}>

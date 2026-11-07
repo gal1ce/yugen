@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { DotsThree, FolderOpen, Heart, Info, ListMusic, LoaderCircle, MicVocal, Pause, Play, Shuffle } from '../ui/icons'
 import { tip } from '../../lib/tip'
+import { cn } from '../../lib/cn'
 import { Wave } from '../fx/Wave'
 import { format_date, format_span } from '../../lib/format'
 import { useStore } from '../../lib/store'
@@ -107,7 +108,7 @@ function Hero() {
      * floor of that frame and fading out at both ends.
      */
     return (
-        <section className='hero-card @container relative mb-14 overflow-hidden rounded-(--r-panel) border border-line p-6 pb-20 max-sm:mt-2 max-sm:mb-6 max-sm:p-4 max-sm:pb-10'>
+        <section className={cn('hero-card @container relative mb-14 overflow-hidden rounded-(--r-panel) border border-line p-6 max-sm:mt-2 max-sm:mb-6 max-sm:p-4', wave ? 'pb-20 max-sm:pb-10' : 'pb-6 max-sm:pb-4')}>
             {wave && (
                 <Wave
                     gain={0.95}

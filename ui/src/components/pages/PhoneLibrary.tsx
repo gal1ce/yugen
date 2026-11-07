@@ -122,7 +122,7 @@ function Tile({ item }: { item: Item }) {
                     <span className='truncate'>{item.name}</span>
                 </span>
                 <span className='block truncate pr-8 text-[0.8125rem] text-muted'>
-                    {KIND_LABEL[item.kind]} · {item.tracks.length}
+                    {KIND_LABEL[item.kind]} · {item.tracks.length} {item.tracks.length === 1 ? 'track' : 'tracks'}
                 </span>
             </button>
             {/* where a track card keeps its dots: the foot of the caption, at the edge */}

@@ -18,6 +18,7 @@ import {
     DiscordLogo as PhDiscordLogo,
     DownloadSimple as PhDownloadSimple,
     FolderOpen as PhFolderOpen,
+    Gauge as PhGauge,
     GearSix as PhGearSix,
     Heart as PhHeart,
     House as PhHouse,
@@ -51,7 +52,6 @@ import {
     SkipBack as PhSkipBack,
     SkipForward as PhSkipForward,
     SortAscending as PhSortAscending,
-    Sparkle as PhSparkle,
     SpeakerSimpleHigh as PhSpeakerSimpleHigh,
     SpeakerSimpleLow as PhSpeakerSimpleLow,
     SpeakerSimpleNone as PhSpeakerSimpleNone,
@@ -142,6 +142,7 @@ export const CaretDoubleLeft = make(PhCaretDoubleLeft)
 export const Download = make(PhDownloadSimple)
 export const FileText = make(PhArticle)
 export const FolderOpen = make(PhFolderOpen)
+export const Gauge = make(PhGauge)
 export const ImagePlus = make(PhImageSquare)
 export const Info = make(PhInfo)
 export const Keyboard = make(PhKeyboard)
@@ -166,7 +167,6 @@ export const RefreshCw = make(PhArrowsClockwise)
 export const Search = make(PhMagnifyingGlass)
 export const Settings = make(PhGearSix)
 export const Share2 = make(PhShareNetwork)
-export const Sparkles = make(PhSparkle)
 export const Sun = make(PhSun)
 export const Trash2 = make(PhTrash)
 export const User = make(PhUser)

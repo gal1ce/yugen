@@ -10,12 +10,14 @@ import { usePhone } from '../../hooks/phone'
 export function Section({ title, note, action, children, className }: { title: ReactNode; note?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
     return (
         <section className={cn('offscreen-skip', className ?? 'mb-12')}>
-            <div className='mb-4 flex items-end gap-3'>
-                <div className='min-w-0'>
-                    <h2 className='truncate text-[1.125rem] font-medium text-fg'>{title}</h2>
-                    {note && <p className='mt-0.5 text-[0.8125rem] text-muted'>{note}</p>}
+            {/* the actions sit on the title's line, so a note that runs to a
+                second line on a phone leaves them where they were */}
+            <div className='mb-4'>
+                <div className='flex items-center gap-3'>
+                    <h2 className='min-w-0 truncate text-[1.125rem] font-medium text-fg'>{title}</h2>
+                    <div className='-my-1 ml-auto flex shrink-0 items-center gap-1 max-sm:-my-2'>{action}</div>
                 </div>
-                <div className='ml-auto flex shrink-0 items-center gap-1'>{action}</div>
+                {note && <p className='mt-0.5 text-[0.8125rem] text-muted'>{note}</p>}
             </div>
             {children}
         </section>

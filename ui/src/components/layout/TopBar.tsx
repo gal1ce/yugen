@@ -165,8 +165,8 @@ export function SearchBox({ inline = false }: { inline?: boolean }) {
                 {loading && !results.length && <Skeleton />}
 
                 {!loading && !results.length && (
-                    <p className='px-3 py-6 text-center text-[0.8125rem] text-muted'>
-                        {query.trim() ? 'Nothing found. Press enter to search again' : mode === 'parallel' ? 'Type a title and press enter. YouTube and SoundCloud are asked at once' : 'Type a title and press enter'}
+                    <p className='px-3 py-6 text-center text-[0.8125rem] text-balance text-muted'>
+                        {query.trim() ? 'Nothing found for that title' : mode === 'parallel' ? 'A title, searched on YouTube and SoundCloud at once' : 'A title, searched on one source at a time'}
                     </p>
                 )}
 
@@ -198,7 +198,7 @@ export function SearchBox({ inline = false }: { inline?: boolean }) {
                     ref={input}
                     data-search
                     value={query}
-                    placeholder='Search YouTube and SoundCloud'
+                    placeholder={inline ? 'Search' : 'Search YouTube and SoundCloud'}
                     aria-label='Search YouTube and SoundCloud'
                     onChange={(e) => ui.set({ query: e.currentTarget.value })}
                     onFocus={() => ui.set({ search_open: true })}

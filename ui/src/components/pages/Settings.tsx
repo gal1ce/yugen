@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
-import { ArrowLeft, ChevronRight, FolderOpen, Keyboard, LayoutGrid, MicVocal, Palette as PaletteIcon, RefreshCw, Search, Sparkles, Sun, Waveform } from '../ui/icons'
+import { ArrowLeft, ChevronRight, FolderOpen, Gauge, Keyboard, LayoutGrid, MicVocal, Palette as PaletteIcon, RefreshCw, Search, Sun, Waveform } from '../ui/icons'
 import { useDark, usePalette, useSystemDark } from '../../hooks/dark'
 import { motion } from 'motion/react'
 import { spring } from '../../lib/motion'
@@ -458,7 +458,7 @@ const PHONE_SECTIONS = [
     { id: 'appearance', label: 'Appearance', hint: 'Theme, accent, size, cards', icon: PaletteIcon },
     { id: 'corners', label: 'Corners', hint: 'How round things are', icon: LayoutGrid },
     { id: 'light', label: 'Light and glass', hint: 'Cover light, liquid glass, blur', icon: Sun },
-    { id: 'motion', label: 'Motion', hint: 'How fast things move', icon: Sparkles },
+    { id: 'motion', label: 'Motion', hint: 'How fast things move', icon: Gauge },
     { id: 'lyrics', label: 'Lyrics', hint: 'The words and the wave', icon: MicVocal },
     { id: 'search', label: 'Search', hint: 'YouTube and SoundCloud', icon: Search },
     { id: 'suggestions', label: 'Suggestions', hint: 'What last.fm offers, and where', icon: Waveform },
@@ -473,10 +473,8 @@ function PhoneIndex({ on_open }: { on_open: (id: string) => void }) {
             <h1 className='mt-1 mb-6 font-serif text-[2.25rem] leading-tight font-medium'>Settings</h1>
             <div className='divide-y divide-line overflow-hidden rounded-2xl bg-surface-2'>
                 {PHONE_SECTIONS.map(({ id, label, hint, icon: Glyph }) => (
-                    <button key={id} type='button' onClick={() => on_open(id)} className='flex w-full items-center gap-3.5 px-4 py-3 text-left active:bg-surface-3'>
-                        <span className='grid size-9 shrink-0 place-items-center rounded-[0.625rem] bg-[color-mix(in_oklab,var(--accent)_18%,transparent)] text-accent'>
-                            <Glyph size={20} />
-                        </span>
+                    <button key={id} type='button' onClick={() => on_open(id)} className='flex w-full items-center gap-4 px-4 py-3 text-left active:bg-surface-3'>
+                        <Glyph size={20} className='shrink-0 text-fg-2' />
                         <span className='min-w-0 flex-1'>
                             <span className='block text-[0.9375rem] text-fg'>{label}</span>
                             <span className='block truncate text-[0.8125rem] text-muted'>{hint}</span>

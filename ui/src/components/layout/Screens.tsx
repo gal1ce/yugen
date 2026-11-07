@@ -59,6 +59,8 @@ export function ScreenBar({ title, large = false, back = false, actions }: { tit
                         <ChevronLeft size={20} weight='bold' />
                     </button>
                 )}
+                {/* the profile's width on the left too, so a small title sits on the middle */}
+                {!large && !back && <span className='size-11 shrink-0' />}
                 {large ? (
                     <h1 className='phone-bar-title min-w-0 flex-1 truncate font-serif text-[2rem] leading-none font-medium'>{title}</h1>
                 ) : (

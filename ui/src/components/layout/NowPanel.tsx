@@ -238,7 +238,7 @@ export function Queue() {
                 </>
             ) : (
                 <Empty icon={<ListMusic size={20} />} title='Nothing queued yet'>
-                    Right-click a track and pick Play next, Add to queue or Drift.
+                    Pick Play next, Add to queue or Drift from a track's menu.
                 </Empty>
             )}
         </Scroll>

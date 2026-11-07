@@ -143,7 +143,7 @@ const SuggestionRow = memo(function SuggestionRow({ track, index, tight }: { tra
                 </div>
             </div>
             <Button
-                variant='secondary'
+                variant='ghost'
                 size='sm'
                 disabled={state.held}
                 icon={state.here ? <Check size={16} /> : state.busy ? <Spin><LoaderCircle size={16} /></Spin> : <Download size={16} />}
@@ -258,7 +258,7 @@ export function DiscoverShelf() {
     return (
         <Section
             title='Not in your library yet'
-            note={busy && !similar.length ? 'Asking last.fm' : played ? 'Tracks last.fm puts next to the ones you play most, like and star' : 'Tracks last.fm puts next to the ones you like and star'}
+            note={busy && !similar.length ? 'Asking last.fm' : played ? 'From last.fm, near what you play most' : 'From last.fm, near what you like and star'}
             action={
                 <>
                     <Button variant='ghost' size='sm' disabled={busy} icon={<Spin on={busy}><RefreshCw size={16} /></Spin>} {...tip('Ask again, for different tracks')} onClick={() => void load_similar('again')}>
@@ -296,7 +296,7 @@ export function NearbyShelf({ named }: { named: string }) {
 
     return (
         <Section
-            className='mt-12 border-t border-line pt-8'
+            className='mt-8 border-t border-line pt-8'
             title='More like this'
             note={busy && !nearby.length ? 'Asking last.fm' : `From last.fm, based on ${named}`}
             action={

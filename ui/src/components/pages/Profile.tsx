@@ -77,7 +77,7 @@ export function ProfilePage() {
                 </div>
             ) : (
                 <Empty icon={<Star size={20} />} title='No favorite songs yet'>
-                    Right-click a track and pick Add to favorites.
+                    Pick Add to favorites from a track's menu.
                 </Empty>
             )}
         </>

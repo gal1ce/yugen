@@ -277,11 +277,11 @@ export function ListingPage() {
             {listed.length ? (
                 <Tracks listed={listed} />
             ) : (
-                <Empty icon={view === 'liked' ? <Heart size={20} /> : <Music2 size={20} />} title={loading ? 'Scanning your library' : view === 'liked' ? 'No liked songs yet' : view === 'playlist' ? 'This playlist is empty' : view === 'top' || view === 'played' ? 'Nothing played yet' : view === 'mix' ? 'This mix is gone' : 'Nothing here yet'}>
+                <Empty icon={view === 'liked' ? undefined : <Music2 size={20} />} title={loading ? 'Scanning your library' : view === 'liked' ? 'No liked songs yet' : view === 'playlist' ? 'This playlist is empty' : view === 'top' || view === 'played' ? 'Nothing played yet' : view === 'mix' ? 'This mix is gone' : 'Nothing here yet'}>
                     {view === 'liked'
                         ? 'Press the heart on any track and it lands here.'
                         : view === 'playlist'
-                          ? 'Right-click a track and pick Add to playlist.'
+                          ? "Pick Add to playlist from a track's menu."
                           : view === 'top'
                             ? 'A track counts once it has played for half a minute.'
                             : view === 'mix'
