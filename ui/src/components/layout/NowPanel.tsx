@@ -137,7 +137,7 @@ function Drift() {
             }}
             className={cn(
                 'mb-6 rounded-xl border border-dashed p-1.5 transition-colors',
-                over ? 'border-accent bg-[color-mix(in_oklab,var(--accent)_8%,transparent)]' : 'border-line-strong',
+                over ? 'border-accent bg-[color-mix(in_oklab,var(--accent)_8%,transparent)]' : 'border-line',
             )}
         >
             <div className='flex h-8 items-center gap-2 px-1.5'>

@@ -1041,15 +1041,26 @@
 
 /* ---------- a phone's bar, floating ----------
    it stays over the page; once anything is under it (the frame's
-   [data-scrolled], App) a ground of the page's colour fades up behind it
-   with a hairline under, and goes again at the top */
+   [data-scrolled], App) a ground fades up behind it with a hairline under -
+   the page's own colour, or with liquid glass ios's frosted bar - and goes
+   again at the top */
 .phone-bar[data-floating] {
-    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease, backdrop-filter 0.2s ease;
 }
 
 [data-scrolled] > .phone-bar[data-floating] {
     background: color-mix(in oklab, var(--bg) 96%, transparent);
     box-shadow: 0 1px 0 color-mix(in oklab, var(--fg) 8%, transparent);
+}
+
+/* with liquid glass it is ios's bar: the page going under it is frosted and
+   shows through, a hair of a line under it. one backdrop the width of the
+   screen, kept to a modest blur - a phone draws it every frame it scrolls */
+:root[data-glass] [data-scrolled] > .phone-bar[data-floating] {
+    background: color-mix(in oklab, var(--bg) 64%, transparent);
+    -webkit-backdrop-filter: blur(18px) saturate(1.8);
+    backdrop-filter: blur(18px) saturate(1.8);
+    box-shadow: 0 0.5px 0 color-mix(in oklab, var(--fg) 14%, transparent);
 }
 
 /* ---------- settings: the section picked from the index ----------
@@ -1133,8 +1144,8 @@
         pointer-events: none;
         transition: box-shadow 0.2s ease;
         box-shadow:
-            inset 0 0 0 1px color-mix(in oklab, var(--fg) 12%, transparent),
-            inset 0 1px 0 color-mix(in oklab, var(--fg) 6%, transparent);
+            inset 0 0 0 1px color-mix(in oklab, var(--fg) 6%, transparent),
+            inset 0 1px 0 color-mix(in oklab, var(--fg) 4%, transparent);
     }
 
     /* under the pointer the card answers itself: the label takes more of
@@ -1150,8 +1161,8 @@
 
     .group:hover > .card-sleeve::after {
         box-shadow:
-            inset 0 0 0 1px color-mix(in oklab, var(--fg) 22%, transparent),
-            inset 0 1px 0 color-mix(in oklab, var(--fg) 16%, transparent);
+            inset 0 0 0 1px color-mix(in oklab, var(--fg) 11%, transparent),
+            inset 0 1px 0 color-mix(in oklab, var(--fg) 9%, transparent);
     }
 }
 
@@ -1192,11 +1203,11 @@
 :root[data-glass] .bar-rim {
     display: block;
     box-shadow:
-        inset 0 1px 0.5px color-mix(in oklab, var(--edge) 26%, transparent),
-        inset 0 0 0 1px color-mix(in oklab, var(--edge) 7%, transparent),
-        inset 8px 0 12px -10px color-mix(in oklab, var(--edge) 22%, transparent),
-        inset -8px 0 12px -10px color-mix(in oklab, var(--edge) 22%, transparent),
-        inset 0 -3px 6px -3px color-mix(in oklab, var(--g) 60%, transparent);
+        inset 0 1px 0.5px color-mix(in oklab, var(--edge) 14%, transparent),
+        inset 0 0 0 1px color-mix(in oklab, var(--edge) 4%, transparent),
+        inset 8px 0 12px -10px color-mix(in oklab, var(--edge) 12%, transparent),
+        inset -8px 0 12px -10px color-mix(in oklab, var(--edge) 12%, transparent),
+        inset 0 -3px 6px -3px color-mix(in oklab, var(--g) 40%, transparent);
 }
 
 /* paper is lit from in front: a lighter smoke would let a cover going under
