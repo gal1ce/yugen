@@ -199,17 +199,20 @@ export const REGIONS: { id: Region; label: string; hint: string; css: string; re
 export const radius_css = (region: (typeof REGIONS)[number], radius: Radius) =>
     radius === 'pill' ? '9999px' : `${region.rem[radius]}rem`
 
+// a fresh start: round everywhere, and the buttons pills
+const DEFAULT_RADII: Record<Region, Radius> = { panels: 'round', buttons: 'pill', controls: 'round', search: 'round', menus: 'round', covers: 'round' }
+
 // before parts could differ there was one choice for everything, and buttons,
 // controls and the search bar were always pills: that is what an old setting reads as
 export function stored_radii(): Record<Region, Radius> {
     const raw = saved().radii as Partial<Record<Region, Radius>> | undefined
-    const old = CORNERS.some((o) => o.id === saved().corners) ? (saved().corners as Corners) : 'subtle'
+    const old = CORNERS.some((o) => o.id === saved().corners) ? (saved().corners as Corners) : null
     const ids = RADII.map((o) => o.id)
 
     return Object.fromEntries(
         REGIONS.map((region) => {
             const value = raw?.[region.id]
-            const fallback: Radius = region.pill ? 'pill' : old
+            const fallback: Radius = old ? (region.pill ? 'pill' : old) : DEFAULT_RADII[region.id]
             return [region.id, value && ids.includes(value) && (region.pill || value !== 'pill') ? value : fallback]
         }),
     ) as Record<Region, Radius>
@@ -275,7 +278,7 @@ export const PLACES: { id: Place; label: string; hint: string }[] = [
     { id: 'queue', label: 'Queue', hint: 'A few suggestions under up next' },
 ]
 
-export const DEFAULT_PLACES: Place[] = ['home', 'playlists', 'liked']
+export const DEFAULT_PLACES: Place[] = PLACES.map((o) => o.id)
 
 function saved(): Record<string, unknown> {
     try {
